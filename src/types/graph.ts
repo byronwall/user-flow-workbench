@@ -41,16 +41,46 @@ export interface GraphLayout {
   positions?: Record<string, NodePosition>;
 }
 
-/** The persisted and agent-facing graph. Layout is optional view state. */
 export interface FlowGraph {
-  dslVersion: 1;
-  schemaVersion: 3;
   id: string;
   title: string;
   description?: string;
   nodes: GraphNode[];
   edges: GraphEdge[];
   layout?: GraphLayout;
+}
+
+export type NodeSetChanges = Partial<Pick<GraphNode, "type" | "title" | "body" | "tags">> & {
+  layout?: LayoutHint;
+};
+
+export type EdgeSetChanges = Partial<Pick<GraphEdge, "from" | "to" | "label" | "emphasis">>;
+
+export type VariantOperation =
+  | { kind: "clear-all" }
+  | { kind: "add-node"; node: GraphNode; layout?: LayoutHint }
+  | { kind: "add-edge"; edge: GraphEdge }
+  | { kind: "remove-node"; nodeId: string }
+  | { kind: "remove-edge"; edgeId: string }
+  | { kind: "set-node"; nodeId: string; changes: NodeSetChanges }
+  | { kind: "set-edge"; edgeId: string; changes: EdgeSetChanges }
+  | { kind: "unset-node"; nodeId: string; property: "body" | "tags" | "layout" }
+  | { kind: "unset-edge"; edgeId: string; property: "label" | "emphasis" }
+  | { kind: "set-position"; nodeId: string; position: NodePosition };
+
+export interface FlowVariant {
+  id: string;
+  title: string;
+  description?: string;
+  operations: VariantOperation[];
+}
+
+/** The persisted, agent-facing document. Variants store ordered differences from graph. */
+export interface FlowDocument {
+  dslVersion: 2;
+  schemaVersion: 4;
+  graph: FlowGraph;
+  variants: FlowVariant[];
 }
 
 /** The normalized canvas projection. The renderer always has usable layout values. */
@@ -68,8 +98,6 @@ export interface CanvasEdge extends GraphEdge {
 }
 
 export interface CanvasGraph {
-  dslVersion: 1;
-  schemaVersion: 3;
   id: string;
   title: string;
   description: string;

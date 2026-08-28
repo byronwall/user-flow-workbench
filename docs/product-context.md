@@ -42,7 +42,7 @@ Automatic layout is a tool, not the source of truth. Manual movement must remain
 
 ### Treat variants as views
 
-Do not model variants as a vertical lane of special nodes. A future variant starts from the same graph and changes or emphasizes part of it. Likely presentations are tabs, duplicated views, or small multiples.
+Do not model variants as a vertical lane of special nodes. Each variant applies ordered operations to the shared base graph. The app materializes the result and shows it in a tab.
 
 ## Current decisions
 
@@ -56,12 +56,14 @@ Do not model variants as a vertical lane of special nodes. A future variant star
 - Give each edge a separate connection lane and strongly avoid reused route segments.
 - Keep a no-library fallback.
 - Keep the graph schema and agent API visible.
-- Remove the original variant lane until the view model is designed.
+- Show the base graph and variants as tabs.
+- Keep variant operations separate from the complete graph used by the renderer.
+- Permit `clear all` only as the first operation in a replacement variant.
 
 ## Current implementation details
 
-- The graph schema version is `3`.
-- The Flow DSL version is `1`.
+- The graph document schema version is `4`.
+- The Flow DSL version is `2`.
 - The agent-facing source is a line-based flow DSL.
 - Node and edge identities are required and stable.
 - Canonical formatting makes repeated agent edits converge.
@@ -69,9 +71,14 @@ Do not model variants as a vertical lane of special nodes. A future variant star
 - Nodes contain semantic data only.
 - The optional top-level `layout` object stores hints and exact positions by node ID.
 - Separate optional `position` DSL lines make manual coordinates easy to add or remove.
+- Variants use ordered add, remove, set, unset, position, and clear operations.
+- Variant positions override base positions. They stay optional.
+- Semantic form controls are read-only in a materialized variant. Agents edit variant changes in the DSL.
 - The app is a TypeScript SolidStart SPA.
-- The server serves the starter graph from `GET /api/graph`.
+- Production examples live as editable `.flow` files in `src/data/flows`.
+- The server parses the resume `.flow` source and serves its document from `GET /api/graph`.
 - The browser stores the editable working graph in `localStorage`.
+- The `variant` URL parameter stores the active tab across refreshes.
 - ELK loads from the installed `elkjs@0.12.0` package as a separate browser bundle.
 - ELK uses a rightward layered graph with semantic column partitions.
 - ELK uses fixed-side ports and orthogonal edge routing.
@@ -95,17 +102,15 @@ This example tests whether the diagram can show user intent, system work, inform
 ## Near-term work
 
 1. Improve handoff and deliverable grouping. Test compact visual pairs for a transformation and its artifact.
-2. Define the variant data model. Separate shared graph data from view-specific emphasis or changes.
-3. Add graph validation, undo and redo, and safer schema migrations.
-4. Test large diagrams, dense crossings, backward edges, and disconnected groups.
-5. Improve keyboard access, focus behavior, and inspector behavior on small screens.
-6. Decide how diagrams are saved, named, duplicated, imported, and shared.
+2. Add graph validation, undo and redo, and safer schema migrations.
+3. Test large diagrams, dense crossings, backward edges, and disconnected groups.
+4. Improve keyboard access, focus behavior, and inspector behavior on small screens.
+5. Decide how diagrams are saved, named, duplicated, imported, and shared.
 
 ## Open product questions
 
-- Is the main object a graph, a diagram view, or a collection of related views?
-- Which properties belong to shared nodes? Which properties belong to one view?
-- Can a variant change structure, or can it only hide, style, and annotate shared structure?
+- Should one document support variant groups when the tab count becomes large?
+- Should the UI add structured controls for common variant operations?
 - How should a handoff and its deliverable read as one unit without losing graph semantics?
 - Should layout constraints stay semantic, or should users edit lanes and groups directly?
 - How should agents propose graph changes while a person reviews them?

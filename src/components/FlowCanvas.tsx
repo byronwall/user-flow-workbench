@@ -1,7 +1,11 @@
 export function FlowCanvas() {
   return (
     <main class="canvas-wrap">
-      <div class="viewport" id="viewport" aria-label="Flow diagram canvas">
+      <section class="variant-bar" aria-label="Flow views">
+        <div class="variant-tabs" id="variantTabs" role="tablist" aria-label="Base graph and variants" />
+        <div class="variant-context" id="variantContext" aria-live="polite" />
+      </section>
+      <div class="viewport" id="viewport" role="tabpanel" tabindex="0" aria-label="Flow diagram canvas">
         <div class="world" id="world">
           <div id="laneLayer" />
           <svg class="edges" id="edgeSvg" viewBox="0 0 2240 1300" preserveAspectRatio="none" aria-hidden="true">

@@ -4,10 +4,10 @@ import { FlowCanvas } from "./FlowCanvas";
 import { GraphJsonPanel } from "./GraphJsonPanel";
 import { InspectorPanel } from "./InspectorPanel";
 import { Toolbar } from "./Toolbar";
-import type { FlowGraph } from "../types/graph";
+import type { FlowDocument } from "../types/graph";
 
 interface WorkbenchProps {
-  initialGraph: FlowGraph;
+  initialGraph: FlowDocument;
 }
 
 export function Workbench(props: WorkbenchProps) {

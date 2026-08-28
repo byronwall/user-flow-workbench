@@ -16,9 +16,10 @@ export function GraphJsonPanel() {
         </div>
         <div class="hint">
           <strong>Syntax</strong><br />
-          <code>flow 1</code><br />
+          <code>flow 2</code><br />
           <code>node id type "Title" body="Detail" tags=["one","two"] layout=2,0</code><br />
-          <code>edge edge-id first -&gt; second label="Optional" emphasis=true</code>
+          <code>edge edge-id first -&gt; second label="Optional" emphasis=true</code><br />
+          <code>variant id "Title" {'{'} add | remove | set | unset | position | clear all {'}'}</code>
           <br /><br />
           <code>layout</code> is optional. Use <strong>Add positions</strong> to write separate, optional
           <code> position</code> lines after manual placement.

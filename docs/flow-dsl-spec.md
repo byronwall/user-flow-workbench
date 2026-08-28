@@ -1,8 +1,8 @@
 # Flow DSL specification
 
-Status: Draft 0.2  
-DSL version: 1  
-JSON schema version: 3
+Status: Draft 0.3
+DSL version: 2
+JSON schema version: 4
 
 ## Purpose
 
@@ -15,12 +15,12 @@ The format separates two concerns:
 
 A valid graph does not require layout hints or positions. The renderer creates an initial layout when positions are absent.
 
-Variants are outside Draft 0.2. Do not represent a variant as a node type or lane.
+Variants are ordered changes to the shared base graph. The app materializes each variant as a complete graph view.
 
 ## Complete example
 
 ```text
-flow 1
+flow 2
 
 graph checkout "Online checkout"
 description "Checkout flow from purchase intent through confirmation."
@@ -31,11 +31,19 @@ node confirmation goal "Order confirmed" layout=3,1
 
 edge payment-completes payment -> confirmation label="approved" emphasis=true
 
+variant saved-card "Use saved card" {
+  description "Skip payment entry when a valid saved card exists."
+  set node payment title="Confirm saved card"
+  set edge payment-completes label="confirmed"
+}
+
 position payment 620,154
 position confirmation 940,154
 ```
 
 See [checkout.flow](examples/checkout.flow) for a larger example.
+
+Production flow documents live in `src/data/flows`. The API parses these files directly. JSON is a generated render and export format.
 
 ## Document structure
 
@@ -46,7 +54,8 @@ Use this command order:
 3. Zero or one `description` line.
 4. One or more `node` lines.
 5. Zero or more `edge` lines.
-6. Zero or more `position` lines.
+6. Zero or more `variant` blocks.
+7. Zero or more base `position` lines.
 
 Each command uses one physical line. Use `\n` for a line break inside a string.
 
@@ -57,10 +66,10 @@ Blank lines can separate sections. A `#` starts a comment outside a quoted strin
 ### Version
 
 ```text
-flow 1
+flow 2
 ```
 
-This line is required and must be first. Version 1 is the only supported DSL version.
+This line is required and must be first. Version 2 is the only supported DSL version.
 
 The DSL version and JSON schema version are independent.
 
@@ -133,6 +142,61 @@ Positions are optional exact canvas coordinates. Each position must reference an
 
 Delete every position line to request a fresh automatic layout.
 
+### Variant
+
+```text
+variant <variant-id> "<title>" {
+  description "<purpose>"
+  <operation>
+}
+```
+
+A variant starts from the shared base graph. The materializer applies its operations from top to bottom.
+
+Variant IDs must be unique. Variants do not inherit from other variants. A description is optional.
+
+Supported operations are:
+
+```text
+add node <node-id> <type> "<title>" [node options]
+add edge <edge-id> <from-node-id> -> <to-node-id> [edge options]
+remove node <node-id>
+remove edge <edge-id>
+set node <node-id> <one or more node options>
+set edge <edge-id> <one or more edge options>
+unset node <node-id> body|tags|layout
+unset edge <edge-id> label|emphasis
+position <node-id> <x>,<y>
+clear all
+```
+
+`set` changes only the listed properties. `unset` removes an optional property. Required IDs, node types, titles, and edge endpoints cannot be unset.
+
+`clear all` removes all inherited nodes, edges, hints, and positions. It must be the first operation. Add a complete replacement graph after it. The result must contain at least one node and cannot contain a dangling edge.
+
+Removing a node does not silently remove its edges. Remove connected edges first. This rule makes structural changes explicit for agents.
+
+Variant positions override base positions for the same node. Positions are optional. A variant with missing positions receives a fresh automatic layout. Dragging a node in a variant appends or updates its `position` operation.
+
+### Materialization and JSON
+
+Schema version 4 stores the agent document in this shape:
+
+```json
+{
+  "dslVersion": 2,
+  "schemaVersion": 4,
+  "graph": { "id": "checkout", "title": "Online checkout", "nodes": [], "edges": [] },
+  "variants": [
+    { "id": "saved-card", "title": "Use saved card", "operations": [] }
+  ]
+}
+```
+
+`materializeVariant(document, variantId)` returns a complete `FlowGraph`. The renderer does not interpret variant operations.
+
+The interface shows the base graph and each variant as tabs. It derives the impact summary from the ordered operations.
+
 ## Node-type semantics
 
 | Type | Required meaning | Good example | Do not use for |
@@ -153,7 +217,7 @@ Use `handoff` for a transfer. Use `deliverable` for the durable item transferred
 
 ### Identifiers
 
-Graph, node, and edge identifiers use this pattern:
+Graph, variant, node, and edge identifiers use this pattern:
 
 ```text
 [A-Za-z0-9][A-Za-z0-9._-]*
@@ -242,8 +306,8 @@ Parsing and formatting removes all comments. Do not store required information o
 This EBNF defines the accepted command shapes. `WS` means one or more spaces or tabs.
 
 ```text
-document       = version, NL+, graph, NL+, description?, node+, edge*, position*, EOF ;
-version        = "flow", WS, "1" ;
+document       = version, NL+, graph, NL+, description?, node+, edge*, variant*, position*, EOF ;
+version        = "flow", WS, "2" ;
 graph          = "graph", WS, id, WS, string ;
 description    = "description", WS, string ;
 
@@ -257,6 +321,16 @@ edge           = "edge", WS, id, WS, id, WS, "->", WS, id, edgeOption* ;
 edgeOption     = WS, (label | emphasis) ;
 label          = "label=", string ;
 emphasis       = "emphasis=", ("true" | "false") ;
+
+variant        = "variant", WS, id, WS, string, WS?, "{", NL,
+                 variantDescription?, operation*, "}" ;
+variantDescription = WS*, "description", WS, string, NL ;
+operation      = WS*, (add | remove | set | unset | clear | position), NL ;
+add            = "add", WS, (node | edge) ;
+remove         = "remove", WS, ("node" | "edge"), WS, id ;
+set            = "set", WS, ("node" | "edge"), WS, id, option+ ;
+unset          = "unset", WS, ("node" | "edge"), WS, id, WS, id ;
+clear          = "clear", WS, "all" ;
 
 position       = "position", WS, id, WS, number, ",", number ;
 nodeType       = "actor" | "need" | "process" | "handoff" |

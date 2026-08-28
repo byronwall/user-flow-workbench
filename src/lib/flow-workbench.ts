@@ -1,5 +1,5 @@
-import { graphToDsl, parseGraphDsl, parseGraphDslWithDiagnostics } from "./graph-dsl";
-import type { CanvasGraph, CanvasNode, FlowGraph, NodeType } from "../types/graph";
+import { graphToDsl, materializeVariant, parseGraphDsl, parseGraphDslWithDiagnostics } from "./graph-dsl";
+import type { CanvasGraph, CanvasNode, FlowDocument, FlowGraph, NodePosition, NodeType } from "../types/graph";
 
 export function mountFlowWorkbench(initialGraph: unknown) {
 const TYPE_COLUMNS = {
@@ -21,10 +21,12 @@ const TYPE_COLUMNS = {
     const ROUTE_CLEARANCE = 12;
     const ROUTE_REUSE_PENALTY = 500;
     const LANE_LABELS = ['User', 'Fundamental needs', 'Process', 'Handoffs + deliverables', 'UI / UX considerations', 'Outcome'];
-    const STORAGE_KEY = 'user-flow-workbench-v3';
+    const STORAGE_KEY = 'user-flow-workbench-v4';
 
-    let graph: CanvasGraph = normalizeGraph(initialGraph);
-    let authoredLayoutHintIds = extractLayoutHintIds(initialGraph);
+    let flowDocument = normalizeDocument(initialGraph);
+    let activeVariantId: string | null = null;
+    let graph: CanvasGraph = normalizeGraph(flowDocument.graph);
+    let authoredLayoutHintIds = extractLayoutHintIds(flowDocument.graph);
     let includeDslPositions = false;
     let selectedNodeId = null;
     let zoom = 0.72;
@@ -34,6 +36,7 @@ const TYPE_COLUMNS = {
     let panStart = null;
     let dragState = null;
     let edgeRenderFrame = null;
+    let variantPositionSyncTimer: ReturnType<typeof setTimeout> | null = null;
     let elkRoutes = new Map();
     let elkLayoutActive = false;
     let elkInstance = null;
@@ -51,17 +54,49 @@ const TYPE_COLUMNS = {
     const edgeLayer = $<SVGGElement>('edgeLayer');
     const dslEditor = $<HTMLTextAreaElement>('dslEditor');
     const inspector = $<HTMLDivElement>('inspector');
+    const variantTabs = $<HTMLDivElement>('variantTabs');
+    const variantContext = $<HTMLDivElement>('variantContext');
 
     function clone<T>(value: T): T { return JSON.parse(JSON.stringify(value)) as T; }
 
-    function extractLayoutHintIds(input): Set<string> {
+    function extractLayoutHintIds(input: any): Set<string> {
       return new Set(Object.keys(input?.layout?.hints || {}));
     }
 
-    function normalizeGraph(input): CanvasGraph {
+    function normalizeDocument(input: any): FlowDocument {
+      if (input?.schemaVersion === 4 && input?.graph) {
+        return {
+          dslVersion: 2,
+          schemaVersion: 4,
+          graph: clone(input.graph),
+          variants: Array.isArray(input.variants) ? clone(input.variants) : [],
+        };
+      }
+
+      const legacy = clone(input || {});
+      const hints = legacy.layout?.hints || Object.fromEntries(
+        (legacy.nodes || []).filter(node => node?.layout).map(node => [node.id, node.layout]),
+      );
+      const positions = legacy.layout?.positions || Object.fromEntries(
+        (legacy.nodes || []).filter(node => node?.position).map(node => [node.id, node.position]),
+      );
+      return {
+        dslVersion: 2,
+        schemaVersion: 4,
+        graph: {
+          id: legacy.id || `flow-${Date.now()}`,
+          title: legacy.title || 'Untitled flow',
+          ...(legacy.description ? { description: legacy.description } : {}),
+          nodes: Array.isArray(legacy.nodes) ? legacy.nodes.map(({ layout, position, ...node }) => node) : [],
+          edges: Array.isArray(legacy.edges) ? legacy.edges : [],
+          layout: { hints, positions },
+        },
+        variants: [],
+      };
+    }
+
+    function normalizeGraph(input: any): CanvasGraph {
       const next = clone(input || {});
-      next.dslVersion = 1;
-      next.schemaVersion = 3;
       next.id ??= `flow-${Date.now()}`;
       next.title ??= 'Untitled flow';
       next.description ??= '';
@@ -121,8 +156,6 @@ const TYPE_COLUMNS = {
       );
       const positions = Object.fromEntries(graph.nodes.map(node => [node.id, clone(node.position)]));
       return {
-        dslVersion: 1,
-        schemaVersion: 3,
         id: graph.id,
         title: graph.title,
         ...(graph.description ? { description: graph.description } : {}),
@@ -145,9 +178,19 @@ const TYPE_COLUMNS = {
       };
     }
 
+    function commitBaseGraph() {
+      if (activeVariantId === null) flowDocument.graph = toFlowGraph();
+    }
+
+    function toFlowDocument(): FlowDocument {
+      commitBaseGraph();
+      return clone(flowDocument);
+    }
+
     function syncDslEditor() {
-      dslEditor.value = graphToDsl(toFlowGraph(), { includePositions: includeDslPositions });
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(toFlowGraph())); } catch {}
+      const document = toFlowDocument();
+      dslEditor.value = graphToDsl(document, { includePositions: includeDslPositions });
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(document)); } catch {}
     }
 
     function updatePositionsDslButton() {
@@ -160,7 +203,118 @@ const TYPE_COLUMNS = {
       scheduleEdgeRender();
       renderInspector();
       updateToolbar();
+      renderVariantTabs();
       if (syncJson) syncDslEditor();
+    }
+
+    function variantImpact(variant) {
+      const counts = { added: 0, removed: 0, changed: 0, positioned: 0 };
+      for (const operation of variant.operations) {
+        if (operation.kind.startsWith('add-')) counts.added += 1;
+        else if (operation.kind.startsWith('remove-')) counts.removed += 1;
+        else if (operation.kind === 'set-position') counts.positioned += 1;
+        else if (operation.kind !== 'clear-all') counts.changed += 1;
+      }
+      const parts = [
+        counts.added && `${counts.added} added`,
+        counts.removed && `${counts.removed} removed`,
+        counts.changed && `${counts.changed} changed`,
+        counts.positioned && `${counts.positioned} positioned`,
+        variant.operations.some(operation => operation.kind === 'clear-all') && 'base cleared',
+      ].filter(Boolean);
+      return parts.join(' · ') || 'No changes';
+    }
+
+    function renderVariantTabs() {
+      const tabs = [{ id: null, title: 'Base' }, ...flowDocument.variants];
+      variantTabs.innerHTML = tabs.map((tab, index) => {
+        const selected = tab.id === activeVariantId;
+        const id = tab.id || 'base';
+        return `<button class="variant-tab" id="variant-tab-${escapeAttr(id)}" role="tab" aria-selected="${selected}" aria-controls="viewport" tabindex="${selected ? 0 : -1}" data-variant-id="${escapeAttr(tab.id || '')}">${escapeHtml(tab.title)}</button>`;
+      }).join('');
+      variantTabs.querySelectorAll<HTMLButtonElement>('[data-variant-id]').forEach(button => {
+        button.addEventListener('click', () => selectVariant(button.dataset.variantId || null));
+      });
+      const active = flowDocument.variants.find(variant => variant.id === activeVariantId);
+      variantContext.innerHTML = active
+        ? `<span>${escapeHtml(active.description || 'Variant view')}</span><span class="variant-key">Variant impact highlighted</span><strong>${escapeHtml(variantImpact(active))}</strong>`
+        : `<span>Shared graph</span><strong>${graph.nodes.length} nodes · ${graph.edges.length} edges</strong>`;
+      viewport.setAttribute('aria-labelledby', `variant-tab-${activeVariantId || 'base'}`);
+    }
+
+    function getVariantNodeEffects(): Map<string, 'added' | 'changed' | 'connected'> {
+      const effects = new Map<string, 'added' | 'changed' | 'connected'>();
+      const variant = flowDocument.variants.find(item => item.id === activeVariantId);
+      if (!variant) return effects;
+      const edges = new Map(flowDocument.graph.edges.map(edge => [edge.id, edge]));
+      const rank = { connected: 1, changed: 2, added: 3 };
+      const mark = (nodeId: string, effect: 'added' | 'changed' | 'connected') => {
+        const current = effects.get(nodeId);
+        if (!current || rank[effect] > rank[current]) effects.set(nodeId, effect);
+      };
+
+      for (const operation of variant.operations) {
+        if (operation.kind === 'clear-all') graph.nodes.forEach(node => mark(node.id, 'changed'));
+        if (operation.kind === 'add-node') mark(operation.node.id, 'added');
+        if (operation.kind === 'set-node' || operation.kind === 'unset-node' || operation.kind === 'set-position') {
+          mark(operation.nodeId, 'changed');
+        }
+        if (operation.kind === 'add-edge') {
+          mark(operation.edge.from, 'connected');
+          mark(operation.edge.to, 'connected');
+          edges.set(operation.edge.id, operation.edge);
+        }
+        if (operation.kind === 'remove-edge') {
+          const edge = edges.get(operation.edgeId);
+          if (edge) {
+            mark(edge.from, 'connected');
+            mark(edge.to, 'connected');
+            edges.delete(operation.edgeId);
+          }
+        }
+        if (operation.kind === 'set-edge') {
+          const edge = edges.get(operation.edgeId);
+          if (edge) {
+            mark(edge.from, 'connected');
+            mark(edge.to, 'connected');
+            const next = { ...edge, ...operation.changes };
+            mark(next.from, 'connected');
+            mark(next.to, 'connected');
+            edges.set(operation.edgeId, next);
+          }
+        }
+      }
+      return effects;
+    }
+
+    function variantIdFromUrl(): string | null {
+      const variantId = new URL(window.location.href).searchParams.get('variant');
+      return flowDocument.variants.some(variant => variant.id === variantId) ? variantId : null;
+    }
+
+    function updateVariantUrl(variantId: string | null) {
+      const url = new URL(window.location.href);
+      if (variantId) url.searchParams.set('variant', variantId);
+      else url.searchParams.delete('variant');
+      window.history.replaceState({ ...window.history.state, flowVariant: variantId }, '', url);
+    }
+
+    function selectVariant(variantId: string | null, { updateUrl = true } = {}) {
+      if (variantId === activeVariantId) return;
+      commitBaseGraph();
+      activeVariantId = variantId;
+      if (updateUrl) updateVariantUrl(variantId);
+      const materialized = variantId ? materializeVariant(flowDocument, variantId) : flowDocument.graph;
+      graph = normalizeGraph(materialized);
+      authoredLayoutHintIds = extractLayoutHintIds(materialized);
+      selectedNodeId = null;
+      elkRoutes.clear();
+      elkLayoutActive = false;
+      updateLayoutEngineLabel();
+      renderAll();
+      const hasAllPositions = graph.nodes.every(node => materialized.layout?.positions?.[node.id]);
+      if (hasAllPositions) fitView();
+      else void autoLayout();
     }
 
     function renderLanes() {
@@ -188,11 +342,14 @@ const TYPE_COLUMNS = {
 
     function renderNodes() {
       nodeLayer.innerHTML = '';
+      const variantEffects = getVariantNodeEffects();
       for (const node of graph.nodes) {
         const el = document.createElement('article');
-        el.className = `node${node.id === selectedNodeId ? ' selected' : ''}`;
+        const variantEffect = variantEffects.get(node.id);
+        el.className = `node${node.id === selectedNodeId ? ' selected' : ''}${variantEffect ? ` variant-affected variant-${variantEffect}` : ''}`;
         el.dataset.id = node.id;
         el.dataset.type = node.type;
+        if (variantEffect) el.dataset.variantEffect = variantEffect === 'added' ? 'NEW' : variantEffect === 'changed' ? 'CHANGED' : 'PATH';
         el.style.left = `${node.position.x}px`;
         el.style.top = `${node.position.y}px`;
         el.title = `${node.type}: ${node.title}`;
@@ -629,6 +786,7 @@ const TYPE_COLUMNS = {
       const node = graph.nodes.find(item => item.id === selectedNodeId);
       if (!node) {
         inspector.innerHTML = `
+          ${activeVariantId ? '<div class="variant-readonly-note">This tab is a materialized variant. Edit its semantic changes in the DSL.</div>' : ''}
           <div class="empty-state">Select a node to see its detail and edit it. The canvas intentionally shows only the node title.</div>
           <div class="divider"></div>
           <div class="legend">
@@ -639,6 +797,7 @@ const TYPE_COLUMNS = {
       }
 
       inspector.innerHTML = `
+        ${activeVariantId ? '<div class="variant-readonly-note">Edit semantic changes in the DSL. Drag this node to save a position for this tab.</div>' : ''}
         <div class="inspector-summary">
           <span class="node-icon" aria-hidden="true">${iconSvg(node.type)}</span>
           <div><strong>${escapeHtml(node.title)}</strong><span>${escapeHtml(node.type)} · ${escapeHtml(node.id)}</span></div>
@@ -677,11 +836,23 @@ const TYPE_COLUMNS = {
       `;
 
       inspector.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>('[data-field]').forEach(input => {
+        if (activeVariantId) {
+          input.disabled = true;
+          return;
+        }
         input.addEventListener('change', () => updateSelectedFromField(input.dataset.field, input.value));
         if (['title', 'body', 'tags'].includes(input.dataset.field)) {
           input.addEventListener('input', () => updateSelectedFromField(input.dataset.field, input.value, { rerenderInspector: false }));
         }
       });
+    }
+
+    function saveVariantPosition(nodeId: string, position: NodePosition) {
+      const variant = flowDocument.variants.find(item => item.id === activeVariantId);
+      if (!variant) return;
+      const operation = variant.operations.find(item => item.kind === 'set-position' && item.nodeId === nodeId);
+      if (operation?.kind === 'set-position') operation.position = clone(position);
+      else variant.operations.push({ kind: 'set-position', nodeId, position: clone(position) });
     }
 
     function updateSelectedFromField(path, rawValue, { rerenderInspector = true } = {}) {
@@ -777,6 +948,14 @@ const TYPE_COLUMNS = {
         }
         node.position.x = Math.round(dragState.startX + dx);
         node.position.y = Math.round(dragState.startY + dy);
+        if (activeVariantId && dragState.moved) {
+          saveVariantPosition(node.id, node.position);
+          if (variantPositionSyncTimer) clearTimeout(variantPositionSyncTimer);
+          variantPositionSyncTimer = setTimeout(() => {
+            variantPositionSyncTimer = null;
+            syncDslEditor();
+          }, 120);
+        }
         dragState.el.style.left = `${node.position.x}px`;
         dragState.el.style.top = `${node.position.y}px`;
         scheduleEdgeRender();
@@ -791,6 +970,7 @@ const TYPE_COLUMNS = {
         state.el.removeEventListener('pointerup', onUp);
         state.el.removeEventListener('pointercancel', onUp);
         dragState = null;
+        if (activeVariantId && state.moved) saveVariantPosition(state.id, node.position);
         renderInspector();
         syncDslEditor();
         scheduleEdgeRender();
@@ -1019,6 +1199,7 @@ const TYPE_COLUMNS = {
     }
 
     function addNode(partial: Partial<CanvasNode> = {}) {
+      if (activeVariantId) return null;
       const type: NodeType = partial.type && TYPE_COLUMNS[partial.type] !== undefined ? partial.type : 'process';
       const idBase = partial.id || type;
       let index = 1;
@@ -1045,6 +1226,7 @@ const TYPE_COLUMNS = {
     }
 
     function addEdge(edge) {
+      if (activeVariantId) return null;
       const next = {
         id: edge.id || `edge-${Date.now()}`,
         from: edge.from,
@@ -1061,6 +1243,7 @@ const TYPE_COLUMNS = {
     }
 
     function duplicateSelected() {
+      if (activeVariantId) return;
       const source = graph.nodes.find(node => node.id === selectedNodeId);
       if (!source) return;
       const copy = clone(source);
@@ -1082,6 +1265,7 @@ const TYPE_COLUMNS = {
     }
 
     function deleteSelected() {
+      if (activeVariantId) return;
       if (!selectedNodeId) return;
       graph.nodes = graph.nodes.filter(node => node.id !== selectedNodeId);
       graph.edges = graph.edges.filter(edge => edge.from !== selectedNodeId && edge.to !== selectedNodeId);
@@ -1097,11 +1281,14 @@ const TYPE_COLUMNS = {
       $('dslError').textContent = '';
       try {
         const parsed = parseGraphDsl(dslEditor.value);
-        const hasPositions = Boolean(parsed.layout?.positions && Object.keys(parsed.layout.positions).length);
+        const hasPositions = Boolean(parsed.graph.layout?.positions && Object.keys(parsed.graph.layout.positions).length);
+        flowDocument = parsed;
+        activeVariantId = null;
+        updateVariantUrl(null);
         includeDslPositions = hasPositions;
-        authoredLayoutHintIds = extractLayoutHintIds(parsed);
+        authoredLayoutHintIds = extractLayoutHintIds(parsed.graph);
         updatePositionsDslButton();
-        graph = normalizeGraph(parsed);
+        graph = normalizeGraph(parsed.graph);
         elkRoutes.clear();
         elkLayoutActive = false;
         updateLayoutEngineLabel();
@@ -1115,7 +1302,7 @@ const TYPE_COLUMNS = {
     }
 
     function exportJson() {
-      const blob = new Blob([JSON.stringify(toFlowGraph(), null, 2)], { type: 'application/json' });
+      const blob = new Blob([JSON.stringify(toFlowDocument(), null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -1128,8 +1315,11 @@ const TYPE_COLUMNS = {
 
     function updateToolbar() {
       const hasSelection = Boolean(selectedNodeId);
-      $<HTMLButtonElement>('duplicateBtn').disabled = !hasSelection;
-      $<HTMLButtonElement>('deleteBtn').disabled = !hasSelection;
+      const variantActive = activeVariantId !== null;
+      $<HTMLButtonElement>('addBtn').disabled = variantActive;
+      $<HTMLButtonElement>('duplicateBtn').disabled = variantActive || !hasSelection;
+      $<HTMLButtonElement>('deleteBtn').disabled = variantActive || !hasSelection;
+      $<HTMLButtonElement>('positionsDslBtn').disabled = variantActive;
     }
 
     viewport.addEventListener('pointerdown', (event) => {
@@ -1190,7 +1380,7 @@ const TYPE_COLUMNS = {
     $('formatDslBtn').addEventListener('click', () => {
       try {
         const parsed = parseGraphDsl(dslEditor.value);
-        includeDslPositions = Boolean(parsed.layout?.positions && Object.keys(parsed.layout.positions).length);
+        includeDslPositions = Boolean(parsed.graph.layout?.positions && Object.keys(parsed.graph.layout.positions).length);
         updatePositionsDslButton();
         dslEditor.value = graphToDsl(parsed, { includePositions: includeDslPositions });
         $('dslError').textContent = '';
@@ -1215,8 +1405,11 @@ const TYPE_COLUMNS = {
     });
     $('exportBtn').addEventListener('click', exportJson);
     $('resetBtn').addEventListener('click', () => {
-      graph = normalizeGraph(initialGraph);
-      authoredLayoutHintIds = extractLayoutHintIds(initialGraph);
+      flowDocument = normalizeDocument(initialGraph);
+      activeVariantId = null;
+      updateVariantUrl(null);
+      graph = normalizeGraph(flowDocument.graph);
+      authoredLayoutHintIds = extractLayoutHintIds(flowDocument.graph);
       includeDslPositions = false;
       updatePositionsDslButton();
       elkRoutes.clear();
@@ -1235,12 +1428,35 @@ const TYPE_COLUMNS = {
       }
     });
 
+    variantTabs.addEventListener('keydown', (event) => {
+      const buttons = [...variantTabs.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
+      const current = buttons.indexOf(document.activeElement as HTMLButtonElement);
+      if (current < 0) return;
+      let next = current;
+      if (event.key === 'ArrowRight') next = (current + 1) % buttons.length;
+      else if (event.key === 'ArrowLeft') next = (current - 1 + buttons.length) % buttons.length;
+      else if (event.key === 'Home') next = 0;
+      else if (event.key === 'End') next = buttons.length - 1;
+      else return;
+      event.preventDefault();
+      buttons[next].focus();
+      selectVariant(buttons[next].dataset.variantId || null);
+    });
+
+    window.addEventListener('popstate', () => {
+      selectVariant(variantIdFromUrl(), { updateUrl: false });
+    });
+
     (window as any).flow = {
-      get: () => clone(toFlowGraph()),
-      set: (nextGraph) => {
-        const hasPositions = Boolean(nextGraph?.layout?.positions && Object.keys(nextGraph.layout.positions).length);
-        graph = normalizeGraph(nextGraph);
-        authoredLayoutHintIds = extractLayoutHintIds(nextGraph);
+      get: () => clone(toFlowDocument()),
+      getGraph: () => clone(toFlowGraph()),
+      set: (nextDocument) => {
+        flowDocument = normalizeDocument(nextDocument);
+        activeVariantId = null;
+        updateVariantUrl(null);
+        const hasPositions = Boolean(flowDocument.graph.layout?.positions && Object.keys(flowDocument.graph.layout.positions).length);
+        graph = normalizeGraph(flowDocument.graph);
+        authoredLayoutHintIds = extractLayoutHintIds(flowDocument.graph);
         elkRoutes.clear();
         elkLayoutActive = false;
         updateLayoutEngineLabel();
@@ -1248,7 +1464,7 @@ const TYPE_COLUMNS = {
         renderAll();
         if (hasPositions) fitView();
         else void autoLayout();
-        return clone(toFlowGraph());
+        return clone(toFlowDocument());
       },
       addNode,
       addEdge,
@@ -1257,15 +1473,19 @@ const TYPE_COLUMNS = {
       select: selectNode,
       parse: (source) => clone(parseGraphDsl(source)),
       validate: (source) => clone(parseGraphDslWithDiagnostics(source)),
-      toDSL: (options = {}) => graphToDsl(toFlowGraph(), options),
-      exportJSON: () => JSON.stringify(toFlowGraph(), null, 2),
+      materialize: (variantId) => clone(materializeVariant(flowDocument, variantId)),
+      selectVariant,
+      activeVariant: () => activeVariantId,
+      toDSL: (options = {}) => graphToDsl(toFlowDocument(), options),
+      exportJSON: () => JSON.stringify(toFlowDocument(), null, 2),
       schema: {
-        dslVersion: 1,
-        schemaVersion: 3,
+        dslVersion: 2,
+        schemaVersion: 4,
         nodeTypes: Object.keys(TYPE_COLUMNS),
         node: 'node <id> <type> "<title>" body="..." tags=["a","b"] layout=<column>,<row>',
         edge: 'edge <id> <from> -> <to> label="..." emphasis=true',
         position: 'position <node-id> <x>,<y> (optional)',
+        variant: 'variant <id> "<title>" { add|remove|set|unset|position|clear all }',
       },
     };
 
@@ -1274,12 +1494,17 @@ const TYPE_COLUMNS = {
       try {
         const saved = localStorage.getItem(STORAGE_KEY);
         hasSavedGraph = Boolean(saved);
-        const restoredGraph = saved ? JSON.parse(saved) : initialGraph;
+        flowDocument = normalizeDocument(saved ? JSON.parse(saved) : initialGraph);
+        activeVariantId = variantIdFromUrl();
+        const restoredGraph = activeVariantId ? materializeVariant(flowDocument, activeVariantId) : flowDocument.graph;
         graph = normalizeGraph(restoredGraph);
         authoredLayoutHintIds = extractLayoutHintIds(restoredGraph);
       } catch {
-        graph = normalizeGraph(initialGraph);
-        authoredLayoutHintIds = extractLayoutHintIds(initialGraph);
+        flowDocument = normalizeDocument(initialGraph);
+        activeVariantId = variantIdFromUrl();
+        const restoredGraph = activeVariantId ? materializeVariant(flowDocument, activeVariantId) : flowDocument.graph;
+        graph = normalizeGraph(restoredGraph);
+        authoredLayoutHintIds = extractLayoutHintIds(restoredGraph);
       }
       updateLayoutEngineLabel();
       renderAll();

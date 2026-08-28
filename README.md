@@ -26,7 +26,9 @@ pnpm build
 
 - Write one node per line in a compact flow DSL.
 - Give every edge a stable ID with `edge id from -> to`.
-- Convert the DSL to schema version 3 JSON for rendering and export.
+- Convert the DSL to schema version 4 JSON for rendering and export.
+- Define ordered structural variants and render them as tabs.
+- Replace the base graph with `clear all` inside a variant.
 - Keep semantic nodes and edges separate from optional layout state.
 - Save exact positions as optional `position id x,y` DSL lines.
 - Request automatic placement when positions do not exist.
@@ -43,7 +45,7 @@ pnpm build
 
 The tool should make complex flows easy to read and easy to revise. It should show actors, fundamental needs, process steps, handoffs, deliverables, interface considerations, and outcomes in one coherent view.
 
-The next major concept is variants. A variant is not a separate node lane. It is another view of the same starting diagram. Each view can emphasize or change selected parts. Tabs or small multiples are likely presentation models.
+Variants are views of the same starting graph. Each variant stores ordered changes. The app materializes each result and renders it in a tab.
 
 See [docs/product-context.md](docs/product-context.md) for the original intent, decisions, and open questions. See [docs/iteration-history.md](docs/iteration-history.md) for the prototype history.
 
@@ -54,26 +56,32 @@ See [docs/product-context.md](docs/product-context.md) for the original intent, 
 - `src/components/` contains the page shell, toolbar, DSL panel, canvas, and inspector.
 - `src/lib/graph-dsl.ts` parses and writes the agent-facing flow DSL.
 - `src/lib/flow-workbench.ts` contains direct manipulation, routing, layout, and the agent API.
-- `src/data/example-flow.json` is the server-owned starter graph.
+- `src/data/flows/*.flow` contains production flow documents.
 - `src/styles.css` contains the visual system from the prototype.
 
 ELK is installed as a package and loads as a separate browser bundle. The local Manhattan router remains the fallback. The browser keeps the editable working graph in `localStorage`.
+
+The API parses [resume-alignment.flow](src/data/flows/resume-alignment.flow) directly. Edit that file to change the production example. Do not maintain a parallel JSON fixture.
 
 ## Flow DSL
 
 See the normative [Flow DSL specification](docs/flow-dsl-spec.md). A complete example is in [checkout.flow](docs/examples/checkout.flow).
 
-Draft 0.2 uses `flow 1`, required edge IDs, quoted strings, structural tags, and canonical formatting.
+Draft 0.3 uses `flow 2`, required edge IDs, variant blocks, quoted strings, structural tags, and canonical formatting.
 
 The shortest useful graph has two node lines and one edge line:
 
 ```text
-flow 1
+flow 2
 
 graph signup "New user signup"
 node visitor actor "Visitor"
 node account goal "Account created"
 edge signup-completes visitor -> account label="signs up" emphasis=true
+
+variant assisted "Assisted signup" {
+  set node account title="Account created with support"
+}
 ```
 
 Node options stay on the same line:

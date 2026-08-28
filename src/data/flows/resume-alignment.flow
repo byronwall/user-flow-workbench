@@ -1,0 +1,64 @@
+flow 2
+
+graph resume-alignment-flow "Tailor a resume to a job posting"
+description "Map user intent to fundamental needs, process, handoffs, deliverables, UX, and outcome."
+
+node user actor "Job seeker" body="Has an existing resume and a target job posting. Wants a stronger application without inventing experience." tags=["source of truth"] layout=0,3
+node need-understand need "Understand what the role actually needs" body="Translate a noisy posting into the outcomes, skills, constraints, seniority signals, and evidence that matter most." tags=["fundamental need"] layout=1,1
+node need-truth need "Stay truthful and defensible" body="Every tailored claim must be grounded in real experience the user can defend in an interview." tags=["trust"] layout=1,3
+node need-effort need "Spend effort where it changes the outcome" body="Prioritize high-impact changes instead of asking the user to rewrite everything for every application." tags=["efficiency"] layout=1,5
+node parse-posting process "1. Parse the job posting" body="Extract responsibilities, required capabilities, preferences, repeated themes, seniority cues, and likely evaluation criteria." tags=["input: posting"] layout=2,0
+node inventory process "2. Inventory resume evidence" body="Break the current resume into roles, accomplishments, skills, scope, metrics, domains, and keywords." tags=["input: resume"] layout=2,2
+node map-evidence process "3. Map requirements to evidence" body="For each meaningful requirement: matched, weakly matched, unsupported, or irrelevant. Rank by application impact." tags=["reasoning"] layout=2,4
+node draft process "4. Draft targeted changes" body="Reorder, tighten, and rewrite bullets to foreground relevant evidence. Add terminology only when substantively true." tags=["transformation"] layout=2,6
+node handoff-req handoff "Posting → requirements model" body="The raw posting becomes a structured, prioritized set of needs that later steps can cite." tags=["handoff"] layout=3,0
+node requirements-brief deliverable "Requirements brief" body="A compact model of what matters most: top outcomes, skills, constraints, keywords, and evidence expectations." tags=["deliverable"] layout=3,1
+node handoff-evidence handoff "Resume → evidence model" body="Resume claims become structured evidence with provenance back to the user’s source content." tags=["handoff"] layout=3,2
+node match-matrix deliverable "Match / gap matrix" body="Requirement-by-requirement mapping with evidence, confidence, gaps, and recommended treatment." tags=["deliverable"] layout=3,4
+node handoff-review handoff "Draft → human approval" body="Suggested edits remain proposed changes until the user reviews unsupported assumptions and wording changes." tags=["approval"] layout=3,6
+node tailored-resume deliverable "Tailored resume" body="A ready-to-export resume emphasizing the strongest true evidence for this specific role." tags=["deliverable"] layout=3,7
+node ux-sources ux "Side-by-side source context" body="Keep the posting and resume visible beside extracted requirements and evidence so the user can verify reasoning quickly." tags=["traceability"] layout=4,0
+node ux-evidence ux "Evidence chips + confidence" body="Every recommendation shows why it exists, what source supports it, and whether the match is strong or tentative." tags=["explainability"] layout=4,2
+node ux-priority ux "Prioritized actions, not a wall of edits" body="Lead with the few changes most likely to improve relevance. Separate critical fixes from optional polish." tags=["focus"] layout=4,4
+node ux-diff ux "Diff + approval gate" body="Show before/after text, let the user accept per change, and flag statements that may overreach the source resume." tags=["control","trust"] layout=4,6
+node goal goal "Submit a stronger, truthful application" body="The final resume is more relevant to the target role, easy to defend in an interview, and faster to produce." tags=["desired outcome"] layout=5,3.5
+
+edge e1 user -> need-understand
+edge e2 user -> need-truth
+edge e3 user -> need-effort
+edge e4 need-understand -> parse-posting label="interpret"
+edge e5 need-truth -> inventory label="ground in evidence"
+edge e6 parse-posting -> handoff-req
+edge e7 handoff-req -> requirements-brief
+edge e8 inventory -> handoff-evidence
+edge e9 requirements-brief -> map-evidence
+edge e10 handoff-evidence -> map-evidence
+edge e11 map-evidence -> match-matrix label="rank matches + gaps" emphasis=true
+edge e12 match-matrix -> draft
+edge e13 need-effort -> draft label="focus high-value edits"
+edge e14 draft -> handoff-review
+edge e15 handoff-review -> tailored-resume
+edge e16 requirements-brief -> ux-sources
+edge e17 match-matrix -> ux-evidence
+edge e18 match-matrix -> ux-priority
+edge e19 handoff-review -> ux-diff
+edge e20 tailored-resume -> goal emphasis=true
+edge e21 ux-sources -> goal
+edge e22 ux-evidence -> goal
+edge e23 ux-priority -> goal
+edge e24 ux-diff -> goal
+
+variant per-job-resume "One resume per posting" {
+  description "Save each approved result as a distinct resume tied to its job posting."
+
+  remove edge e15
+  remove edge e20
+  set node tailored-resume title="Job-specific resume" body="A distinct resume version that records the strongest true evidence for one job posting." tags=["deliverable","job-specific"] layout=3,8
+  set node goal title="Build a reusable application record" body="The job seeker gets a truthful resume for this posting and keeps a clear version for later review."
+  add node save-version process "Save as a new resume version" body="Create a new version instead of replacing the source resume or a resume for another posting." tags=["versioning"] layout=2,8
+  add node resume-library deliverable "Job-specific resume library" body="A traceable set of resumes, with one approved version for each job posting." tags=["deliverable","history"] layout=3,9
+  add edge review-to-version handoff-review -> save-version
+  add edge version-to-resume save-version -> tailored-resume
+  add edge resume-to-library tailored-resume -> resume-library
+  add edge library-to-goal resume-library -> goal emphasis=true
+}

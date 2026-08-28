@@ -1,4 +1,4 @@
-flow 1
+flow 2
 
 # Semantic graph
 graph checkout "Online checkout"
@@ -22,6 +22,16 @@ edge result-to-receipt payment-result -> receipt label="approved"
 edge result-to-recovery payment-result -> recovery label="declined"
 edge receipt-confirms-order receipt -> confirmed emphasis=true
 edge recovery-retries-payment recovery -> payment label="try again"
+
+# A variant stores ordered differences from the shared graph.
+variant express "Express checkout" {
+  description "Use saved details for a returning shopper."
+
+  remove edge review-to-payment
+  set node review title="Confirm saved order details"
+  set node payment title="Confirm saved payment"
+  add edge express-payment review -> payment label="use saved details"
+}
 
 # Optional semantic layout hints
 # Add layout=<column>,<row> to any node line when automatic placement needs guidance.

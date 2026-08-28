@@ -1,11 +1,11 @@
 import { createResource, Show } from "solid-js";
 import { Workbench } from "../components/Workbench";
-import type { FlowGraph } from "../types/graph";
+import type { FlowDocument } from "../types/graph";
 
-async function loadExampleGraph(): Promise<FlowGraph> {
+async function loadExampleGraph(): Promise<FlowDocument> {
   const response = await fetch("/api/graph");
   if (!response.ok) throw new Error(`The graph server returned ${response.status}.`);
-  return response.json() as Promise<FlowGraph>;
+  return response.json() as Promise<FlowDocument>;
 }
 
 export default function Home() {
