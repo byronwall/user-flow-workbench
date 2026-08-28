@@ -6,6 +6,7 @@
     "dev": "vinxi dev",
     "build": "vinxi build",
     "start": "vinxi start",
+    "test:dsl": "node --experimental-strip-types --test src/lib/graph-dsl.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "packageManager": "pnpm@11.9.0",

@@ -24,7 +24,9 @@ Keep the canvas compact. Avoid small body text inside nodes. Use clear node shap
 
 ### Keep the data explicit
 
-Nodes and edges are plain JSON. Each node supports manual position and semantic layout hints. An agent must be able to inspect or replace the graph without reverse-engineering a framework.
+Agents author a compact text DSL. Each node uses one line, and edges follow the nodes. The app converts the DSL to plain JSON for rendering and export.
+
+Semantic nodes and edges do not own canvas state. A top-level `layout` object can contain semantic hints and exact positions. Both are optional. The renderer derives a good initial layout when they do not exist.
 
 ### Make direct manipulation dependable
 
@@ -32,7 +34,7 @@ Users must be able to drag nodes, pan the background, and zoom with a trackpad. 
 
 ### Route edges around meaning
 
-Use rectilinear routes. Avoid node intersections. Prefer few bends, shared trunks, and predictable connection sides. Layout should pack nodes tightly without making the graph hard to scan.
+Use rectilinear routes. Avoid node intersections. Keep edges in separate lanes, including edges that enter the same area. Prefer few bends and predictable connection sides. Layout should pack nodes tightly without making the graph hard to scan.
 
 ### Preserve human control
 
@@ -49,15 +51,24 @@ Do not model variants as a vertical lane of special nodes. A future variant star
 - Use icons for actors, needs, steps, handoffs, artifacts, UX, and outcomes.
 - Use compact semantic columns.
 - Use ELK Layered for automatic layout.
-- Use orthogonal ELK routes after automatic layout.
-- Use a local obstacle-aware Manhattan router after manual changes.
+- Use ELK to place nodes during automatic layout.
+- Use the local obstacle-aware Manhattan router for all visible edges.
+- Give each edge a separate connection lane and strongly avoid reused route segments.
 - Keep a no-library fallback.
 - Keep the graph schema and agent API visible.
 - Remove the original variant lane until the view model is designed.
 
 ## Current implementation details
 
-- The graph schema version is `2`.
+- The graph schema version is `3`.
+- The Flow DSL version is `1`.
+- The agent-facing source is a line-based flow DSL.
+- Node and edge identities are required and stable.
+- Canonical formatting makes repeated agent edits converge.
+- Recoverable parsing returns stable diagnostics for repair loops.
+- Nodes contain semantic data only.
+- The optional top-level `layout` object stores hints and exact positions by node ID.
+- Separate optional `position` DSL lines make manual coordinates easy to add or remove.
 - The app is a TypeScript SolidStart SPA.
 - The server serves the starter graph from `GET /api/graph`.
 - The browser stores the editable working graph in `localStorage`.

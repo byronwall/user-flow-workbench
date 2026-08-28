@@ -1,0 +1,38 @@
+flow 1
+
+# Semantic graph
+graph checkout "Online checkout"
+description "Show the path from purchase intent to a confirmed order."
+
+node shopper actor "Shopper" body="Wants to buy the items in the cart."
+node complete-purchase need "Complete the purchase with confidence" body="Understand the total, delivery promise, and payment result." tags=["trust"]
+node review process "Review order" body="Confirm items, quantities, price, delivery, and contact details."
+node payment process "Submit payment" body="Authorize the selected payment method." tags=["checkout","money"]
+node payment-result handoff "Payment result" body="Send the authorization result into order creation."
+node receipt deliverable "Order receipt" body="Record the purchased items, total, payment state, and delivery promise."
+node recovery ux "Explain payment recovery" body="Show what failed and preserve the order before another attempt."
+node confirmed goal "Order confirmed" body="The shopper has a durable order and knows what happens next."
+
+# Directed relationships
+edge shopper-needs-purchase shopper -> complete-purchase
+edge need-shapes-review complete-purchase -> review label="sets expectations"
+edge review-to-payment review -> payment label="approve total"
+edge payment-to-result payment -> payment-result emphasis=true
+edge result-to-receipt payment-result -> receipt label="approved"
+edge result-to-recovery payment-result -> recovery label="declined"
+edge receipt-confirms-order receipt -> confirmed emphasis=true
+edge recovery-retries-payment recovery -> payment label="try again"
+
+# Optional semantic layout hints
+# Add layout=<column>,<row> to any node line when automatic placement needs guidance.
+
+# Optional manual positions
+# Delete these lines to request a fresh automatic layout.
+position shopper 88,236
+position complete-purchase 354,236
+position review 620,154
+position payment 620,318
+position payment-result 886,236
+position receipt 1152,154
+position recovery 1152,318
+position confirmed 1418,154

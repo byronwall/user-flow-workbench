@@ -20,7 +20,7 @@ export function FlowCanvas() {
         <span>Wheel = zoom</span>
         <span>Drag background = pan</span>
         <span>Drag node = move</span>
-        <span id="layoutEngineLabel">Local orthogonal router</span>
+        <span id="layoutEngineLabel">Separated local routes</span>
       </div>
     </main>
   );

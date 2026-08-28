@@ -1,6 +1,7 @@
-import type { FlowGraph, FlowNode, NodeType } from "../types/graph";
+import { graphToDsl, parseGraphDsl, parseGraphDslWithDiagnostics } from "./graph-dsl";
+import type { CanvasGraph, CanvasNode, FlowGraph, NodeType } from "../types/graph";
 
-export function mountFlowWorkbench(initialGraph: FlowGraph) {
+export function mountFlowWorkbench(initialGraph: unknown) {
 const TYPE_COLUMNS = {
       actor: 0,
       need: 1,
@@ -16,12 +17,15 @@ const TYPE_COLUMNS = {
     const ROW_GAP = 82;
     const NODE_WIDTH = 216;
     const NODE_HEIGHT = 58;
-    const ROUTE_GRID = 14;
+    const ROUTE_GRID = 10;
     const ROUTE_CLEARANCE = 12;
+    const ROUTE_REUSE_PENALTY = 500;
     const LANE_LABELS = ['User', 'Fundamental needs', 'Process', 'Handoffs + deliverables', 'UI / UX considerations', 'Outcome'];
     const STORAGE_KEY = 'user-flow-workbench-v3';
 
-        let graph = structuredClone(initialGraph);
+    let graph: CanvasGraph = normalizeGraph(initialGraph);
+    let authoredLayoutHintIds = extractLayoutHintIds(initialGraph);
+    let includeDslPositions = false;
     let selectedNodeId = null;
     let zoom = 0.72;
     let panX = 20;
@@ -45,38 +49,55 @@ const TYPE_COLUMNS = {
     const nodeLayer = $<HTMLDivElement>('nodeLayer');
     const laneLayer = $<HTMLDivElement>('laneLayer');
     const edgeLayer = $<SVGGElement>('edgeLayer');
-    const jsonEditor = $<HTMLTextAreaElement>('jsonEditor');
+    const dslEditor = $<HTMLTextAreaElement>('dslEditor');
     const inspector = $<HTMLDivElement>('inspector');
 
     function clone<T>(value: T): T { return JSON.parse(JSON.stringify(value)) as T; }
 
-    function normalizeGraph(input) {
+    function extractLayoutHintIds(input): Set<string> {
+      return new Set(Object.keys(input?.layout?.hints || {}));
+    }
+
+    function normalizeGraph(input): CanvasGraph {
       const next = clone(input || {});
-      next.schemaVersion = 2;
+      next.dslVersion = 1;
+      next.schemaVersion = 3;
       next.id ??= `flow-${Date.now()}`;
       next.title ??= 'Untitled flow';
       next.description ??= '';
       next.nodes = Array.isArray(next.nodes) ? next.nodes : [];
       next.edges = Array.isArray(next.edges) ? next.edges : [];
 
-      // Variants intentionally do not exist in editor v2. They will return later as repeated diagrams/tabs.
+      // Variants remain future graph views. They are not node types.
+      const hints = next.layout?.hints || {};
+      const positions = next.layout?.positions || {};
+      const rowsByColumn = new Map();
       next.nodes = next.nodes
         .filter(node => node?.type !== 'variant')
-        .map((node, index) => ({
-          id: node.id || `node-${index + 1}`,
-          type: TYPE_COLUMNS[node.type] !== undefined ? node.type : 'process',
-          title: node.title || 'Untitled node',
-          body: node.body || '',
-          tags: Array.isArray(node.tags) ? node.tags : [],
-          layout: {
-            column: Number.isFinite(node.layout?.column) ? node.layout.column : (TYPE_COLUMNS[node.type] ?? 2),
-            row: Number.isFinite(node.layout?.row) ? node.layout.row : index,
-          },
-          position: {
-            x: Number.isFinite(node.position?.x) ? node.position.x : 0,
-            y: Number.isFinite(node.position?.y) ? node.position.y : 0,
-          },
-        }));
+        .map((node, index) => {
+          const nodeId = node.id || `node-${index + 1}`;
+          const type = TYPE_COLUMNS[node.type] !== undefined ? node.type : 'process';
+          const hint = hints[nodeId] || node.layout;
+          const position = positions[nodeId] || node.position;
+          const column = Number.isFinite(hint?.column) ? hint.column : TYPE_COLUMNS[type];
+          const nextRow = rowsByColumn.get(column) || 0;
+          rowsByColumn.set(column, nextRow + 1);
+          return {
+            id: nodeId,
+            type,
+            title: node.title || 'Untitled node',
+            body: node.body || '',
+            tags: Array.isArray(node.tags) ? node.tags : [],
+            layout: {
+              column,
+              row: Number.isFinite(hint?.row) ? hint.row : nextRow,
+            },
+            position: {
+              x: Number.isFinite(position?.x) ? position.x : 0,
+              y: Number.isFinite(position?.y) ? position.y : 0,
+            },
+          };
+        });
 
       const validIds = new Set(next.nodes.map(node => node.id));
       next.edges = next.edges
@@ -92,9 +113,45 @@ const TYPE_COLUMNS = {
       return next;
     }
 
-    function syncJsonEditor() {
-      jsonEditor.value = JSON.stringify(graph, null, 2);
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(graph)); } catch {}
+    function toFlowGraph(includePositions = true): FlowGraph {
+      const hints = Object.fromEntries(
+        graph.nodes
+          .filter(node => authoredLayoutHintIds.has(node.id))
+          .map(node => [node.id, clone(node.layout)]),
+      );
+      const positions = Object.fromEntries(graph.nodes.map(node => [node.id, clone(node.position)]));
+      return {
+        dslVersion: 1,
+        schemaVersion: 3,
+        id: graph.id,
+        title: graph.title,
+        ...(graph.description ? { description: graph.description } : {}),
+        nodes: graph.nodes.map(({ layout, position, body, tags, ...node }) => ({
+          ...clone(node),
+          ...(body ? { body } : {}),
+          ...(tags.length ? { tags: clone(tags) } : {}),
+        })),
+        edges: graph.edges.map(({ id, from, to, label, emphasis }) => ({
+          id,
+          from,
+          to,
+          ...(label ? { label } : {}),
+          ...(emphasis ? { emphasis: true } : {}),
+        })),
+        layout: {
+          hints,
+          ...(includePositions ? { positions } : {}),
+        },
+      };
+    }
+
+    function syncDslEditor() {
+      dslEditor.value = graphToDsl(toFlowGraph(), { includePositions: includeDslPositions });
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(toFlowGraph())); } catch {}
+    }
+
+    function updatePositionsDslButton() {
+      $('positionsDslBtn').textContent = includeDslPositions ? 'Remove positions' : 'Add positions';
     }
 
     function renderAll({ syncJson = true } = {}) {
@@ -103,7 +160,7 @@ const TYPE_COLUMNS = {
       scheduleEdgeRender();
       renderInspector();
       updateToolbar();
-      if (syncJson) syncJsonEditor();
+      if (syncJson) syncDslEditor();
     }
 
     function renderLanes() {
@@ -161,8 +218,9 @@ const TYPE_COLUMNS = {
       const rects = getNodeRects();
       const nodesById = new Map(graph.nodes.map(node => [node.id, node]));
       const segmentUsage = new Map();
+      const portLaneOffsets = buildPortLaneOffsets(graph.edges, rects);
 
-      // Stable ordering makes shared route trunks deterministic.
+      // Stable ordering makes lane assignment deterministic.
       const edges = [...graph.edges].sort((a, b) => {
         const af = nodesById.get(a.from)?.layout.column ?? 0;
         const bf = nodesById.get(b.from)?.layout.column ?? 0;
@@ -176,8 +234,7 @@ const TYPE_COLUMNS = {
         const toRect = rects.get(edge.to);
         if (!from || !to || !fromRect || !toRect) continue;
 
-        const elkRoute = elkRoutes.get(edge.id);
-        const route = elkRoute || routeEdge(fromRect, toRect, rects, segmentUsage);
+        const route = routeEdge(edge, fromRect, toRect, rects, segmentUsage, portLaneOffsets);
         if (!route.points.length) continue;
 
         const path = svgEl('path', {
@@ -209,8 +266,11 @@ const TYPE_COLUMNS = {
       return rects;
     }
 
-    function routeEdge(fromRect, toRect, rects, segmentUsage) {
-      const ports = choosePorts(fromRect, toRect);
+    function routeEdge(edge, fromRect, toRect, rects, segmentUsage, portLaneOffsets) {
+      const ports = choosePorts(fromRect, toRect, {
+        start: portLaneOffsets.get(`${edge.id}:start`) || 0,
+        end: portLaneOffsets.get(`${edge.id}:end`) || 0,
+      });
       const obstacles = [...rects.values()].map(rect => inflateRect(rect, ROUTE_CLEARANCE));
       const bounds = routeBounds(rects);
 
@@ -235,10 +295,77 @@ const TYPE_COLUMNS = {
       return {
         points: compressOrthogonal(points),
         gridSegments: rawGrid.length ? gridSegmentKeys(rawGrid) : [],
+        labelPosition: null,
       };
     }
 
-    function choosePorts(a, b) {
+    function buildPortLaneOffsets(edges, rects) {
+      const groups = new Map();
+
+      for (const edge of edges) {
+        const fromRect = rects.get(edge.from);
+        const toRect = rects.get(edge.to);
+        if (!fromRect || !toRect) continue;
+        const ports = choosePorts(fromRect, toRect);
+        const fromCenter = rectCenter(fromRect);
+        const toCenter = rectCenter(toRect);
+
+        addPortLane(groups, `${edge.from}:${ports.startSide}`, {
+          key: `${edge.id}:start`,
+          order: portOrder(ports.startSide, toCenter),
+          id: edge.id,
+          rect: fromRect,
+          side: ports.startSide,
+        });
+        addPortLane(groups, `${edge.to}:${ports.endSide}`, {
+          key: `${edge.id}:end`,
+          order: portOrder(ports.endSide, fromCenter),
+          id: edge.id,
+          rect: toRect,
+          side: ports.endSide,
+        });
+      }
+
+      const offsets = new Map();
+      for (const entries of groups.values()) {
+        entries.sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
+        const verticalSide = ['left', 'right'].includes(entries[0].side);
+        const axisStart = verticalSide ? entries[0].rect.y : entries[0].rect.x;
+        const dimension = verticalSide ? entries[0].rect.h : entries[0].rect.w;
+        const center = axisStart + dimension / 2;
+        const firstLane = Math.ceil((axisStart + 4) / ROUTE_GRID) * ROUTE_GRID;
+        const lastLane = Math.floor((axisStart + dimension - 4) / ROUTE_GRID) * ROUTE_GRID;
+        const laneCount = Math.max(1, Math.floor((lastLane - firstLane) / ROUTE_GRID) + 1);
+        entries.forEach((entry, index) => {
+          const laneIndex = entries.length > 1
+            ? Math.round(index * (laneCount - 1) / (entries.length - 1))
+            : Math.round((laneCount - 1) / 2);
+          offsets.set(entry.key, firstLane + laneIndex * ROUTE_GRID - center);
+        });
+      }
+      return offsets;
+    }
+
+    function addPortLane(groups, groupKey, entry) {
+      if (!groups.has(groupKey)) groups.set(groupKey, []);
+      groups.get(groupKey).push(entry);
+    }
+
+    function portOrder(side, point) {
+      return ['left', 'right'].includes(side) ? point.y : point.x;
+    }
+
+    function rectCenter(rect) {
+      return { x: rect.x + rect.w / 2, y: rect.y + rect.h / 2 };
+    }
+
+    function offsetAnchor(anchor, side, amount) {
+      return ['left', 'right'].includes(side)
+        ? { x: anchor.x, y: anchor.y + amount }
+        : { x: anchor.x + amount, y: anchor.y };
+    }
+
+    function choosePorts(a, b, laneOffsets = { start: 0, end: 0 }) {
       const ac = { x: a.x + a.w / 2, y: a.y + a.h / 2 };
       const bc = { x: b.x + b.w / 2, y: b.y + b.h / 2 };
       const dx = bc.x - ac.x;
@@ -247,28 +374,48 @@ const TYPE_COLUMNS = {
 
       if (horizontal) {
         const rightward = dx >= 0;
-        const startAnchor = { x: rightward ? a.x + a.w : a.x, y: ac.y };
-        const endAnchor = { x: rightward ? b.x : b.x + b.w, y: bc.y };
+        const startSide = rightward ? 'right' : 'left';
+        const endSide = rightward ? 'left' : 'right';
+        const startAnchor = offsetAnchor(
+          { x: rightward ? a.x + a.w : a.x, y: ac.y },
+          startSide,
+          laneOffsets.start,
+        );
+        const endAnchor = offsetAnchor(
+          { x: rightward ? b.x : b.x + b.w, y: bc.y },
+          endSide,
+          laneOffsets.end,
+        );
         return {
           startAnchor,
           endAnchor,
           startPort: { x: startAnchor.x + (rightward ? ROUTE_CLEARANCE + 8 : -ROUTE_CLEARANCE - 8), y: startAnchor.y },
           endPort: { x: endAnchor.x + (rightward ? -ROUTE_CLEARANCE - 8 : ROUTE_CLEARANCE + 8), y: endAnchor.y },
-          startSide: rightward ? 'right' : 'left',
-          endSide: rightward ? 'left' : 'right',
+          startSide,
+          endSide,
         };
       }
 
       const downward = dy >= 0;
-      const startAnchor = { x: ac.x, y: downward ? a.y + a.h : a.y };
-      const endAnchor = { x: bc.x, y: downward ? b.y : b.y + b.h };
+      const startSide = downward ? 'bottom' : 'top';
+      const endSide = downward ? 'top' : 'bottom';
+      const startAnchor = offsetAnchor(
+        { x: ac.x, y: downward ? a.y + a.h : a.y },
+        startSide,
+        laneOffsets.start,
+      );
+      const endAnchor = offsetAnchor(
+        { x: bc.x, y: downward ? b.y : b.y + b.h },
+        endSide,
+        laneOffsets.end,
+      );
       return {
         startAnchor,
         endAnchor,
         startPort: { x: startAnchor.x, y: startAnchor.y + (downward ? ROUTE_CLEARANCE + 8 : -ROUTE_CLEARANCE - 8) },
         endPort: { x: endAnchor.x, y: endAnchor.y + (downward ? -ROUTE_CLEARANCE - 8 : ROUTE_CLEARANCE + 8) },
-        startSide: downward ? 'bottom' : 'top',
-        endSide: downward ? 'top' : 'bottom',
+        startSide,
+        endSide,
       };
     }
 
@@ -312,8 +459,8 @@ const TYPE_COLUMNS = {
           const segKey = normalizedSegmentKey(current, next);
           const reuse = segmentUsage.get(segKey) || 0;
           const bendPenalty = current.dir !== 'n' && current.dir !== next.dir ? 2.2 : 0;
-          const bundleBonus = Math.min(0.62, reuse * 0.18);
-          const tentative = current.g + 1 + bendPenalty - bundleBonus;
+          const reusePenalty = reuse * ROUTE_REUSE_PENALTY;
+          const tentative = current.g + 1 + bendPenalty + reusePenalty;
           const nextKey = stateKey(next);
           if (tentative >= (gScore.get(nextKey) ?? Infinity)) continue;
 
@@ -553,6 +700,7 @@ const TYPE_COLUMNS = {
           if (edge.from === oldId) edge.from = nextId;
           if (edge.to === oldId) edge.to = nextId;
         });
+        if (authoredLayoutHintIds.delete(oldId)) authoredLayoutHintIds.add(nextId);
         selectedNodeId = nextId;
       } else if (path === 'type') {
         node.type = TYPE_COLUMNS[rawValue] !== undefined ? rawValue : 'process';
@@ -561,8 +709,10 @@ const TYPE_COLUMNS = {
         node.tags = rawValue.split(',').map(value => value.trim()).filter(Boolean);
       } else if (path === 'layout.column') {
         node.layout.column = Number(rawValue) || 0;
+        authoredLayoutHintIds.add(node.id);
       } else if (path === 'layout.row') {
         node.layout.row = Number(rawValue) || 0;
+        authoredLayoutHintIds.add(node.id);
       } else if (path === 'position.x') {
         node.position.x = Number(rawValue) || 0;
       } else if (path === 'position.y') {
@@ -578,7 +728,7 @@ const TYPE_COLUMNS = {
       renderLanes();
       scheduleEdgeRender();
       if (rerenderInspector) renderInspector();
-      syncJsonEditor();
+      syncDslEditor();
     }
 
     function selectNode(id, { updateInspector = true } = {}) {
@@ -619,7 +769,7 @@ const TYPE_COLUMNS = {
         const dy = (moveEvent.clientY - dragState.startClientY) / zoom;
         if (Math.abs(dx) + Math.abs(dy) > 2) {
           dragState.moved = true;
-          if (elkRoutes.size) {
+          if (elkRoutes.size || elkLayoutActive) {
             elkRoutes.clear();
             elkLayoutActive = false;
             updateLayoutEngineLabel();
@@ -642,7 +792,7 @@ const TYPE_COLUMNS = {
         state.el.removeEventListener('pointercancel', onUp);
         dragState = null;
         renderInspector();
-        syncJsonEditor();
+        syncDslEditor();
         scheduleEdgeRender();
       };
 
@@ -785,28 +935,9 @@ const TYPE_COLUMNS = {
         node.position.y = Math.round((laidOut.y || 0) + 58);
       }
 
-      elkRoutes = new Map();
-      for (const edge of result.edges || []) {
-        const sections = edge.sections || [];
-        if (!sections.length) continue;
-        const points = [];
-        for (const section of sections) {
-          const sectionPoints = [section.startPoint, ...(section.bendPoints || []), section.endPoint]
-            .filter(Boolean)
-            .map(point => ({ x: point.x + 46, y: point.y + 58 }));
-          if (!points.length) points.push(...sectionPoints);
-          else points.push(...sectionPoints.slice(1));
-        }
-        const label = edge.labels?.[0];
-        elkRoutes.set(edge.id, {
-          points: compressOrthogonal(dedupePoints(points)),
-          gridSegments: [],
-          labelPosition: label ? {
-            x: label.x + label.width / 2 + 46,
-            y: label.y + label.height / 2 + 58,
-          } : null,
-        });
-      }
+      // ELK places nodes. The local router owns all visible routes so it can
+      // keep every edge in a separate lane after layout and manual movement.
+      elkRoutes.clear();
     }
 
     function elkPort(nodeId, name, side) {
@@ -856,7 +987,7 @@ const TYPE_COLUMNS = {
     function updateLayoutEngineLabel(message = null) {
       const el = $('layoutEngineLabel');
       if (!el) return;
-      el.textContent = message || (elkLayoutActive ? 'ELK layered · orthogonal routes' : 'Local orthogonal router');
+      el.textContent = message || (elkLayoutActive ? 'ELK layout · separated local routes' : 'Separated local routes');
     }
 
     function fitView(minZoom = .34) {
@@ -887,7 +1018,7 @@ const TYPE_COLUMNS = {
       $('zoomLabel').textContent = `${Math.round(zoom * 100)}%`;
     }
 
-    function addNode(partial: Partial<FlowNode> = {}) {
+    function addNode(partial: Partial<CanvasNode> = {}) {
       const type: NodeType = partial.type && TYPE_COLUMNS[partial.type] !== undefined ? partial.type : 'process';
       const idBase = partial.id || type;
       let index = 1;
@@ -904,6 +1035,7 @@ const TYPE_COLUMNS = {
         position: partial.position || { x: 900, y: 500 },
       };
       graph.nodes.push(node);
+      if (partial.layout) authoredLayoutHintIds.add(node.id);
       elkRoutes.clear();
       elkLayoutActive = false;
       updateLayoutEngineLabel();
@@ -941,6 +1073,7 @@ const TYPE_COLUMNS = {
       copy.position.y += 34;
       copy.layout.row += .25;
       graph.nodes.push(copy);
+      if (authoredLayoutHintIds.has(source.id)) authoredLayoutHintIds.add(copy.id);
       elkRoutes.clear();
       elkLayoutActive = false;
       updateLayoutEngineLabel();
@@ -952,6 +1085,7 @@ const TYPE_COLUMNS = {
       if (!selectedNodeId) return;
       graph.nodes = graph.nodes.filter(node => node.id !== selectedNodeId);
       graph.edges = graph.edges.filter(edge => edge.from !== selectedNodeId && edge.to !== selectedNodeId);
+      authoredLayoutHintIds.delete(selectedNodeId);
       elkRoutes.clear();
       elkLayoutActive = false;
       updateLayoutEngineLabel();
@@ -959,23 +1093,29 @@ const TYPE_COLUMNS = {
       renderAll();
     }
 
-    function applyJson() {
-      $('jsonError').textContent = '';
+    function applyDsl() {
+      $('dslError').textContent = '';
       try {
-        graph = normalizeGraph(JSON.parse(jsonEditor.value));
+        const parsed = parseGraphDsl(dslEditor.value);
+        const hasPositions = Boolean(parsed.layout?.positions && Object.keys(parsed.layout.positions).length);
+        includeDslPositions = hasPositions;
+        authoredLayoutHintIds = extractLayoutHintIds(parsed);
+        updatePositionsDslButton();
+        graph = normalizeGraph(parsed);
         elkRoutes.clear();
         elkLayoutActive = false;
         updateLayoutEngineLabel();
         selectedNodeId = null;
         renderAll();
-        fitView();
+        if (hasPositions) fitView();
+        else void autoLayout();
       } catch (error) {
-        $('jsonError').textContent = error.message;
+        $('dslError').textContent = error instanceof Error ? error.message : String(error);
       }
     }
 
     function exportJson() {
-      const blob = new Blob([JSON.stringify(graph, null, 2)], { type: 'application/json' });
+      const blob = new Blob([JSON.stringify(toFlowGraph(), null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -1046,28 +1186,39 @@ const TYPE_COLUMNS = {
     $('addBtn').addEventListener('click', () => addNode());
     $('duplicateBtn').addEventListener('click', duplicateSelected);
     $('deleteBtn').addEventListener('click', deleteSelected);
-    $('applyJsonBtn').addEventListener('click', applyJson);
-    $('formatJsonBtn').addEventListener('click', () => {
+    $('applyDslBtn').addEventListener('click', applyDsl);
+    $('formatDslBtn').addEventListener('click', () => {
       try {
-        jsonEditor.value = JSON.stringify(JSON.parse(jsonEditor.value), null, 2);
-        $('jsonError').textContent = '';
+        const parsed = parseGraphDsl(dslEditor.value);
+        includeDslPositions = Boolean(parsed.layout?.positions && Object.keys(parsed.layout.positions).length);
+        updatePositionsDslButton();
+        dslEditor.value = graphToDsl(parsed, { includePositions: includeDslPositions });
+        $('dslError').textContent = '';
       } catch (error) {
-        $('jsonError').textContent = error.message;
+        $('dslError').textContent = error instanceof Error ? error.message : String(error);
       }
     });
-    $('copyJsonBtn').addEventListener('click', async () => {
+    $('copyDslBtn').addEventListener('click', async () => {
       try {
-        await navigator.clipboard.writeText(jsonEditor.value);
-        $('copyJsonBtn').textContent = 'Copied';
-        setTimeout(() => $('copyJsonBtn').textContent = 'Copy', 900);
+        await navigator.clipboard.writeText(dslEditor.value);
+        $('copyDslBtn').textContent = 'Copied';
+        setTimeout(() => $('copyDslBtn').textContent = 'Copy', 900);
       } catch {
-        jsonEditor.select();
+        dslEditor.select();
         document.execCommand('copy');
       }
     });
+    $('positionsDslBtn').addEventListener('click', () => {
+      includeDslPositions = !includeDslPositions;
+      updatePositionsDslButton();
+      syncDslEditor();
+    });
     $('exportBtn').addEventListener('click', exportJson);
     $('resetBtn').addEventListener('click', () => {
-      graph = clone(initialGraph);
+      graph = normalizeGraph(initialGraph);
+      authoredLayoutHintIds = extractLayoutHintIds(initialGraph);
+      includeDslPositions = false;
+      updatePositionsDslButton();
       elkRoutes.clear();
       elkLayoutActive = false;
       updateLayoutEngineLabel();
@@ -1085,28 +1236,36 @@ const TYPE_COLUMNS = {
     });
 
     (window as any).flow = {
-      get: () => clone(graph),
+      get: () => clone(toFlowGraph()),
       set: (nextGraph) => {
+        const hasPositions = Boolean(nextGraph?.layout?.positions && Object.keys(nextGraph.layout.positions).length);
         graph = normalizeGraph(nextGraph);
+        authoredLayoutHintIds = extractLayoutHintIds(nextGraph);
         elkRoutes.clear();
         elkLayoutActive = false;
         updateLayoutEngineLabel();
         selectedNodeId = null;
         renderAll();
-        fitView();
-        return clone(graph);
+        if (hasPositions) fitView();
+        else void autoLayout();
+        return clone(toFlowGraph());
       },
       addNode,
       addEdge,
       autoLayout,
       fitView,
       select: selectNode,
-      exportJSON: () => JSON.stringify(graph, null, 2),
+      parse: (source) => clone(parseGraphDsl(source)),
+      validate: (source) => clone(parseGraphDslWithDiagnostics(source)),
+      toDSL: (options = {}) => graphToDsl(toFlowGraph(), options),
+      exportJSON: () => JSON.stringify(toFlowGraph(), null, 2),
       schema: {
-        schemaVersion: 2,
+        dslVersion: 1,
+        schemaVersion: 3,
         nodeTypes: Object.keys(TYPE_COLUMNS),
-        node: '{ id, type, title, body, tags[], layout:{column,row}, position:{x,y} }',
-        edge: '{ id, from, to, label?, emphasis? }',
+        node: 'node <id> <type> "<title>" body="..." tags=["a","b"] layout=<column>,<row>',
+        edge: 'edge <id> <from> -> <to> label="..." emphasis=true',
+        position: 'position <node-id> <x>,<y> (optional)',
       },
     };
 
@@ -1115,9 +1274,12 @@ const TYPE_COLUMNS = {
       try {
         const saved = localStorage.getItem(STORAGE_KEY);
         hasSavedGraph = Boolean(saved);
-        graph = saved ? normalizeGraph(JSON.parse(saved)) : clone(initialGraph);
+        const restoredGraph = saved ? JSON.parse(saved) : initialGraph;
+        graph = normalizeGraph(restoredGraph);
+        authoredLayoutHintIds = extractLayoutHintIds(restoredGraph);
       } catch {
-        graph = clone(initialGraph);
+        graph = normalizeGraph(initialGraph);
+        authoredLayoutHintIds = extractLayoutHintIds(initialGraph);
       }
       updateLayoutEngineLabel();
       renderAll();

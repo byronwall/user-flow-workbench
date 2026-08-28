@@ -1,4 +1,9 @@
-export function Toolbar() {
+interface ToolbarProps {
+  isCodePanelVisible: boolean;
+  onToggleCodePanel: () => void;
+}
+
+export function Toolbar(props: ToolbarProps) {
   return (
     <header class="topbar">
       <div class="brand">
@@ -14,6 +19,15 @@ export function Toolbar() {
       </div>
       <div class="spacer" />
       <div class="toolbar" aria-label="Graph actions">
+        <button
+          class="btn code-panel-toggle"
+          type="button"
+          aria-controls="graph-json-panel"
+          aria-expanded={props.isCodePanelVisible}
+          onClick={props.onToggleCodePanel}
+        >
+          {props.isCodePanelVisible ? "Hide code" : "Show code"}
+        </button>
         <button class="btn" id="exportBtn" type="button">Export JSON</button>
         <button class="btn" id="resetBtn" type="button">Reset example</button>
       </div>

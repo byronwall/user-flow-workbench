@@ -10,23 +10,15 @@ export const NODE_TYPES = [
 
 export type NodeType = (typeof NODE_TYPES)[number];
 
-export interface FlowNode {
+export interface GraphNode {
   id: string;
   type: NodeType;
   title: string;
-  body: string;
-  tags: string[];
-  layout: {
-    column: number;
-    row: number;
-  };
-  position: {
-    x: number;
-    y: number;
-  };
+  body?: string;
+  tags?: string[];
 }
 
-export interface FlowEdge {
+export interface GraphEdge {
   id: string;
   from: string;
   to: string;
@@ -34,11 +26,53 @@ export interface FlowEdge {
   emphasis?: boolean;
 }
 
+export interface LayoutHint {
+  column: number;
+  row: number;
+}
+
+export interface NodePosition {
+  x: number;
+  y: number;
+}
+
+export interface GraphLayout {
+  hints?: Record<string, LayoutHint>;
+  positions?: Record<string, NodePosition>;
+}
+
+/** The persisted and agent-facing graph. Layout is optional view state. */
 export interface FlowGraph {
-  schemaVersion: 2;
+  dslVersion: 1;
+  schemaVersion: 3;
+  id: string;
+  title: string;
+  description?: string;
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+  layout?: GraphLayout;
+}
+
+/** The normalized canvas projection. The renderer always has usable layout values. */
+export interface CanvasNode extends GraphNode {
+  body: string;
+  tags: string[];
+  layout: LayoutHint;
+  position: NodePosition;
+}
+
+export interface CanvasEdge extends GraphEdge {
+  id: string;
+  label: string;
+  emphasis: boolean;
+}
+
+export interface CanvasGraph {
+  dslVersion: 1;
+  schemaVersion: 3;
   id: string;
   title: string;
   description: string;
-  nodes: FlowNode[];
-  edges: FlowEdge[];
+  nodes: CanvasNode[];
+  edges: CanvasEdge[];
 }

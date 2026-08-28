@@ -24,9 +24,12 @@ pnpm build
 
 ## Current capabilities
 
-- Store nodes and edges as plain JSON.
-- Place nodes manually with `position: { x, y }`.
-- request automatic placement with `layout: { column, row, lane }`.
+- Write one node per line in a compact flow DSL.
+- Give every edge a stable ID with `edge id from -> to`.
+- Convert the DSL to schema version 3 JSON for rendering and export.
+- Keep semantic nodes and edges separate from optional layout state.
+- Save exact positions as optional `position id x,y` DSL lines.
+- Request automatic placement when positions do not exist.
 - Drag nodes and pan or zoom the canvas.
 - Show title-only nodes and full details in the inspector.
 - Add, duplicate, delete, and edit nodes.
@@ -48,12 +51,46 @@ See [docs/product-context.md](docs/product-context.md) for the original intent, 
 
 - `src/routes/index.tsx` loads the starter graph and renders the SPA.
 - `src/routes/api/graph.ts` serves the starter graph as JSON.
-- `src/components/` contains the page shell, toolbar, JSON panel, canvas, and inspector.
+- `src/components/` contains the page shell, toolbar, DSL panel, canvas, and inspector.
+- `src/lib/graph-dsl.ts` parses and writes the agent-facing flow DSL.
 - `src/lib/flow-workbench.ts` contains direct manipulation, routing, layout, and the agent API.
 - `src/data/example-flow.json` is the server-owned starter graph.
 - `src/styles.css` contains the visual system from the prototype.
 
 ELK is installed as a package and loads as a separate browser bundle. The local Manhattan router remains the fallback. The browser keeps the editable working graph in `localStorage`.
+
+## Flow DSL
+
+See the normative [Flow DSL specification](docs/flow-dsl-spec.md). A complete example is in [checkout.flow](docs/examples/checkout.flow).
+
+Draft 0.2 uses `flow 1`, required edge IDs, quoted strings, structural tags, and canonical formatting.
+
+The shortest useful graph has two node lines and one edge line:
+
+```text
+flow 1
+
+graph signup "New user signup"
+node visitor actor "Visitor"
+node account goal "Account created"
+edge signup-completes visitor -> account label="signs up" emphasis=true
+```
+
+Node options stay on the same line:
+
+```text
+node form process "Complete form" body="Collect the required details." tags=["signup","input"] layout=2,0
+```
+
+The `layout` option is a hint. Omit it to derive a column from the node type and a stable row. Exact positions are also optional:
+
+```text
+# Optional manual positions. Delete these lines to use automatic layout.
+position visitor 88,72
+position account 1418,72
+```
+
+Use **Add positions** after moving nodes to write all current coordinates back to the DSL. JSON export puts hints and positions in the top-level `layout` object. Nodes stay semantic and do not own canvas state.
 
 The preserved single-file prototype is in `docs/prototype/index.html`.
 
