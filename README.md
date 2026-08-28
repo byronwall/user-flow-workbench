@@ -1,20 +1,26 @@
 # User Flow Workbench
 
-This repository starts a diagramming tool for schema-first product and user-flow maps.
+This repository contains a SolidStart SPA for schema-first product and user-flow maps.
 
-The current prototype is one dependency-light HTML file. It combines a graph editor, a canvas, an inspector, and layout logic. The initial example maps a truthful resume-tailoring flow. The tool is general. The resume flow is sample data, not the product boundary.
+The app combines a graph editor, a canvas, an inspector, and layout logic. The initial example maps a truthful resume-tailoring flow. The tool is general. The resume flow is sample data, not the product boundary.
 
-## Start the prototype
+## Start the app
 
-Run a local server from the repository root:
+Use Node.js 22 and pnpm 11. Then run:
 
 ```sh
-python3 -m http.server 4173
+pnpm install
+pnpm dev
 ```
 
-Then open <http://localhost:4173>.
+Vinxi prints the local URL. It usually uses <http://localhost:3000>.
 
-You can also open `index.html` directly. A local server gives more consistent browser behavior.
+Run the production checks with:
+
+```sh
+pnpm typecheck
+pnpm build
+```
 
 ## Current capabilities
 
@@ -38,9 +44,18 @@ The next major concept is variants. A variant is not a separate node lane. It is
 
 See [docs/product-context.md](docs/product-context.md) for the original intent, decisions, and open questions. See [docs/iteration-history.md](docs/iteration-history.md) for the prototype history.
 
-## Current architecture
+## Architecture
 
-`index.html` contains all markup, styles, sample data, rendering, editing, routing, and layout code. It loads `elkjs@0.12.0` from jsDelivr. This structure makes the starting point easy to inspect and change. It is not a required long-term architecture.
+- `src/routes/index.tsx` loads the starter graph and renders the SPA.
+- `src/routes/api/graph.ts` serves the starter graph as JSON.
+- `src/components/` contains the page shell, toolbar, JSON panel, canvas, and inspector.
+- `src/lib/flow-workbench.ts` contains direct manipulation, routing, layout, and the agent API.
+- `src/data/example-flow.json` is the server-owned starter graph.
+- `src/styles.css` contains the visual system from the prototype.
+
+ELK is installed as a package and loads as a separate browser bundle. The local Manhattan router remains the fallback. The browser keeps the editable working graph in `localStorage`.
+
+The preserved single-file prototype is in `docs/prototype/index.html`.
 
 ## Source
 

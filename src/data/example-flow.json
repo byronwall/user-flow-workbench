@@ -1,0 +1,460 @@
+{
+  "schemaVersion": 2,
+  "id": "resume-alignment-flow",
+  "title": "Tailor a resume to a job posting",
+  "description": "Map user intent to fundamental needs, process, handoffs, deliverables, UX, and outcome.",
+  "nodes": [
+    {
+      "id": "user",
+      "type": "actor",
+      "title": "Job seeker",
+      "body": "Has an existing resume and a target job posting. Wants a stronger application without inventing experience.",
+      "tags": [
+        "source of truth"
+      ],
+      "layout": {
+        "column": 0,
+        "row": 3
+      },
+      "position": {
+        "x": 88,
+        "y": 318
+      }
+    },
+    {
+      "id": "need-understand",
+      "type": "need",
+      "title": "Understand what the role actually needs",
+      "body": "Translate a noisy posting into the outcomes, skills, constraints, seniority signals, and evidence that matter most.",
+      "tags": [
+        "fundamental need"
+      ],
+      "layout": {
+        "column": 1,
+        "row": 1
+      },
+      "position": {
+        "x": 354,
+        "y": 154
+      }
+    },
+    {
+      "id": "need-truth",
+      "type": "need",
+      "title": "Stay truthful and defensible",
+      "body": "Every tailored claim must be grounded in real experience the user can defend in an interview.",
+      "tags": [
+        "trust"
+      ],
+      "layout": {
+        "column": 1,
+        "row": 3
+      },
+      "position": {
+        "x": 354,
+        "y": 318
+      }
+    },
+    {
+      "id": "need-effort",
+      "type": "need",
+      "title": "Spend effort where it changes the outcome",
+      "body": "Prioritize high-impact changes instead of asking the user to rewrite everything for every application.",
+      "tags": [
+        "efficiency"
+      ],
+      "layout": {
+        "column": 1,
+        "row": 5
+      },
+      "position": {
+        "x": 354,
+        "y": 482
+      }
+    },
+    {
+      "id": "parse-posting",
+      "type": "process",
+      "title": "1. Parse the job posting",
+      "body": "Extract responsibilities, required capabilities, preferences, repeated themes, seniority cues, and likely evaluation criteria.",
+      "tags": [
+        "input: posting"
+      ],
+      "layout": {
+        "column": 2,
+        "row": 0
+      },
+      "position": {
+        "x": 620,
+        "y": 72
+      }
+    },
+    {
+      "id": "inventory",
+      "type": "process",
+      "title": "2. Inventory resume evidence",
+      "body": "Break the current resume into roles, accomplishments, skills, scope, metrics, domains, and keywords.",
+      "tags": [
+        "input: resume"
+      ],
+      "layout": {
+        "column": 2,
+        "row": 2
+      },
+      "position": {
+        "x": 620,
+        "y": 236
+      }
+    },
+    {
+      "id": "map-evidence",
+      "type": "process",
+      "title": "3. Map requirements to evidence",
+      "body": "For each meaningful requirement: matched, weakly matched, unsupported, or irrelevant. Rank by application impact.",
+      "tags": [
+        "reasoning"
+      ],
+      "layout": {
+        "column": 2,
+        "row": 4
+      },
+      "position": {
+        "x": 620,
+        "y": 400
+      }
+    },
+    {
+      "id": "draft",
+      "type": "process",
+      "title": "4. Draft targeted changes",
+      "body": "Reorder, tighten, and rewrite bullets to foreground relevant evidence. Add terminology only when substantively true.",
+      "tags": [
+        "transformation"
+      ],
+      "layout": {
+        "column": 2,
+        "row": 6
+      },
+      "position": {
+        "x": 620,
+        "y": 564
+      }
+    },
+    {
+      "id": "handoff-req",
+      "type": "handoff",
+      "title": "Posting → requirements model",
+      "body": "The raw posting becomes a structured, prioritized set of needs that later steps can cite.",
+      "tags": [
+        "handoff"
+      ],
+      "layout": {
+        "column": 3,
+        "row": 0
+      },
+      "position": {
+        "x": 886,
+        "y": 72
+      }
+    },
+    {
+      "id": "requirements-brief",
+      "type": "deliverable",
+      "title": "Requirements brief",
+      "body": "A compact model of what matters most: top outcomes, skills, constraints, keywords, and evidence expectations.",
+      "tags": [
+        "deliverable"
+      ],
+      "layout": {
+        "column": 3,
+        "row": 1
+      },
+      "position": {
+        "x": 886,
+        "y": 154
+      }
+    },
+    {
+      "id": "handoff-evidence",
+      "type": "handoff",
+      "title": "Resume → evidence model",
+      "body": "Resume claims become structured evidence with provenance back to the user’s source content.",
+      "tags": [
+        "handoff"
+      ],
+      "layout": {
+        "column": 3,
+        "row": 2
+      },
+      "position": {
+        "x": 886,
+        "y": 236
+      }
+    },
+    {
+      "id": "match-matrix",
+      "type": "deliverable",
+      "title": "Match / gap matrix",
+      "body": "Requirement-by-requirement mapping with evidence, confidence, gaps, and recommended treatment.",
+      "tags": [
+        "deliverable"
+      ],
+      "layout": {
+        "column": 3,
+        "row": 4
+      },
+      "position": {
+        "x": 886,
+        "y": 400
+      }
+    },
+    {
+      "id": "handoff-review",
+      "type": "handoff",
+      "title": "Draft → human approval",
+      "body": "Suggested edits remain proposed changes until the user reviews unsupported assumptions and wording changes.",
+      "tags": [
+        "approval"
+      ],
+      "layout": {
+        "column": 3,
+        "row": 6
+      },
+      "position": {
+        "x": 886,
+        "y": 564
+      }
+    },
+    {
+      "id": "tailored-resume",
+      "type": "deliverable",
+      "title": "Tailored resume",
+      "body": "A ready-to-export resume emphasizing the strongest true evidence for this specific role.",
+      "tags": [
+        "deliverable"
+      ],
+      "layout": {
+        "column": 3,
+        "row": 7
+      },
+      "position": {
+        "x": 886,
+        "y": 646
+      }
+    },
+    {
+      "id": "ux-sources",
+      "type": "ux",
+      "title": "Side-by-side source context",
+      "body": "Keep the posting and resume visible beside extracted requirements and evidence so the user can verify reasoning quickly.",
+      "tags": [
+        "traceability"
+      ],
+      "layout": {
+        "column": 4,
+        "row": 0
+      },
+      "position": {
+        "x": 1152,
+        "y": 72
+      }
+    },
+    {
+      "id": "ux-evidence",
+      "type": "ux",
+      "title": "Evidence chips + confidence",
+      "body": "Every recommendation shows why it exists, what source supports it, and whether the match is strong or tentative.",
+      "tags": [
+        "explainability"
+      ],
+      "layout": {
+        "column": 4,
+        "row": 2
+      },
+      "position": {
+        "x": 1152,
+        "y": 236
+      }
+    },
+    {
+      "id": "ux-priority",
+      "type": "ux",
+      "title": "Prioritized actions, not a wall of edits",
+      "body": "Lead with the few changes most likely to improve relevance. Separate critical fixes from optional polish.",
+      "tags": [
+        "focus"
+      ],
+      "layout": {
+        "column": 4,
+        "row": 4
+      },
+      "position": {
+        "x": 1152,
+        "y": 400
+      }
+    },
+    {
+      "id": "ux-diff",
+      "type": "ux",
+      "title": "Diff + approval gate",
+      "body": "Show before/after text, let the user accept per change, and flag statements that may overreach the source resume.",
+      "tags": [
+        "control",
+        "trust"
+      ],
+      "layout": {
+        "column": 4,
+        "row": 6
+      },
+      "position": {
+        "x": 1152,
+        "y": 564
+      }
+    },
+    {
+      "id": "goal",
+      "type": "goal",
+      "title": "Submit a stronger, truthful application",
+      "body": "The final resume is more relevant to the target role, easy to defend in an interview, and faster to produce.",
+      "tags": [
+        "desired outcome"
+      ],
+      "layout": {
+        "column": 5,
+        "row": 3.5
+      },
+      "position": {
+        "x": 1418,
+        "y": 359
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "from": "user",
+      "to": "need-understand"
+    },
+    {
+      "id": "e2",
+      "from": "user",
+      "to": "need-truth"
+    },
+    {
+      "id": "e3",
+      "from": "user",
+      "to": "need-effort"
+    },
+    {
+      "id": "e4",
+      "from": "need-understand",
+      "to": "parse-posting",
+      "label": "interpret"
+    },
+    {
+      "id": "e5",
+      "from": "need-truth",
+      "to": "inventory",
+      "label": "ground in evidence"
+    },
+    {
+      "id": "e6",
+      "from": "parse-posting",
+      "to": "handoff-req"
+    },
+    {
+      "id": "e7",
+      "from": "handoff-req",
+      "to": "requirements-brief"
+    },
+    {
+      "id": "e8",
+      "from": "inventory",
+      "to": "handoff-evidence"
+    },
+    {
+      "id": "e9",
+      "from": "requirements-brief",
+      "to": "map-evidence"
+    },
+    {
+      "id": "e10",
+      "from": "handoff-evidence",
+      "to": "map-evidence"
+    },
+    {
+      "id": "e11",
+      "from": "map-evidence",
+      "to": "match-matrix",
+      "label": "rank matches + gaps",
+      "emphasis": true
+    },
+    {
+      "id": "e12",
+      "from": "match-matrix",
+      "to": "draft"
+    },
+    {
+      "id": "e13",
+      "from": "need-effort",
+      "to": "draft",
+      "label": "focus high-value edits"
+    },
+    {
+      "id": "e14",
+      "from": "draft",
+      "to": "handoff-review"
+    },
+    {
+      "id": "e15",
+      "from": "handoff-review",
+      "to": "tailored-resume"
+    },
+    {
+      "id": "e16",
+      "from": "requirements-brief",
+      "to": "ux-sources"
+    },
+    {
+      "id": "e17",
+      "from": "match-matrix",
+      "to": "ux-evidence"
+    },
+    {
+      "id": "e18",
+      "from": "match-matrix",
+      "to": "ux-priority"
+    },
+    {
+      "id": "e19",
+      "from": "handoff-review",
+      "to": "ux-diff"
+    },
+    {
+      "id": "e20",
+      "from": "tailored-resume",
+      "to": "goal",
+      "emphasis": true
+    },
+    {
+      "id": "e21",
+      "from": "ux-sources",
+      "to": "goal"
+    },
+    {
+      "id": "e22",
+      "from": "ux-evidence",
+      "to": "goal"
+    },
+    {
+      "id": "e23",
+      "from": "ux-priority",
+      "to": "goal"
+    },
+    {
+      "id": "e24",
+      "from": "ux-diff",
+      "to": "goal"
+    }
+  ]
+}

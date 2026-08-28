@@ -58,13 +58,16 @@ Do not model variants as a vertical lane of special nodes. A future variant star
 ## Current implementation details
 
 - The graph schema version is `2`.
-- The prototype stores state in `localStorage`.
-- ELK loads from `https://cdn.jsdelivr.net/npm/elkjs@0.12.0/lib/elk.bundled.js`.
+- The app is a TypeScript SolidStart SPA.
+- The server serves the starter graph from `GET /api/graph`.
+- The browser stores the editable working graph in `localStorage`.
+- ELK loads from the installed `elkjs@0.12.0` package as a separate browser bundle.
 - ELK uses a rightward layered graph with semantic column partitions.
 - ELK uses fixed-side ports and orthogonal edge routing.
 - Backward semantic edges do not constrain ELK layout. The local router handles them.
 - Automatic layout keeps a readable minimum zoom. The Fit command can show the full graph.
 - `window.flow` exposes graph access, mutation, layout, fit, and export functions.
+- The original single-file prototype remains in `docs/prototype/index.html`.
 
 ## Example domain
 
@@ -82,11 +85,10 @@ This example tests whether the diagram can show user intent, system work, inform
 
 1. Improve handoff and deliverable grouping. Test compact visual pairs for a transformation and its artifact.
 2. Define the variant data model. Separate shared graph data from view-specific emphasis or changes.
-3. Decide whether to keep the single-file architecture or split the prototype into modules.
-4. Add graph validation, undo and redo, and safer schema migrations.
-5. Test large diagrams, dense crossings, backward edges, and disconnected groups.
-6. Improve keyboard access, focus behavior, and inspector behavior on small screens.
-7. Decide how diagrams are saved, named, duplicated, imported, and shared.
+3. Add graph validation, undo and redo, and safer schema migrations.
+4. Test large diagrams, dense crossings, backward edges, and disconnected groups.
+5. Improve keyboard access, focus behavior, and inspector behavior on small screens.
+6. Decide how diagrams are saved, named, duplicated, imported, and shared.
 
 ## Open product questions
 
