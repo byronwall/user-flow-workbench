@@ -1,0 +1,1613 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>User Flow Workbench</title>
+  <style>
+    :root {
+      --bg: #f6f7fb;
+      --panel: #ffffff;
+      --panel-2: #f9fafb;
+      --border: #d9dee8;
+      --border-strong: #b9c1cf;
+      --text: #18202c;
+      --muted: #667085;
+      --accent: #315efb;
+      --shadow: 0 12px 30px rgba(15, 23, 42, 0.10);
+      --actor: #f3f4f6;
+      --need: #fff8df;
+      --process: #edf7ff;
+      --handoff: #f5efff;
+      --deliverable: #ebfaf0;
+      --ux: #fff0f5;
+      --goal: #e9f8f5;
+      --danger: #b42318;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 14px/1.45 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      overflow: hidden;
+    }
+
+    button, input, textarea, select { font: inherit; }
+    button { cursor: pointer; }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+
+    .app { display: grid; grid-template-rows: auto 1fr; height: 100%; }
+    .topbar {
+      min-height: 64px;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(255,255,255,.96);
+      backdrop-filter: blur(12px);
+      z-index: 20;
+    }
+    .brand { min-width: 260px; }
+    .brand h1 { margin: 0; font-size: 16px; letter-spacing: -.01em; }
+    .brand p { margin: 2px 0 0; color: var(--muted); font-size: 12px; }
+    .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .spacer { flex: 1; }
+
+    .btn {
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--text);
+      padding: 7px 10px;
+      border-radius: 8px;
+      min-height: 34px;
+    }
+    .btn:hover { border-color: var(--border-strong); background: #fbfcfe; }
+    .btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .btn.danger { color: var(--danger); }
+    .btn:disabled { opacity: .45; cursor: default; }
+
+    .shell { min-height: 0; display: grid; grid-template-columns: 350px minmax(0, 1fr) 340px; }
+    .panel { background: var(--panel); min-height: 0; display: flex; flex-direction: column; z-index: 10; }
+    .panel.left { border-right: 1px solid var(--border); }
+    .panel.right { border-left: 1px solid var(--border); }
+    .panel-head { padding: 14px 14px 10px; border-bottom: 1px solid var(--border); }
+    .panel-head h2 { margin: 0; font-size: 13px; }
+    .panel-head p { margin: 4px 0 0; font-size: 12px; color: var(--muted); }
+    .panel-body { min-height: 0; overflow: auto; padding: 12px 14px 18px; }
+
+    .json-editor {
+      width: 100%;
+      min-height: 55vh;
+      resize: vertical;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #0f172a;
+      color: #dbeafe;
+      padding: 12px;
+      font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      tab-size: 2;
+      outline: none;
+    }
+    .json-editor:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(49,94,251,.12); }
+    .row { display: flex; gap: 8px; align-items: center; }
+    .row + .row { margin-top: 8px; }
+    .hint {
+      margin-top: 12px;
+      padding: 10px;
+      border: 1px solid var(--border);
+      background: var(--panel-2);
+      border-radius: 8px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .hint code { color: var(--text); }
+
+    .canvas-wrap { min-width: 0; min-height: 0; position: relative; background: #eef1f6; }
+    .viewport {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      cursor: grab;
+      background-image:
+        linear-gradient(rgba(94,105,125,.07) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(94,105,125,.07) 1px, transparent 1px);
+      background-size: 24px 24px;
+    }
+    .viewport.panning { cursor: grabbing; }
+    .world { position: absolute; left: 0; top: 0; width: 2240px; height: 1300px; transform-origin: 0 0; }
+
+    .lane {
+      position: absolute;
+      top: 34px;
+      bottom: 44px;
+      width: 252px;
+      border-left: 1px dashed rgba(102,112,133,.24);
+      pointer-events: none;
+    }
+    .lane-label {
+      position: absolute;
+      top: 10px;
+      left: 12px;
+      text-transform: uppercase;
+      letter-spacing: .075em;
+      font-weight: 800;
+      font-size: 10px;
+      color: #7a8496;
+      white-space: nowrap;
+    }
+
+    .edges { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+    .edge-path {
+      fill: none;
+      stroke: #9aa5b5;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      marker-end: url(#arrow);
+      vector-effect: non-scaling-stroke;
+    }
+    .edge-path.emphasis { stroke: #596579; stroke-width: 2.5; }
+    .edge-label-bg { fill: rgba(255,255,255,.96); stroke: #d7dce5; stroke-width: 1; vector-effect: non-scaling-stroke; }
+    .edge-label { fill: #5f6b7d; font-size: 11px; font-weight: 600; text-anchor: middle; dominant-baseline: middle; }
+
+    .node {
+      position: absolute;
+      width: 216px;
+      min-height: 58px;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      border: 1px solid var(--border-strong);
+      border-radius: 12px;
+      padding: 9px 11px;
+      background: #fff;
+      box-shadow: 0 5px 14px rgba(15,23,42,.06);
+      user-select: none;
+      touch-action: none;
+      cursor: grab;
+      transition: box-shadow .12s ease, border-color .12s ease, transform .12s ease;
+    }
+    .node:hover { box-shadow: 0 9px 22px rgba(15,23,42,.10); }
+    .node.selected { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(49,94,251,.14), 0 9px 22px rgba(15,23,42,.10); }
+    .node.dragging { cursor: grabbing; box-shadow: var(--shadow); transition: none; }
+    .node[data-type="actor"] { background: var(--actor); border-width: 2px; }
+    .node[data-type="need"] { background: var(--need); }
+    .node[data-type="process"] { background: var(--process); }
+    .node[data-type="handoff"] { background: var(--handoff); }
+    .node[data-type="deliverable"] { background: var(--deliverable); }
+    .node[data-type="ux"] { background: var(--ux); }
+    .node[data-type="goal"] { background: var(--goal); border-width: 2px; }
+
+    .node-icon {
+      width: 28px;
+      height: 28px;
+      flex: 0 0 28px;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(24,32,44,.11);
+      border-radius: 9px;
+      background: rgba(255,255,255,.68);
+      color: #4c596d;
+    }
+    .node[data-type="actor"] .node-icon { background: #fff; color: #253858; }
+    .node[data-type="handoff"] .node-icon { color: #6848a5; }
+    .node[data-type="deliverable"] .node-icon { color: #287548; }
+    .node[data-type="goal"] .node-icon { color: #167066; }
+    .node-icon svg { width: 17px; height: 17px; display: block; }
+    .node-title { font-size: 14px; line-height: 1.25; font-weight: 760; letter-spacing: -.01em; overflow-wrap: anywhere; }
+
+    .canvas-status {
+      position: absolute;
+      left: 12px;
+      bottom: 12px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      background: rgba(255,255,255,.94);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 7px 9px;
+      box-shadow: 0 6px 20px rgba(15,23,42,.08);
+      z-index: 5;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .inspector-summary {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      padding: 10px;
+      margin-bottom: 14px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--panel-2);
+    }
+    .inspector-summary .node-icon { background: #fff; }
+    .inspector-summary strong { display: block; font-size: 13px; }
+    .inspector-summary span { display: block; margin-top: 2px; color: var(--muted); font-size: 11px; }
+
+    .field { margin-bottom: 12px; }
+    .field label { display: block; margin-bottom: 5px; color: #505a6b; font-weight: 650; font-size: 11px; }
+    .field input, .field textarea, .field select {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--text);
+      padding: 8px 9px;
+      outline: none;
+    }
+    .field textarea { min-height: 120px; resize: vertical; line-height: 1.5; }
+    .field input:focus, .field textarea:focus, .field select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(49,94,251,.10); }
+    .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .empty-state { padding: 18px; border: 1px dashed var(--border-strong); border-radius: 10px; color: var(--muted); background: var(--panel-2); font-size: 12px; }
+    .legend { display: flex; flex-wrap: wrap; gap: 6px; }
+    .legend span { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--border); padding: 4px 7px; border-radius: 999px; font-size: 10px; color: var(--muted); background: #fff; }
+    .legend svg { width: 13px; height: 13px; }
+    .divider { height: 1px; background: var(--border); margin: 14px 0; }
+    .small { font-size: 11px; color: var(--muted); }
+    .error { color: var(--danger); font-size: 11px; min-height: 16px; margin-top: 5px; }
+
+    @media (max-width: 1120px) {
+      .shell { grid-template-columns: 300px minmax(0, 1fr); }
+      .panel.right { display: none; }
+    }
+    @media (max-width: 820px) {
+      .shell { grid-template-columns: 1fr; }
+      .panel.left { display: none; }
+      .brand p { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <h1>User Flow Workbench</h1>
+        <p>Schema-first flow mapping for needs, process, handoffs, deliverables, and UX.</p>
+      </div>
+      <div class="toolbar">
+        <button class="btn primary" id="autoLayoutBtn">Auto layout</button>
+        <button class="btn" id="fitBtn">Fit</button>
+        <button class="btn" id="addBtn">Add node</button>
+        <button class="btn" id="duplicateBtn" disabled>Duplicate</button>
+        <button class="btn danger" id="deleteBtn" disabled>Delete</button>
+      </div>
+      <div class="spacer"></div>
+      <div class="toolbar">
+        <button class="btn" id="exportBtn">Export JSON</button>
+        <button class="btn" id="resetBtn">Reset example</button>
+      </div>
+    </header>
+
+    <div class="shell">
+      <aside class="panel left">
+        <div class="panel-head">
+          <h2>Graph JSON</h2>
+          <p>The canvas is a view of this data. Agents can duplicate and modify the schema directly.</p>
+        </div>
+        <div class="panel-body">
+          <textarea id="jsonEditor" class="json-editor" spellcheck="false"></textarea>
+          <div class="error" id="jsonError"></div>
+          <div class="row">
+            <button class="btn primary" id="applyJsonBtn">Apply JSON</button>
+            <button class="btn" id="formatJsonBtn">Format</button>
+            <button class="btn" id="copyJsonBtn">Copy</button>
+          </div>
+          <div class="hint">
+            <strong>Agent API</strong><br />
+            <code>flow.get()</code> · <code>flow.set(graph)</code> · <code>flow.addNode(node)</code> ·
+            <code>flow.addEdge(edge)</code> · <code>flow.autoLayout()</code>.
+            <br /><br />
+            Nodes keep an exact <code>position</code> plus a semantic <code>layout: { column, row }</code> hint. Auto layout uses ELK Layered when available, with a local fallback.
+          </div>
+        </div>
+      </aside>
+
+      <main class="canvas-wrap">
+        <div class="viewport" id="viewport">
+          <div class="world" id="world">
+            <div id="laneLayer"></div>
+
+            <svg class="edges" id="edgeSvg" viewBox="0 0 2240 1300" preserveAspectRatio="none">
+              <defs>
+                <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="strokeWidth">
+                  <path d="M0,0 L8,4 L0,8 Z" fill="#98a2b3"></path>
+                </marker>
+              </defs>
+              <g id="edgeLayer"></g>
+            </svg>
+            <div id="nodeLayer"></div>
+          </div>
+        </div>
+        <div class="canvas-status">
+          <span id="zoomLabel">100%</span>
+          <span>Wheel = zoom</span>
+          <span>Drag background = pan</span>
+          <span>Drag node = move</span>
+          <span id="layoutEngineLabel">Local orthogonal router</span>
+        </div>
+      </main>
+
+      <aside class="panel right">
+        <div class="panel-head">
+          <h2>Inspector</h2>
+          <p>Node detail stays here so the diagram can remain scannable.</p>
+        </div>
+        <div class="panel-body" id="inspector"></div>
+      </aside>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/elkjs@0.12.0/lib/elk.bundled.js"></script>
+  <script>
+    const TYPE_COLUMNS = {
+      actor: 0,
+      need: 1,
+      process: 2,
+      handoff: 3,
+      deliverable: 3,
+      ux: 4,
+      goal: 5,
+    };
+
+    const COLUMN_X = [88, 354, 620, 886, 1152, 1418];
+    const MAIN_TOP = 72;
+    const ROW_GAP = 82;
+    const NODE_WIDTH = 216;
+    const NODE_HEIGHT = 58;
+    const ROUTE_GRID = 14;
+    const ROUTE_CLEARANCE = 12;
+    const LANE_LABELS = ['User', 'Fundamental needs', 'Process', 'Handoffs + deliverables', 'UI / UX considerations', 'Outcome'];
+    const STORAGE_KEY = 'user-flow-workbench-v3';
+
+    const exampleGraph = {
+      schemaVersion: 2,
+      id: 'resume-alignment-flow',
+      title: 'Tailor a resume to a job posting',
+      description: 'Map user intent to fundamental needs, process, handoffs, deliverables, UX, and outcome.',
+      nodes: [
+        {
+          id: 'user', type: 'actor', title: 'Job seeker',
+          body: 'Has an existing resume and a target job posting. Wants a stronger application without inventing experience.',
+          tags: ['source of truth'], layout: { column: 0, row: 3 }, position: { x: 88, y: 318 }
+        },
+        {
+          id: 'need-understand', type: 'need', title: 'Understand what the role actually needs',
+          body: 'Translate a noisy posting into the outcomes, skills, constraints, seniority signals, and evidence that matter most.',
+          tags: ['fundamental need'], layout: { column: 1, row: 1 }, position: { x: 354, y: 154 }
+        },
+        {
+          id: 'need-truth', type: 'need', title: 'Stay truthful and defensible',
+          body: 'Every tailored claim must be grounded in real experience the user can defend in an interview.',
+          tags: ['trust'], layout: { column: 1, row: 3 }, position: { x: 354, y: 318 }
+        },
+        {
+          id: 'need-effort', type: 'need', title: 'Spend effort where it changes the outcome',
+          body: 'Prioritize high-impact changes instead of asking the user to rewrite everything for every application.',
+          tags: ['efficiency'], layout: { column: 1, row: 5 }, position: { x: 354, y: 482 }
+        },
+        {
+          id: 'parse-posting', type: 'process', title: '1. Parse the job posting',
+          body: 'Extract responsibilities, required capabilities, preferences, repeated themes, seniority cues, and likely evaluation criteria.',
+          tags: ['input: posting'], layout: { column: 2, row: 0 }, position: { x: 620, y: 72 }
+        },
+        {
+          id: 'inventory', type: 'process', title: '2. Inventory resume evidence',
+          body: 'Break the current resume into roles, accomplishments, skills, scope, metrics, domains, and keywords.',
+          tags: ['input: resume'], layout: { column: 2, row: 2 }, position: { x: 620, y: 236 }
+        },
+        {
+          id: 'map-evidence', type: 'process', title: '3. Map requirements to evidence',
+          body: 'For each meaningful requirement: matched, weakly matched, unsupported, or irrelevant. Rank by application impact.',
+          tags: ['reasoning'], layout: { column: 2, row: 4 }, position: { x: 620, y: 400 }
+        },
+        {
+          id: 'draft', type: 'process', title: '4. Draft targeted changes',
+          body: 'Reorder, tighten, and rewrite bullets to foreground relevant evidence. Add terminology only when substantively true.',
+          tags: ['transformation'], layout: { column: 2, row: 6 }, position: { x: 620, y: 564 }
+        },
+        {
+          id: 'handoff-req', type: 'handoff', title: 'Posting → requirements model',
+          body: 'The raw posting becomes a structured, prioritized set of needs that later steps can cite.',
+          tags: ['handoff'], layout: { column: 3, row: 0 }, position: { x: 886, y: 72 }
+        },
+        {
+          id: 'requirements-brief', type: 'deliverable', title: 'Requirements brief',
+          body: 'A compact model of what matters most: top outcomes, skills, constraints, keywords, and evidence expectations.',
+          tags: ['deliverable'], layout: { column: 3, row: 1 }, position: { x: 886, y: 154 }
+        },
+        {
+          id: 'handoff-evidence', type: 'handoff', title: 'Resume → evidence model',
+          body: 'Resume claims become structured evidence with provenance back to the user’s source content.',
+          tags: ['handoff'], layout: { column: 3, row: 2 }, position: { x: 886, y: 236 }
+        },
+        {
+          id: 'match-matrix', type: 'deliverable', title: 'Match / gap matrix',
+          body: 'Requirement-by-requirement mapping with evidence, confidence, gaps, and recommended treatment.',
+          tags: ['deliverable'], layout: { column: 3, row: 4 }, position: { x: 886, y: 400 }
+        },
+        {
+          id: 'handoff-review', type: 'handoff', title: 'Draft → human approval',
+          body: 'Suggested edits remain proposed changes until the user reviews unsupported assumptions and wording changes.',
+          tags: ['approval'], layout: { column: 3, row: 6 }, position: { x: 886, y: 564 }
+        },
+        {
+          id: 'tailored-resume', type: 'deliverable', title: 'Tailored resume',
+          body: 'A ready-to-export resume emphasizing the strongest true evidence for this specific role.',
+          tags: ['deliverable'], layout: { column: 3, row: 7 }, position: { x: 886, y: 646 }
+        },
+        {
+          id: 'ux-sources', type: 'ux', title: 'Side-by-side source context',
+          body: 'Keep the posting and resume visible beside extracted requirements and evidence so the user can verify reasoning quickly.',
+          tags: ['traceability'], layout: { column: 4, row: 0 }, position: { x: 1152, y: 72 }
+        },
+        {
+          id: 'ux-evidence', type: 'ux', title: 'Evidence chips + confidence',
+          body: 'Every recommendation shows why it exists, what source supports it, and whether the match is strong or tentative.',
+          tags: ['explainability'], layout: { column: 4, row: 2 }, position: { x: 1152, y: 236 }
+        },
+        {
+          id: 'ux-priority', type: 'ux', title: 'Prioritized actions, not a wall of edits',
+          body: 'Lead with the few changes most likely to improve relevance. Separate critical fixes from optional polish.',
+          tags: ['focus'], layout: { column: 4, row: 4 }, position: { x: 1152, y: 400 }
+        },
+        {
+          id: 'ux-diff', type: 'ux', title: 'Diff + approval gate',
+          body: 'Show before/after text, let the user accept per change, and flag statements that may overreach the source resume.',
+          tags: ['control', 'trust'], layout: { column: 4, row: 6 }, position: { x: 1152, y: 564 }
+        },
+        {
+          id: 'goal', type: 'goal', title: 'Submit a stronger, truthful application',
+          body: 'The final resume is more relevant to the target role, easy to defend in an interview, and faster to produce.',
+          tags: ['desired outcome'], layout: { column: 5, row: 3.5 }, position: { x: 1418, y: 359 }
+        }
+      ],
+      edges: [
+        { id: 'e1', from: 'user', to: 'need-understand' },
+        { id: 'e2', from: 'user', to: 'need-truth' },
+        { id: 'e3', from: 'user', to: 'need-effort' },
+        { id: 'e4', from: 'need-understand', to: 'parse-posting', label: 'interpret' },
+        { id: 'e5', from: 'need-truth', to: 'inventory', label: 'ground in evidence' },
+        { id: 'e6', from: 'parse-posting', to: 'handoff-req' },
+        { id: 'e7', from: 'handoff-req', to: 'requirements-brief' },
+        { id: 'e8', from: 'inventory', to: 'handoff-evidence' },
+        { id: 'e9', from: 'requirements-brief', to: 'map-evidence' },
+        { id: 'e10', from: 'handoff-evidence', to: 'map-evidence' },
+        { id: 'e11', from: 'map-evidence', to: 'match-matrix', label: 'rank matches + gaps', emphasis: true },
+        { id: 'e12', from: 'match-matrix', to: 'draft' },
+        { id: 'e13', from: 'need-effort', to: 'draft', label: 'focus high-value edits' },
+        { id: 'e14', from: 'draft', to: 'handoff-review' },
+        { id: 'e15', from: 'handoff-review', to: 'tailored-resume' },
+        { id: 'e16', from: 'requirements-brief', to: 'ux-sources' },
+        { id: 'e17', from: 'match-matrix', to: 'ux-evidence' },
+        { id: 'e18', from: 'match-matrix', to: 'ux-priority' },
+        { id: 'e19', from: 'handoff-review', to: 'ux-diff' },
+        { id: 'e20', from: 'tailored-resume', to: 'goal', emphasis: true },
+        { id: 'e21', from: 'ux-sources', to: 'goal' },
+        { id: 'e22', from: 'ux-evidence', to: 'goal' },
+        { id: 'e23', from: 'ux-priority', to: 'goal' },
+        { id: 'e24', from: 'ux-diff', to: 'goal' }
+      ]
+    };
+
+    let graph = structuredClone(exampleGraph);
+    let selectedNodeId = null;
+    let zoom = 0.72;
+    let panX = 20;
+    let panY = 16;
+    let isPanning = false;
+    let panStart = null;
+    let dragState = null;
+    let edgeRenderFrame = null;
+    let elkRoutes = new Map();
+    let elkLayoutActive = false;
+    let elkInstance = null;
+
+    const $ = (id) => document.getElementById(id);
+    const viewport = $('viewport');
+    const world = $('world');
+    const nodeLayer = $('nodeLayer');
+    const laneLayer = $('laneLayer');
+    const edgeLayer = $('edgeLayer');
+    const jsonEditor = $('jsonEditor');
+    const inspector = $('inspector');
+
+    function clone(value) { return JSON.parse(JSON.stringify(value)); }
+
+    function normalizeGraph(input) {
+      const next = clone(input || {});
+      next.schemaVersion = 2;
+      next.id ??= `flow-${Date.now()}`;
+      next.title ??= 'Untitled flow';
+      next.description ??= '';
+      next.nodes = Array.isArray(next.nodes) ? next.nodes : [];
+      next.edges = Array.isArray(next.edges) ? next.edges : [];
+
+      // Variants intentionally do not exist in editor v2. They will return later as repeated diagrams/tabs.
+      next.nodes = next.nodes
+        .filter(node => node?.type !== 'variant')
+        .map((node, index) => ({
+          id: node.id || `node-${index + 1}`,
+          type: TYPE_COLUMNS[node.type] !== undefined ? node.type : 'process',
+          title: node.title || 'Untitled node',
+          body: node.body || '',
+          tags: Array.isArray(node.tags) ? node.tags : [],
+          layout: {
+            column: Number.isFinite(node.layout?.column) ? node.layout.column : (TYPE_COLUMNS[node.type] ?? 2),
+            row: Number.isFinite(node.layout?.row) ? node.layout.row : index,
+          },
+          position: {
+            x: Number.isFinite(node.position?.x) ? node.position.x : 0,
+            y: Number.isFinite(node.position?.y) ? node.position.y : 0,
+          },
+        }));
+
+      const validIds = new Set(next.nodes.map(node => node.id));
+      next.edges = next.edges
+        .filter(edge => edge?.from && edge?.to && validIds.has(edge.from) && validIds.has(edge.to))
+        .map((edge, index) => ({
+          id: edge.id || `edge-${index + 1}`,
+          from: edge.from,
+          to: edge.to,
+          label: edge.label || '',
+          emphasis: Boolean(edge.emphasis),
+        }));
+
+      return next;
+    }
+
+    function syncJsonEditor() {
+      jsonEditor.value = JSON.stringify(graph, null, 2);
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(graph)); } catch {}
+    }
+
+    function renderAll({ syncJson = true } = {}) {
+      renderNodes();
+      renderLanes();
+      scheduleEdgeRender();
+      renderInspector();
+      updateToolbar();
+      if (syncJson) syncJsonEditor();
+    }
+
+    function renderLanes() {
+      laneLayer.innerHTML = '';
+      const positions = LANE_LABELS.map((label, column) => {
+        const xs = graph.nodes
+          .filter(node => Math.round(node.layout.column) === column)
+          .map(node => node.position.x)
+          .sort((a, b) => a - b);
+        const x = xs.length ? xs[Math.floor(xs.length / 2)] : COLUMN_X[column];
+        return { label, column, x };
+      });
+
+      positions.forEach((lane, index) => {
+        const next = positions[index + 1];
+        const width = next ? Math.max(220, next.x - lane.x) : 252;
+        const el = document.createElement('div');
+        el.className = 'lane';
+        el.style.left = `${Math.round(lane.x - 16)}px`;
+        el.style.width = `${Math.round(width)}px`;
+        el.innerHTML = `<div class="lane-label">${escapeHtml(lane.label)}</div>`;
+        laneLayer.appendChild(el);
+      });
+    }
+
+    function renderNodes() {
+      nodeLayer.innerHTML = '';
+      for (const node of graph.nodes) {
+        const el = document.createElement('article');
+        el.className = `node${node.id === selectedNodeId ? ' selected' : ''}`;
+        el.dataset.id = node.id;
+        el.dataset.type = node.type;
+        el.style.left = `${node.position.x}px`;
+        el.style.top = `${node.position.y}px`;
+        el.title = `${node.type}: ${node.title}`;
+        el.innerHTML = `
+          <span class="node-icon" aria-hidden="true">${iconSvg(node.type)}</span>
+          <div class="node-title">${escapeHtml(node.title)}</div>
+        `;
+        el.addEventListener('pointerdown', (event) => startNodeDrag(event, node.id));
+        nodeLayer.appendChild(el);
+      }
+    }
+
+    function scheduleEdgeRender() {
+      if (edgeRenderFrame) return;
+      edgeRenderFrame = requestAnimationFrame(() => {
+        edgeRenderFrame = null;
+        renderEdges();
+      });
+    }
+
+    function renderEdges() {
+      edgeLayer.innerHTML = '';
+      const rects = getNodeRects();
+      const nodesById = new Map(graph.nodes.map(node => [node.id, node]));
+      const segmentUsage = new Map();
+
+      // Stable ordering makes shared route trunks deterministic.
+      const edges = [...graph.edges].sort((a, b) => {
+        const af = nodesById.get(a.from)?.layout.column ?? 0;
+        const bf = nodesById.get(b.from)?.layout.column ?? 0;
+        return af - bf || a.from.localeCompare(b.from) || a.to.localeCompare(b.to);
+      });
+
+      for (const edge of edges) {
+        const from = nodesById.get(edge.from);
+        const to = nodesById.get(edge.to);
+        const fromRect = rects.get(edge.from);
+        const toRect = rects.get(edge.to);
+        if (!from || !to || !fromRect || !toRect) continue;
+
+        const elkRoute = elkRoutes.get(edge.id);
+        const route = elkRoute || routeEdge(fromRect, toRect, rects, segmentUsage);
+        if (!route.points.length) continue;
+
+        const path = svgEl('path', {
+          d: pointsToPath(route.points),
+          class: `edge-path${edge.emphasis ? ' emphasis' : ''}`,
+        });
+        edgeLayer.appendChild(path);
+
+        for (const segmentKey of route.gridSegments || []) {
+          segmentUsage.set(segmentKey, (segmentUsage.get(segmentKey) || 0) + 1);
+        }
+
+        if (edge.label) renderEdgeLabel(edge.label, route.points, route.labelPosition);
+      }
+    }
+
+    function getNodeRects() {
+      const rects = new Map();
+      for (const node of graph.nodes) {
+        const el = nodeLayer.querySelector(`[data-id="${cssEscape(node.id)}"]`);
+        rects.set(node.id, {
+          id: node.id,
+          x: node.position.x,
+          y: node.position.y,
+          w: el?.offsetWidth || NODE_WIDTH,
+          h: el?.offsetHeight || NODE_HEIGHT,
+        });
+      }
+      return rects;
+    }
+
+    function routeEdge(fromRect, toRect, rects, segmentUsage) {
+      const ports = choosePorts(fromRect, toRect);
+      const obstacles = [...rects.values()].map(rect => inflateRect(rect, ROUTE_CLEARANCE));
+      const bounds = routeBounds(rects);
+
+      let startGrid = snapPoint(ports.startPort);
+      let endGrid = snapPoint(ports.endPort);
+      startGrid = pushGridPointOutside(startGrid, ports.startSide, obstacles, bounds);
+      endGrid = pushGridPointOutside(endGrid, ports.endSide, obstacles, bounds);
+
+      const rawGrid = aStarOrthogonal(startGrid, endGrid, obstacles, bounds, segmentUsage);
+      const fallback = [startGrid, { x: startGrid.x, y: endGrid.y }, endGrid];
+      const gridPoints = rawGrid.length ? rawGrid : fallback;
+      const compressedGrid = compressOrthogonal(gridPoints);
+
+      const points = dedupePoints([
+        ports.startAnchor,
+        ports.startPort,
+        ...compressedGrid,
+        ports.endPort,
+        ports.endAnchor,
+      ]);
+
+      return {
+        points: compressOrthogonal(points),
+        gridSegments: rawGrid.length ? gridSegmentKeys(rawGrid) : [],
+      };
+    }
+
+    function choosePorts(a, b) {
+      const ac = { x: a.x + a.w / 2, y: a.y + a.h / 2 };
+      const bc = { x: b.x + b.w / 2, y: b.y + b.h / 2 };
+      const dx = bc.x - ac.x;
+      const dy = bc.y - ac.y;
+      const horizontal = Math.abs(dx) >= Math.abs(dy) * 0.72;
+
+      if (horizontal) {
+        const rightward = dx >= 0;
+        const startAnchor = { x: rightward ? a.x + a.w : a.x, y: ac.y };
+        const endAnchor = { x: rightward ? b.x : b.x + b.w, y: bc.y };
+        return {
+          startAnchor,
+          endAnchor,
+          startPort: { x: startAnchor.x + (rightward ? ROUTE_CLEARANCE + 8 : -ROUTE_CLEARANCE - 8), y: startAnchor.y },
+          endPort: { x: endAnchor.x + (rightward ? -ROUTE_CLEARANCE - 8 : ROUTE_CLEARANCE + 8), y: endAnchor.y },
+          startSide: rightward ? 'right' : 'left',
+          endSide: rightward ? 'left' : 'right',
+        };
+      }
+
+      const downward = dy >= 0;
+      const startAnchor = { x: ac.x, y: downward ? a.y + a.h : a.y };
+      const endAnchor = { x: bc.x, y: downward ? b.y : b.y + b.h };
+      return {
+        startAnchor,
+        endAnchor,
+        startPort: { x: startAnchor.x, y: startAnchor.y + (downward ? ROUTE_CLEARANCE + 8 : -ROUTE_CLEARANCE - 8) },
+        endPort: { x: endAnchor.x, y: endAnchor.y + (downward ? -ROUTE_CLEARANCE - 8 : ROUTE_CLEARANCE + 8) },
+        startSide: downward ? 'bottom' : 'top',
+        endSide: downward ? 'top' : 'bottom',
+      };
+    }
+
+    function aStarOrthogonal(start, goal, obstacles, bounds, segmentUsage) {
+      const heap = new MinHeap(item => item.f);
+      const gScore = new Map();
+      const cameFrom = new Map();
+      const stateByKey = new Map();
+      const startState = { x: start.x, y: start.y, dir: 'n', g: 0, f: manhattan(start, goal) / ROUTE_GRID };
+      const startKey = stateKey(startState);
+      heap.push(startState);
+      gScore.set(startKey, 0);
+      stateByKey.set(startKey, startState);
+
+      const directions = [
+        { dx: ROUTE_GRID, dy: 0, dir: 'h' },
+        { dx: -ROUTE_GRID, dy: 0, dir: 'h' },
+        { dx: 0, dy: ROUTE_GRID, dir: 'v' },
+        { dx: 0, dy: -ROUTE_GRID, dir: 'v' },
+      ];
+
+      let iterations = 0;
+      while (heap.size && iterations++ < 30000) {
+        const current = heap.pop();
+        const currentKey = stateKey(current);
+        if (current.g !== gScore.get(currentKey)) continue;
+
+        if (current.x === goal.x && current.y === goal.y) {
+          return reconstructGridPath(currentKey, cameFrom, stateByKey);
+        }
+
+        for (const move of directions) {
+          const next = { x: current.x + move.dx, y: current.y + move.dy, dir: move.dir };
+          if (!insideBounds(next, bounds)) continue;
+          if (isBlocked(next, obstacles) && !(next.x === goal.x && next.y === goal.y)) continue;
+
+          const segKey = normalizedSegmentKey(current, next);
+          const reuse = segmentUsage.get(segKey) || 0;
+          const bendPenalty = current.dir !== 'n' && current.dir !== next.dir ? 2.2 : 0;
+          const bundleBonus = Math.min(0.62, reuse * 0.18);
+          const tentative = current.g + 1 + bendPenalty - bundleBonus;
+          const nextKey = stateKey(next);
+          if (tentative >= (gScore.get(nextKey) ?? Infinity)) continue;
+
+          next.g = tentative;
+          next.f = tentative + manhattan(next, goal) / ROUTE_GRID;
+          gScore.set(nextKey, tentative);
+          cameFrom.set(nextKey, currentKey);
+          stateByKey.set(nextKey, next);
+          heap.push(next);
+        }
+      }
+      return [];
+    }
+
+    class MinHeap {
+      constructor(score) { this.items = []; this.score = score; }
+      get size() { return this.items.length; }
+      push(item) {
+        const a = this.items;
+        a.push(item);
+        let i = a.length - 1;
+        while (i > 0) {
+          const p = (i - 1) >> 1;
+          if (this.score(a[p]) <= this.score(item)) break;
+          a[i] = a[p];
+          i = p;
+        }
+        a[i] = item;
+      }
+      pop() {
+        const a = this.items;
+        const root = a[0];
+        const last = a.pop();
+        if (!a.length) return root;
+        let i = 0;
+        while (true) {
+          let child = i * 2 + 1;
+          if (child >= a.length) break;
+          if (child + 1 < a.length && this.score(a[child + 1]) < this.score(a[child])) child++;
+          if (this.score(a[child]) >= this.score(last)) break;
+          a[i] = a[child];
+          i = child;
+        }
+        a[i] = last;
+        return root;
+      }
+    }
+
+    function reconstructGridPath(endKey, cameFrom, stateByKey) {
+      const points = [];
+      let key = endKey;
+      while (key) {
+        const state = stateByKey.get(key);
+        if (!state) break;
+        points.push({ x: state.x, y: state.y });
+        key = cameFrom.get(key);
+      }
+      return points.reverse();
+    }
+
+    function gridSegmentKeys(points) {
+      const keys = [];
+      for (let i = 1; i < points.length; i++) keys.push(normalizedSegmentKey(points[i - 1], points[i]));
+      return keys;
+    }
+
+    function normalizedSegmentKey(a, b) {
+      if (a.x < b.x || (a.x === b.x && a.y <= b.y)) return `${a.x},${a.y}|${b.x},${b.y}`;
+      return `${b.x},${b.y}|${a.x},${a.y}`;
+    }
+
+    function stateKey(p) { return `${p.x},${p.y},${p.dir}`; }
+    function manhattan(a, b) { return Math.abs(a.x - b.x) + Math.abs(a.y - b.y); }
+    function snapPoint(p) { return { x: Math.round(p.x / ROUTE_GRID) * ROUTE_GRID, y: Math.round(p.y / ROUTE_GRID) * ROUTE_GRID }; }
+    function inflateRect(rect, amount) { return { x: rect.x - amount, y: rect.y - amount, w: rect.w + amount * 2, h: rect.h + amount * 2 }; }
+    function isBlocked(point, obstacles) { return obstacles.some(rect => point.x > rect.x && point.x < rect.x + rect.w && point.y > rect.y && point.y < rect.y + rect.h); }
+    function insideBounds(p, b) { return p.x >= b.minX && p.x <= b.maxX && p.y >= b.minY && p.y <= b.maxY; }
+
+    function routeBounds(rects) {
+      const values = [...rects.values()];
+      const minX = Math.min(...values.map(r => r.x)) - 160;
+      const minY = Math.min(...values.map(r => r.y)) - 150;
+      const maxX = Math.max(...values.map(r => r.x + r.w)) + 160;
+      const maxY = Math.max(...values.map(r => r.y + r.h)) + 150;
+      return {
+        minX: Math.floor(minX / ROUTE_GRID) * ROUTE_GRID,
+        minY: Math.floor(minY / ROUTE_GRID) * ROUTE_GRID,
+        maxX: Math.ceil(maxX / ROUTE_GRID) * ROUTE_GRID,
+        maxY: Math.ceil(maxY / ROUTE_GRID) * ROUTE_GRID,
+      };
+    }
+
+    function pushGridPointOutside(point, side, obstacles, bounds) {
+      const step = side === 'left' ? { x: -ROUTE_GRID, y: 0 }
+        : side === 'right' ? { x: ROUTE_GRID, y: 0 }
+        : side === 'top' ? { x: 0, y: -ROUTE_GRID }
+        : { x: 0, y: ROUTE_GRID };
+      const next = { ...point };
+      let guard = 0;
+      while (isBlocked(next, obstacles) && guard++ < 20) {
+        next.x += step.x;
+        next.y += step.y;
+      }
+      next.x = clamp(next.x, bounds.minX, bounds.maxX);
+      next.y = clamp(next.y, bounds.minY, bounds.maxY);
+      return next;
+    }
+
+    function compressOrthogonal(points) {
+      if (points.length <= 2) return points;
+      const out = [points[0]];
+      for (let i = 1; i < points.length - 1; i++) {
+        const a = out[out.length - 1];
+        const b = points[i];
+        const c = points[i + 1];
+        const collinear = (a.x === b.x && b.x === c.x) || (a.y === b.y && b.y === c.y);
+        if (!collinear) out.push(b);
+      }
+      out.push(points[points.length - 1]);
+      return out;
+    }
+
+    function dedupePoints(points) {
+      return points.filter((point, index) => !index || point.x !== points[index - 1].x || point.y !== points[index - 1].y);
+    }
+
+    function pointsToPath(points) {
+      if (!points.length) return '';
+      return `M ${points[0].x} ${points[0].y} ` + points.slice(1).map(point => `L ${point.x} ${point.y}`).join(' ');
+    }
+
+    function renderEdgeLabel(label, points, explicitPosition = null) {
+      if (explicitPosition) {
+        const width = Math.max(62, label.length * 6.4 + 18);
+        const mx = explicitPosition.x;
+        const my = explicitPosition.y;
+        const rect = svgEl('rect', { x: mx - width / 2, y: my - 10, width, height: 20, rx: 7, class: 'edge-label-bg' });
+        const text = svgEl('text', { x: mx, y: my + .5, class: 'edge-label' });
+        text.textContent = label;
+        edgeLayer.appendChild(rect);
+        edgeLayer.appendChild(text);
+        return;
+      }
+
+      let best = null;
+      for (let i = 1; i < points.length; i++) {
+        const a = points[i - 1];
+        const b = points[i];
+        const length = manhattan(a, b);
+        if (!best || length > best.length) best = { a, b, length };
+      }
+      if (!best) return;
+      const mx = (best.a.x + best.b.x) / 2;
+      const my = (best.a.y + best.b.y) / 2;
+      const width = Math.max(62, label.length * 6.4 + 18);
+      const rect = svgEl('rect', { x: mx - width / 2, y: my - 10, width, height: 20, rx: 7, class: 'edge-label-bg' });
+      const text = svgEl('text', { x: mx, y: my + .5, class: 'edge-label' });
+      text.textContent = label;
+      edgeLayer.appendChild(rect);
+      edgeLayer.appendChild(text);
+    }
+
+    function renderInspector() {
+      const node = graph.nodes.find(item => item.id === selectedNodeId);
+      if (!node) {
+        inspector.innerHTML = `
+          <div class="empty-state">Select a node to see its detail and edit it. The canvas intentionally shows only the node title.</div>
+          <div class="divider"></div>
+          <div class="legend">
+            ${Object.keys(TYPE_COLUMNS).map(type => `<span>${iconSvg(type)}${escapeHtml(type)}</span>`).join('')}
+          </div>
+        `;
+        return;
+      }
+
+      inspector.innerHTML = `
+        <div class="inspector-summary">
+          <span class="node-icon" aria-hidden="true">${iconSvg(node.type)}</span>
+          <div><strong>${escapeHtml(node.title)}</strong><span>${escapeHtml(node.type)} · ${escapeHtml(node.id)}</span></div>
+        </div>
+        <div class="field">
+          <label>ID</label>
+          <input data-field="id" value="${escapeAttr(node.id)}" />
+        </div>
+        <div class="field">
+          <label>Type</label>
+          <select data-field="type">
+            ${Object.keys(TYPE_COLUMNS).map(type => `<option value="${type}" ${type === node.type ? 'selected' : ''}>${type}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field">
+          <label>Title</label>
+          <input data-field="title" value="${escapeAttr(node.title)}" />
+        </div>
+        <div class="field">
+          <label>Detail</label>
+          <textarea data-field="body">${escapeHtml(node.body)}</textarea>
+        </div>
+        <div class="field">
+          <label>Tags (comma separated)</label>
+          <input data-field="tags" value="${escapeAttr(node.tags.join(', '))}" />
+        </div>
+        <div class="field-grid">
+          <div class="field"><label>Column</label><input type="number" data-field="layout.column" value="${node.layout.column}" /></div>
+          <div class="field"><label>Row</label><input type="number" step="0.5" data-field="layout.row" value="${node.layout.row}" /></div>
+        </div>
+        <div class="field-grid">
+          <div class="field"><label>X</label><input type="number" data-field="position.x" value="${Math.round(node.position.x)}" /></div>
+          <div class="field"><label>Y</label><input type="number" data-field="position.y" value="${Math.round(node.position.y)}" /></div>
+        </div>
+        <div class="small">Dragging changes <code>position</code>. Auto layout recomputes positions from <code>layout</code>.</div>
+      `;
+
+      inspector.querySelectorAll('[data-field]').forEach(input => {
+        input.addEventListener('change', () => updateSelectedFromField(input.dataset.field, input.value));
+        if (['title', 'body', 'tags'].includes(input.dataset.field)) {
+          input.addEventListener('input', () => updateSelectedFromField(input.dataset.field, input.value, { rerenderInspector: false }));
+        }
+      });
+    }
+
+    function updateSelectedFromField(path, rawValue, { rerenderInspector = true } = {}) {
+      const node = graph.nodes.find(item => item.id === selectedNodeId);
+      if (!node) return;
+
+      if (path === 'id') {
+        const nextId = rawValue.trim();
+        if (!nextId || graph.nodes.some(item => item.id === nextId && item !== node)) {
+          renderInspector();
+          return;
+        }
+        const oldId = node.id;
+        node.id = nextId;
+        graph.edges.forEach(edge => {
+          if (edge.from === oldId) edge.from = nextId;
+          if (edge.to === oldId) edge.to = nextId;
+        });
+        selectedNodeId = nextId;
+      } else if (path === 'type') {
+        node.type = TYPE_COLUMNS[rawValue] !== undefined ? rawValue : 'process';
+        node.layout.column = TYPE_COLUMNS[node.type];
+      } else if (path === 'tags') {
+        node.tags = rawValue.split(',').map(value => value.trim()).filter(Boolean);
+      } else if (path === 'layout.column') {
+        node.layout.column = Number(rawValue) || 0;
+      } else if (path === 'layout.row') {
+        node.layout.row = Number(rawValue) || 0;
+      } else if (path === 'position.x') {
+        node.position.x = Number(rawValue) || 0;
+      } else if (path === 'position.y') {
+        node.position.y = Number(rawValue) || 0;
+      } else {
+        node[path] = rawValue;
+      }
+
+      elkRoutes.clear();
+      elkLayoutActive = false;
+      updateLayoutEngineLabel();
+      renderNodes();
+      renderLanes();
+      scheduleEdgeRender();
+      if (rerenderInspector) renderInspector();
+      syncJsonEditor();
+    }
+
+    function selectNode(id, { updateInspector = true } = {}) {
+      selectedNodeId = id;
+      nodeLayer.querySelectorAll('.node').forEach(el => el.classList.toggle('selected', el.dataset.id === id));
+      if (updateInspector) renderInspector();
+      updateToolbar();
+    }
+
+    function startNodeDrag(event, id) {
+      if (event.button !== 0) return;
+      event.preventDefault();
+      event.stopPropagation();
+
+      const node = graph.nodes.find(item => item.id === id);
+      const el = event.currentTarget;
+      if (!node || !el) return;
+
+      // Important: selection does not re-render the node layer here. Pointer capture stays on the same DOM element.
+      selectNode(id);
+      el.setPointerCapture(event.pointerId);
+      el.classList.add('dragging');
+
+      dragState = {
+        id,
+        pointerId: event.pointerId,
+        startClientX: event.clientX,
+        startClientY: event.clientY,
+        startX: node.position.x,
+        startY: node.position.y,
+        el,
+        moved: false,
+      };
+
+      const onMove = (moveEvent) => {
+        if (!dragState || moveEvent.pointerId !== dragState.pointerId) return;
+        const dx = (moveEvent.clientX - dragState.startClientX) / zoom;
+        const dy = (moveEvent.clientY - dragState.startClientY) / zoom;
+        if (Math.abs(dx) + Math.abs(dy) > 2) {
+          dragState.moved = true;
+          if (elkRoutes.size) {
+            elkRoutes.clear();
+            elkLayoutActive = false;
+            updateLayoutEngineLabel();
+          }
+        }
+        node.position.x = Math.round(dragState.startX + dx);
+        node.position.y = Math.round(dragState.startY + dy);
+        dragState.el.style.left = `${node.position.x}px`;
+        dragState.el.style.top = `${node.position.y}px`;
+        scheduleEdgeRender();
+      };
+
+      const onUp = (upEvent) => {
+        if (!dragState || upEvent.pointerId !== dragState.pointerId) return;
+        const state = dragState;
+        state.el.classList.remove('dragging');
+        if (state.el.hasPointerCapture(upEvent.pointerId)) state.el.releasePointerCapture(upEvent.pointerId);
+        state.el.removeEventListener('pointermove', onMove);
+        state.el.removeEventListener('pointerup', onUp);
+        state.el.removeEventListener('pointercancel', onUp);
+        dragState = null;
+        renderInspector();
+        syncJsonEditor();
+        scheduleEdgeRender();
+      };
+
+      el.addEventListener('pointermove', onMove);
+      el.addEventListener('pointerup', onUp);
+      el.addEventListener('pointercancel', onUp);
+    }
+
+    async function autoLayout() {
+      const button = $('autoLayoutBtn');
+      const originalText = button.textContent;
+      button.disabled = true;
+      button.textContent = 'Laying out…';
+
+      try {
+        if (typeof window.ELK === 'function') {
+          elkInstance ||= new window.ELK();
+          await autoLayoutWithElk();
+          elkLayoutActive = true;
+          updateLayoutEngineLabel();
+          renderAll();
+          fitView(.58);
+          return;
+        }
+
+        autoLayoutFallback();
+        elkLayoutActive = false;
+        elkRoutes.clear();
+        updateLayoutEngineLabel('ELK unavailable · local layout');
+        renderAll();
+        fitView(.58);
+      } catch (error) {
+        console.warn('[flow] ELK layout failed; using local layout fallback.', error);
+        autoLayoutFallback();
+        elkLayoutActive = false;
+        elkRoutes.clear();
+        updateLayoutEngineLabel('ELK failed · local layout');
+        renderAll();
+        fitView(.58);
+      } finally {
+        button.disabled = false;
+        button.textContent = originalText;
+      }
+    }
+
+    async function autoLayoutWithElk() {
+      const rects = getNodeRects();
+      const nodesById = new Map(graph.nodes.map(node => [node.id, node]));
+      const sortedNodes = [...graph.nodes].sort((a, b) =>
+        a.layout.column - b.layout.column || a.layout.row - b.layout.row || a.id.localeCompare(b.id)
+      );
+
+      const elkGraph = {
+        id: 'root',
+        layoutOptions: {
+          'elk.algorithm': 'layered',
+          'elk.direction': 'RIGHT',
+          'elk.edgeRouting': 'ORTHOGONAL',
+          'elk.partitioning.activate': 'true',
+          'elk.spacing.nodeNode': '18',
+          'elk.spacing.edgeNode': '14',
+          'elk.spacing.edgeEdge': '8',
+          'elk.spacing.edgeLabel': '4',
+          'elk.layered.spacing.nodeNodeBetweenLayers': '42',
+          'elk.layered.spacing.edgeNodeBetweenLayers': '14',
+          'elk.layered.spacing.edgeEdgeBetweenLayers': '8',
+          'elk.layered.nodePlacement.strategy': 'BRANDES_KOEPF',
+          'elk.layered.nodePlacement.favorStraightEdges': 'true',
+          'elk.layered.crossingMinimization.forceNodeModelOrder': 'true',
+          'elk.layered.considerModelOrder.strategy': 'NODES_AND_EDGES',
+          'elk.layered.mergeEdges': 'false',
+          'elk.layered.cycleBreaking.strategy': 'MODEL_ORDER',
+        },
+        children: sortedNodes.map(node => {
+          const rect = rects.get(node.id) || { w: NODE_WIDTH, h: NODE_HEIGHT };
+          return {
+            id: node.id,
+            width: rect.w,
+            height: rect.h,
+            layoutOptions: {
+              'elk.partitioning.partition': String(clamp(Math.round(node.layout.column), 0, COLUMN_X.length - 1)),
+              'elk.portConstraints': 'FIXED_SIDE',
+            },
+            ports: [
+              elkPort(node.id, 'west', 'WEST'),
+              elkPort(node.id, 'east', 'EAST'),
+              elkPort(node.id, 'north', 'NORTH'),
+              elkPort(node.id, 'south', 'SOUTH'),
+            ],
+          };
+        }),
+        edges: graph.edges
+          .filter(edge => {
+            const source = nodesById.get(edge.from);
+            const target = nodesById.get(edge.to);
+            if (!source || !target) return false;
+            return target.layout.column >= source.layout.column;
+          })
+          .map(edge => {
+          const source = nodesById.get(edge.from);
+          const target = nodesById.get(edge.to);
+          const ports = chooseElkPorts(source, target);
+          const elkEdge = {
+            id: edge.id,
+            sources: [`${edge.from}::${ports.source}`],
+            targets: [`${edge.to}::${ports.target}`],
+          };
+          if (edge.label) {
+            elkEdge.labels = [{
+              id: `${edge.id}::label`,
+              text: edge.label,
+              width: Math.max(62, edge.label.length * 6.4 + 18),
+              height: 20,
+            }];
+          }
+          return elkEdge;
+        }),
+      };
+
+      console.info('[flow] ELK auto layout', {
+        nodes: elkGraph.children.length,
+        edges: elkGraph.edges.length,
+        spacing: { node: 18, layers: 42 },
+      });
+
+      const result = await elkInstance.layout(elkGraph);
+      const resultNodes = new Map((result.children || []).map(node => [node.id, node]));
+      for (const node of graph.nodes) {
+        const laidOut = resultNodes.get(node.id);
+        if (!laidOut) continue;
+        node.position.x = Math.round((laidOut.x || 0) + 46);
+        node.position.y = Math.round((laidOut.y || 0) + 58);
+      }
+
+      elkRoutes = new Map();
+      for (const edge of result.edges || []) {
+        const sections = edge.sections || [];
+        if (!sections.length) continue;
+        const points = [];
+        for (const section of sections) {
+          const sectionPoints = [section.startPoint, ...(section.bendPoints || []), section.endPoint]
+            .filter(Boolean)
+            .map(point => ({ x: point.x + 46, y: point.y + 58 }));
+          if (!points.length) points.push(...sectionPoints);
+          else points.push(...sectionPoints.slice(1));
+        }
+        const label = edge.labels?.[0];
+        elkRoutes.set(edge.id, {
+          points: compressOrthogonal(dedupePoints(points)),
+          gridSegments: [],
+          labelPosition: label ? {
+            x: label.x + label.width / 2 + 46,
+            y: label.y + label.height / 2 + 58,
+          } : null,
+        });
+      }
+    }
+
+    function elkPort(nodeId, name, side) {
+      return {
+        id: `${nodeId}::${name}`,
+        width: 1,
+        height: 1,
+        layoutOptions: { 'elk.port.side': side },
+      };
+    }
+
+    function chooseElkPorts(source, target) {
+      if (!source || !target) return { source: 'east', target: 'west' };
+      const dc = target.layout.column - source.layout.column;
+      if (dc > 0) return { source: 'east', target: 'west' };
+      if (dc < 0) return { source: 'west', target: 'east' };
+      const dr = target.layout.row - source.layout.row;
+      return dr >= 0 ? { source: 'south', target: 'north' } : { source: 'north', target: 'south' };
+    }
+
+    function autoLayoutFallback() {
+      const columns = new Map();
+      for (const node of graph.nodes) {
+        const column = clamp(Math.round(node.layout.column), 0, COLUMN_X.length - 1);
+        if (!columns.has(column)) columns.set(column, []);
+        columns.get(column).push(node);
+      }
+
+      for (const [column, nodes] of columns) {
+        nodes.sort((a, b) => a.layout.row - b.layout.row || a.id.localeCompare(b.id));
+        let previousBottom = -Infinity;
+        for (const node of nodes) {
+          const preferredY = MAIN_TOP + node.layout.row * ROW_GAP;
+          const y = Math.max(preferredY, previousBottom + 18);
+          node.position.x = COLUMN_X[column];
+          node.position.y = Math.round(y);
+          previousBottom = node.position.y + getNodeHeight(node.id);
+        }
+      }
+    }
+
+    function getNodeHeight(nodeId) {
+      const el = nodeLayer.querySelector(`[data-id="${cssEscape(nodeId)}"]`);
+      return el?.offsetHeight || NODE_HEIGHT;
+    }
+
+    function updateLayoutEngineLabel(message = null) {
+      const el = $('layoutEngineLabel');
+      if (!el) return;
+      el.textContent = message || (elkLayoutActive ? 'ELK layered · orthogonal routes' : 'Local orthogonal router');
+    }
+
+    function fitView(minZoom = .34) {
+      if (!graph.nodes.length) return;
+      const rects = getNodeRects();
+      const bounds = graph.nodes.reduce((acc, node) => {
+        const rect = rects.get(node.id) || { w: NODE_WIDTH, h: NODE_HEIGHT };
+        acc.minX = Math.min(acc.minX, node.position.x);
+        acc.minY = Math.min(acc.minY, node.position.y);
+        acc.maxX = Math.max(acc.maxX, node.position.x + rect.w);
+        acc.maxY = Math.max(acc.maxY, node.position.y + rect.h);
+        return acc;
+      }, { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
+
+      const pad = 64;
+      const vw = viewport.clientWidth;
+      const vh = viewport.clientHeight;
+      const contentW = bounds.maxX - bounds.minX;
+      const contentH = bounds.maxY - bounds.minY;
+      zoom = clamp(Math.min((vw - pad * 2) / contentW, (vh - pad * 2) / contentH), minZoom, 1.25);
+      panX = pad - bounds.minX * zoom + Math.max(0, (vw - pad * 2 - contentW * zoom) / 2);
+      panY = pad - bounds.minY * zoom + Math.max(0, (vh - pad * 2 - contentH * zoom) / 2);
+      applyTransform();
+    }
+
+    function applyTransform() {
+      world.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
+      $('zoomLabel').textContent = `${Math.round(zoom * 100)}%`;
+    }
+
+    function addNode(partial = {}) {
+      const type = TYPE_COLUMNS[partial.type] !== undefined ? partial.type : 'process';
+      const idBase = partial.id || type;
+      let index = 1;
+      let id = `${idBase}-${index}`;
+      while (graph.nodes.some(node => node.id === id)) id = `${idBase}-${++index}`;
+
+      const node = {
+        id,
+        type,
+        title: partial.title || 'New node',
+        body: partial.body || 'Describe the need, handoff, deliverable, process step, or UX consideration.',
+        tags: partial.tags || [],
+        layout: partial.layout || { column: TYPE_COLUMNS[type], row: graph.nodes.length % 7 },
+        position: partial.position || { x: 900, y: 500 },
+      };
+      graph.nodes.push(node);
+      elkRoutes.clear();
+      elkLayoutActive = false;
+      updateLayoutEngineLabel();
+      selectedNodeId = node.id;
+      renderAll();
+      return node;
+    }
+
+    function addEdge(edge) {
+      const next = {
+        id: edge.id || `edge-${Date.now()}`,
+        from: edge.from,
+        to: edge.to,
+        label: edge.label || '',
+        emphasis: Boolean(edge.emphasis),
+      };
+      graph.edges.push(next);
+      elkRoutes.clear();
+      elkLayoutActive = false;
+      updateLayoutEngineLabel();
+      renderAll();
+      return next;
+    }
+
+    function duplicateSelected() {
+      const source = graph.nodes.find(node => node.id === selectedNodeId);
+      if (!source) return;
+      const copy = clone(source);
+      let n = 2;
+      let id = `${source.id}-copy`;
+      while (graph.nodes.some(node => node.id === id)) id = `${source.id}-copy-${n++}`;
+      copy.id = id;
+      copy.title = `${source.title} (copy)`;
+      copy.position.x += 34;
+      copy.position.y += 34;
+      copy.layout.row += .25;
+      graph.nodes.push(copy);
+      elkRoutes.clear();
+      elkLayoutActive = false;
+      updateLayoutEngineLabel();
+      selectedNodeId = copy.id;
+      renderAll();
+    }
+
+    function deleteSelected() {
+      if (!selectedNodeId) return;
+      graph.nodes = graph.nodes.filter(node => node.id !== selectedNodeId);
+      graph.edges = graph.edges.filter(edge => edge.from !== selectedNodeId && edge.to !== selectedNodeId);
+      elkRoutes.clear();
+      elkLayoutActive = false;
+      updateLayoutEngineLabel();
+      selectedNodeId = null;
+      renderAll();
+    }
+
+    function applyJson() {
+      $('jsonError').textContent = '';
+      try {
+        graph = normalizeGraph(JSON.parse(jsonEditor.value));
+        elkRoutes.clear();
+        elkLayoutActive = false;
+        updateLayoutEngineLabel();
+        selectedNodeId = null;
+        renderAll();
+        fitView();
+      } catch (error) {
+        $('jsonError').textContent = error.message;
+      }
+    }
+
+    function exportJson() {
+      const blob = new Blob([JSON.stringify(graph, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${graph.id || 'user-flow'}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function updateToolbar() {
+      const hasSelection = Boolean(selectedNodeId);
+      $('duplicateBtn').disabled = !hasSelection;
+      $('deleteBtn').disabled = !hasSelection;
+    }
+
+    viewport.addEventListener('pointerdown', (event) => {
+      if (event.button !== 0 || event.target.closest('.node')) return;
+      selectedNodeId = null;
+      nodeLayer.querySelectorAll('.node').forEach(el => el.classList.remove('selected'));
+      renderInspector();
+      updateToolbar();
+
+      isPanning = true;
+      viewport.classList.add('panning');
+      viewport.setPointerCapture(event.pointerId);
+      panStart = { x: event.clientX, y: event.clientY, panX, panY, pointerId: event.pointerId };
+    });
+
+    viewport.addEventListener('pointermove', (event) => {
+      if (!isPanning || !panStart || event.pointerId !== panStart.pointerId) return;
+      panX = panStart.panX + (event.clientX - panStart.x);
+      panY = panStart.panY + (event.clientY - panStart.y);
+      applyTransform();
+    });
+
+    function endPan(event) {
+      if (!isPanning || !panStart || event.pointerId !== panStart.pointerId) return;
+      isPanning = false;
+      viewport.classList.remove('panning');
+      if (viewport.hasPointerCapture(event.pointerId)) viewport.releasePointerCapture(event.pointerId);
+      panStart = null;
+    }
+    viewport.addEventListener('pointerup', endPan);
+    viewport.addEventListener('pointercancel', endPan);
+
+    viewport.addEventListener('wheel', (event) => {
+      event.preventDefault();
+      const rect = viewport.getBoundingClientRect();
+      const mx = event.clientX - rect.left;
+      const my = event.clientY - rect.top;
+      const worldX = (mx - panX) / zoom;
+      const worldY = (my - panY) / zoom;
+
+      // Continuous trackpad-friendly zoom. 0.0007 is ~30% less sensitive than the previous 0.001 baseline.
+      const delta = clamp(event.deltaY, -120, 120);
+      const factor = Math.exp(-delta * 0.0007);
+      const nextZoom = clamp(zoom * factor, .28, 1.7);
+
+      panX = mx - worldX * nextZoom;
+      panY = my - worldY * nextZoom;
+      zoom = nextZoom;
+      applyTransform();
+    }, { passive: false });
+
+    $('autoLayoutBtn').addEventListener('click', autoLayout);
+    $('fitBtn').addEventListener('click', fitView);
+    $('addBtn').addEventListener('click', () => addNode());
+    $('duplicateBtn').addEventListener('click', duplicateSelected);
+    $('deleteBtn').addEventListener('click', deleteSelected);
+    $('applyJsonBtn').addEventListener('click', applyJson);
+    $('formatJsonBtn').addEventListener('click', () => {
+      try {
+        jsonEditor.value = JSON.stringify(JSON.parse(jsonEditor.value), null, 2);
+        $('jsonError').textContent = '';
+      } catch (error) {
+        $('jsonError').textContent = error.message;
+      }
+    });
+    $('copyJsonBtn').addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(jsonEditor.value);
+        $('copyJsonBtn').textContent = 'Copied';
+        setTimeout(() => $('copyJsonBtn').textContent = 'Copy', 900);
+      } catch {
+        jsonEditor.select();
+        document.execCommand('copy');
+      }
+    });
+    $('exportBtn').addEventListener('click', exportJson);
+    $('resetBtn').addEventListener('click', () => {
+      graph = clone(exampleGraph);
+      elkRoutes.clear();
+      elkLayoutActive = false;
+      updateLayoutEngineLabel();
+      selectedNodeId = null;
+      renderAll();
+      autoLayout();
+    });
+
+    window.addEventListener('keydown', (event) => {
+      if (event.key === 'Delete' && selectedNodeId && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) deleteSelected();
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'd' && selectedNodeId) {
+        event.preventDefault();
+        duplicateSelected();
+      }
+    });
+
+    window.flow = {
+      get: () => clone(graph),
+      set: (nextGraph) => {
+        graph = normalizeGraph(nextGraph);
+        elkRoutes.clear();
+        elkLayoutActive = false;
+        updateLayoutEngineLabel();
+        selectedNodeId = null;
+        renderAll();
+        fitView();
+        return clone(graph);
+      },
+      addNode,
+      addEdge,
+      autoLayout,
+      fitView,
+      select: selectNode,
+      exportJSON: () => JSON.stringify(graph, null, 2),
+      schema: {
+        schemaVersion: 2,
+        nodeTypes: Object.keys(TYPE_COLUMNS),
+        node: '{ id, type, title, body, tags[], layout:{column,row}, position:{x,y} }',
+        edge: '{ id, from, to, label?, emphasis? }',
+      },
+    };
+
+    function restore() {
+      let hasSavedGraph = false;
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        hasSavedGraph = Boolean(saved);
+        graph = saved ? normalizeGraph(JSON.parse(saved)) : clone(exampleGraph);
+      } catch {
+        graph = clone(exampleGraph);
+      }
+      updateLayoutEngineLabel();
+      renderAll();
+      requestAnimationFrame(() => hasSavedGraph ? fitView() : autoLayout());
+    }
+
+    function iconSvg(type) {
+      const common = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"';
+      const icons = {
+        actor: `<svg ${common}><circle cx="12" cy="7.5" r="3.2"/><path d="M5.5 20c.7-4.2 3-6.4 6.5-6.4s5.8 2.2 6.5 6.4"/></svg>`,
+        need: `<svg ${common}><path d="M9 18h6"/><path d="M10 21h4"/><path d="M8.2 14.2A6 6 0 1 1 15.8 14c-1 .8-1.6 1.6-1.8 2.4h-4c-.2-.8-.8-1.5-1.8-2.2Z"/></svg>`,
+        process: `<svg ${common}><rect x="4" y="5" width="16" height="14" rx="3"/><path d="m9 9 3 3-3 3"/><path d="M13 15h3"/></svg>`,
+        handoff: `<svg ${common}><path d="M4 8h12"/><path d="m13 5 3 3-3 3"/><path d="M20 16H8"/><path d="m11 13-3 3 3 3"/></svg>`,
+        deliverable: `<svg ${common}><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5"/><path d="M10 13h5"/><path d="M10 17h5"/></svg>`,
+        ux: `<svg ${common}><path d="m5 4 12 8-6 1-3 6Z"/><path d="m13 13 4 5"/></svg>`,
+        goal: `<svg ${common}><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><path d="M12 4v4"/><path d="M20 12h-4"/></svg>`,
+      };
+      return icons[type] || icons.process;
+    }
+
+    function svgEl(tag, attrs) {
+      const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+      for (const [key, value] of Object.entries(attrs)) el.setAttribute(key, value);
+      return el;
+    }
+
+    function clamp(value, min, max) { return Math.min(max, Math.max(min, value)); }
+    function cssEscape(value) { return CSS.escape(String(value)); }
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
+    }
+    function escapeAttr(value) { return escapeHtml(value).replace(/\n/g, '&#10;'); }
+
+    restore();
+  </script>
+</body>
+</html>
