@@ -1,10 +1,6 @@
 export function FlowCanvas() {
   return (
     <main class="canvas-wrap">
-      <section class="variant-bar" aria-label="Flow views">
-        <div class="variant-tabs" id="variantTabs" role="tablist" aria-label="Base graph and variants" />
-        <div class="variant-context" id="variantContext" aria-live="polite" />
-      </section>
       <div class="viewport" id="viewport" role="tabpanel" tabindex="0" aria-label="Flow diagram canvas">
         <div class="world" id="world">
           <div id="laneLayer" />
@@ -12,6 +8,9 @@ export function FlowCanvas() {
             <defs>
               <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="strokeWidth">
                 <path d="M0,0 L8,4 L0,8 Z" fill="#98a2b3" />
+              </marker>
+              <marker id="arrow-selected" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="strokeWidth">
+                <path d="M0,0 L8,4 L0,8 Z" fill="#315efb" />
               </marker>
             </defs>
             <g id="edgeLayer" />

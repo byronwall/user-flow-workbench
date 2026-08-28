@@ -14,7 +14,7 @@ const TYPE_COLUMNS = {
 
     const COLUMN_X = [88, 354, 620, 886, 1152, 1418];
     const MAIN_TOP = 72;
-    const ROW_GAP = 82;
+    const ROW_GAP = 90;
     const NODE_WIDTH = 216;
     const NODE_HEIGHT = 58;
     const ROUTE_GRID = 10;
@@ -22,6 +22,9 @@ const TYPE_COLUMNS = {
     const ROUTE_REUSE_PENALTY = 500;
     const LANE_LABELS = ['User', 'Fundamental needs', 'Process', 'Handoffs + deliverables', 'UI / UX considerations', 'Outcome'];
     const STORAGE_KEY = 'user-flow-workbench-v4';
+    const SOURCE_STORAGE_KEY = 'user-flow-workbench-v4-source';
+    const INSPECTOR_TYPES_QUERY_PARAM = 'nodeTypes';
+    const initialGraphSignature = JSON.stringify(initialGraph);
 
     let flowDocument = normalizeDocument(initialGraph);
     let activeVariantId: string | null = null;
@@ -29,6 +32,7 @@ const TYPE_COLUMNS = {
     let authoredLayoutHintIds = extractLayoutHintIds(flowDocument.graph);
     let includeDslPositions = false;
     let selectedNodeId = null;
+    let inspectorTypeFilters = inspectorTypesFromUrl();
     let zoom = 0.72;
     let panX = 20;
     let panY = 16;
@@ -190,7 +194,10 @@ const TYPE_COLUMNS = {
     function syncDslEditor() {
       const document = toFlowDocument();
       dslEditor.value = graphToDsl(document, { includePositions: includeDslPositions });
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(document)); } catch {}
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(document));
+        localStorage.setItem(SOURCE_STORAGE_KEY, initialGraphSignature);
+      } catch {}
     }
 
     function updatePositionsDslButton() {
@@ -299,6 +306,25 @@ const TYPE_COLUMNS = {
       window.history.replaceState({ ...window.history.state, flowVariant: variantId }, '', url);
     }
 
+    function inspectorTypesFromUrl(): Set<string> {
+      const rawTypes = new URL(window.location.href).searchParams.get(INSPECTOR_TYPES_QUERY_PARAM);
+      if (!rawTypes) return new Set(Object.keys(TYPE_COLUMNS));
+      const validTypes = rawTypes.split(',').filter(type => TYPE_COLUMNS[type] !== undefined);
+      return validTypes.length ? new Set(validTypes) : new Set(Object.keys(TYPE_COLUMNS));
+    }
+
+    function updateInspectorTypesUrl() {
+      const allTypes = Object.keys(TYPE_COLUMNS);
+      const url = new URL(window.location.href);
+      if (inspectorTypeFilters.size === allTypes.length) {
+        url.searchParams.delete(INSPECTOR_TYPES_QUERY_PARAM);
+      } else {
+        const orderedTypes = allTypes.filter(type => inspectorTypeFilters.has(type));
+        url.searchParams.set(INSPECTOR_TYPES_QUERY_PARAM, orderedTypes.join(','));
+      }
+      window.history.replaceState(window.history.state, '', url);
+    }
+
     function selectVariant(variantId: string | null, { updateUrl = true } = {}) {
       if (variantId === activeVariantId) return;
       commitBaseGraph();
@@ -343,10 +369,18 @@ const TYPE_COLUMNS = {
     function renderNodes() {
       nodeLayer.innerHTML = '';
       const variantEffects = getVariantNodeEffects();
+      const selection = getSelectionEmphasis();
       for (const node of graph.nodes) {
         const el = document.createElement('article');
         const variantEffect = variantEffects.get(node.id);
-        el.className = `node${node.id === selectedNodeId ? ' selected' : ''}${variantEffect ? ` variant-affected variant-${variantEffect}` : ''}`;
+        const selectionClass = node.id === selectedNodeId
+          ? ' selected'
+          : selection.connectedNodeIds.has(node.id)
+            ? ' selection-connected'
+            : selectedNodeId
+              ? ' selection-dimmed'
+              : '';
+        el.className = `node${selectionClass}${variantEffect ? ` variant-affected variant-${variantEffect}` : ''}`;
         el.dataset.id = node.id;
         el.dataset.type = node.type;
         if (variantEffect) el.dataset.variantEffect = variantEffect === 'added' ? 'NEW' : variantEffect === 'changed' ? 'CHANGED' : 'PATH';
@@ -376,9 +410,12 @@ const TYPE_COLUMNS = {
       const nodesById = new Map(graph.nodes.map(node => [node.id, node]));
       const segmentUsage = new Map();
       const portLaneOffsets = buildPortLaneOffsets(graph.edges, rects);
+      const selection = getSelectionEmphasis();
 
       // Stable ordering makes lane assignment deterministic.
       const edges = [...graph.edges].sort((a, b) => {
+        const selectedOrder = Number(selection.connectedEdgeIds.has(a.id)) - Number(selection.connectedEdgeIds.has(b.id));
+        if (selectedOrder) return selectedOrder;
         const af = nodesById.get(a.from)?.layout.column ?? 0;
         const bf = nodesById.get(b.from)?.layout.column ?? 0;
         return af - bf || a.from.localeCompare(b.from) || a.to.localeCompare(b.to);
@@ -394,9 +431,14 @@ const TYPE_COLUMNS = {
         const route = routeEdge(edge, fromRect, toRect, rects, segmentUsage, portLaneOffsets);
         if (!route.points.length) continue;
 
+        const selectionClass = selection.connectedEdgeIds.has(edge.id)
+          ? ' selection-connected'
+          : selectedNodeId
+            ? ' selection-dimmed'
+            : '';
         const path = svgEl('path', {
           d: pointsToPath(route.points),
-          class: `edge-path${edge.emphasis ? ' emphasis' : ''}`,
+          class: `edge-path${edge.emphasis ? ' emphasis' : ''}${selectionClass}`,
         });
         edgeLayer.appendChild(path);
 
@@ -404,8 +446,22 @@ const TYPE_COLUMNS = {
           segmentUsage.set(segmentKey, (segmentUsage.get(segmentKey) || 0) + 1);
         }
 
-        if (edge.label) renderEdgeLabel(edge.label, route.points, route.labelPosition);
+        if (edge.label) renderEdgeLabel(edge.label, route.points, route.labelPosition, selectionClass);
       }
+    }
+
+    function getSelectionEmphasis() {
+      const connectedNodeIds = new Set<string>();
+      const connectedEdgeIds = new Set<string>();
+      if (!selectedNodeId) return { connectedNodeIds, connectedEdgeIds };
+
+      for (const edge of graph.edges) {
+        if (edge.from !== selectedNodeId && edge.to !== selectedNodeId) continue;
+        connectedEdgeIds.add(edge.id);
+        connectedNodeIds.add(edge.from === selectedNodeId ? edge.to : edge.from);
+      }
+
+      return { connectedNodeIds, connectedEdgeIds };
     }
 
     function getNodeRects() {
@@ -751,13 +807,13 @@ const TYPE_COLUMNS = {
       return `M ${points[0].x} ${points[0].y} ` + points.slice(1).map(point => `L ${point.x} ${point.y}`).join(' ');
     }
 
-    function renderEdgeLabel(label, points, explicitPosition = null) {
+    function renderEdgeLabel(label, points, explicitPosition = null, selectionClass = '') {
       if (explicitPosition) {
         const width = Math.max(62, label.length * 6.4 + 18);
         const mx = explicitPosition.x;
         const my = explicitPosition.y;
-        const rect = svgEl('rect', { x: mx - width / 2, y: my - 10, width, height: 20, rx: 7, class: 'edge-label-bg' });
-        const text = svgEl('text', { x: mx, y: my + .5, class: 'edge-label' });
+        const rect = svgEl('rect', { x: mx - width / 2, y: my - 10, width, height: 20, rx: 7, class: `edge-label-bg${selectionClass}` });
+        const text = svgEl('text', { x: mx, y: my + .5, class: `edge-label${selectionClass}` });
         text.textContent = label;
         edgeLayer.appendChild(rect);
         edgeLayer.appendChild(text);
@@ -775,8 +831,8 @@ const TYPE_COLUMNS = {
       const mx = (best.a.x + best.b.x) / 2;
       const my = (best.a.y + best.b.y) / 2;
       const width = Math.max(62, label.length * 6.4 + 18);
-      const rect = svgEl('rect', { x: mx - width / 2, y: my - 10, width, height: 20, rx: 7, class: 'edge-label-bg' });
-      const text = svgEl('text', { x: mx, y: my + .5, class: 'edge-label' });
+      const rect = svgEl('rect', { x: mx - width / 2, y: my - 10, width, height: 20, rx: 7, class: `edge-label-bg${selectionClass}` });
+      const text = svgEl('text', { x: mx, y: my + .5, class: `edge-label${selectionClass}` });
       text.textContent = label;
       edgeLayer.appendChild(rect);
       edgeLayer.appendChild(text);
@@ -785,19 +841,71 @@ const TYPE_COLUMNS = {
     function renderInspector() {
       const node = graph.nodes.find(item => item.id === selectedNodeId);
       if (!node) {
+        const allTypes = Object.keys(TYPE_COLUMNS);
+        const allTypesSelected = inspectorTypeFilters.size === allTypes.length;
+        const variantEffects = getVariantNodeEffects();
+        const visibleNodes = graph.nodes
+          .filter(item => inspectorTypeFilters.has(item.type))
+          .sort((a, b) => a.layout.column - b.layout.column || a.layout.row - b.layout.row || a.title.localeCompare(b.title));
         inspector.innerHTML = `
-          ${activeVariantId ? '<div class="variant-readonly-note">This tab is a materialized variant. Edit its semantic changes in the DSL.</div>' : ''}
-          <div class="empty-state">Select a node to see its detail and edit it. The canvas intentionally shows only the node title.</div>
-          <div class="divider"></div>
-          <div class="legend">
-            ${Object.keys(TYPE_COLUMNS).map(type => `<span>${iconSvg(type)}${escapeHtml(type)}</span>`).join('')}
+          <div class="node-browser-head">
+            <div>
+              <h3>Nodes</h3>
+              <p>Select a node to inspect its details.</p>
+            </div>
+            <span class="node-browser-count" aria-live="polite">${visibleNodes.length} of ${graph.nodes.length}</span>
           </div>
+          <div class="node-type-filters" role="group" aria-label="Filter nodes by type">
+            <button type="button" class="node-type-filter${allTypesSelected ? ' active' : ''}" data-filter-all aria-pressed="${allTypesSelected}">All</button>
+            ${allTypes.map(type => {
+              const isActive = inspectorTypeFilters.has(type);
+              return `<button type="button" class="node-type-filter${isActive && !allTypesSelected ? ' active' : ''}" data-filter-type="${escapeAttr(type)}" aria-pressed="${isActive}">${iconSvg(type)}<span>${escapeHtml(type === 'ux' ? 'UX' : type)}</span></button>`;
+            }).join('')}
+          </div>
+          ${visibleNodes.length ? `
+            <div class="inspector-node-list">
+              ${visibleNodes.map(item => `
+                ${(() => {
+                  const variantEffect = variantEffects.get(item.id);
+                  const variantLabel = variantEffect === 'added' ? 'New in this variant' : variantEffect === 'changed' ? 'Changed from base' : variantEffect ? 'On a changed path' : '';
+                  return `<button type="button" class="inspector-node-row${variantEffect ? ` variant-${variantEffect}` : ''}" data-inspector-node-id="${escapeAttr(item.id)}">
+                  <span class="node-icon" data-type="${escapeAttr(item.type)}" aria-hidden="true">${iconSvg(item.type)}</span>
+                  <span class="inspector-node-copy"><strong>${escapeHtml(item.title)}</strong><span>${escapeHtml(item.type === 'ux' ? 'UX' : item.type)}</span></span>
+                  <span class="inspector-node-end">${variantEffect ? `<span class="inspector-variant-badge" aria-label="${variantLabel}" title="${variantLabel}">${variantEffectIcon(variantEffect)}</span>` : ''}<svg class="inspector-node-arrow" viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg></span>
+                </button>`;
+                })()}
+              `).join('')}
+            </div>
+          ` : '<div class="empty-state">No nodes match these filters.</div>'}
         `;
+
+        inspector.querySelector<HTMLButtonElement>('[data-filter-all]')?.addEventListener('click', () => {
+          inspectorTypeFilters = new Set(allTypes);
+          updateInspectorTypesUrl();
+          renderInspector();
+        });
+        inspector.querySelectorAll<HTMLButtonElement>('[data-filter-type]').forEach(button => {
+          button.addEventListener('click', () => {
+            const type = button.dataset.filterType;
+            if (!type) return;
+            const nextFilters = allTypesSelected ? new Set([type]) : new Set(inspectorTypeFilters);
+            if (!allTypesSelected && nextFilters.has(type)) nextFilters.delete(type);
+            else nextFilters.add(type);
+            inspectorTypeFilters = nextFilters.size ? nextFilters : new Set(allTypes);
+            updateInspectorTypesUrl();
+            renderInspector();
+          });
+        });
+        inspector.querySelectorAll<HTMLButtonElement>('[data-inspector-node-id]').forEach(button => {
+          button.addEventListener('click', () => {
+            const nodeId = button.dataset.inspectorNodeId;
+            if (nodeId) selectNode(nodeId);
+          });
+        });
         return;
       }
 
       inspector.innerHTML = `
-        ${activeVariantId ? '<div class="variant-readonly-note">Edit semantic changes in the DSL. Drag this node to save a position for this tab.</div>' : ''}
         <div class="inspector-summary">
           <span class="node-icon" aria-hidden="true">${iconSvg(node.type)}</span>
           <div><strong>${escapeHtml(node.title)}</strong><span>${escapeHtml(node.type)} · ${escapeHtml(node.id)}</span></div>
@@ -904,7 +1012,14 @@ const TYPE_COLUMNS = {
 
     function selectNode(id, { updateInspector = true } = {}) {
       selectedNodeId = id;
-      nodeLayer.querySelectorAll<HTMLElement>('.node').forEach(el => el.classList.toggle('selected', el.dataset.id === id));
+      const selection = getSelectionEmphasis();
+      nodeLayer.querySelectorAll<HTMLElement>('.node').forEach(el => {
+        const nodeId = el.dataset.id;
+        el.classList.toggle('selected', nodeId === id);
+        el.classList.toggle('selection-connected', Boolean(nodeId && selection.connectedNodeIds.has(nodeId)));
+        el.classList.toggle('selection-dimmed', nodeId !== id && !selection.connectedNodeIds.has(nodeId || ''));
+      });
+      scheduleEdgeRender();
       if (updateInspector) renderInspector();
       updateToolbar();
     }
@@ -1032,6 +1147,12 @@ const TYPE_COLUMNS = {
       const sortedNodes = [...graph.nodes].sort((a, b) =>
         a.layout.column - b.layout.column || a.layout.row - b.layout.row || a.id.localeCompare(b.id)
       );
+      const layoutEdges = graph.edges.filter(edge => {
+        const source = nodesById.get(edge.from);
+        const target = nodesById.get(edge.to);
+        if (!source || !target) return false;
+        return target.layout.column >= source.layout.column;
+      });
 
       const elkGraph = {
         id: 'root',
@@ -1040,11 +1161,11 @@ const TYPE_COLUMNS = {
           'elk.direction': 'RIGHT',
           'elk.edgeRouting': 'ORTHOGONAL',
           'elk.partitioning.activate': 'true',
-          'elk.spacing.nodeNode': '18',
+          'elk.spacing.nodeNode': '26',
           'elk.spacing.edgeNode': '14',
           'elk.spacing.edgeEdge': '8',
           'elk.spacing.edgeLabel': '4',
-          'elk.layered.spacing.nodeNodeBetweenLayers': '42',
+          'elk.layered.spacing.nodeNodeBetweenLayers': '50',
           'elk.layered.spacing.edgeNodeBetweenLayers': '14',
           'elk.layered.spacing.edgeEdgeBetweenLayers': '8',
           'elk.layered.nodePlacement.strategy': 'BRANDES_KOEPF',
@@ -1072,14 +1193,7 @@ const TYPE_COLUMNS = {
             ],
           };
         }),
-        edges: graph.edges
-          .filter(edge => {
-            const source = nodesById.get(edge.from);
-            const target = nodesById.get(edge.to);
-            if (!source || !target) return false;
-            return target.layout.column >= source.layout.column;
-          })
-          .map(edge => {
+        edges: layoutEdges.map(edge => {
           const source = nodesById.get(edge.from);
           const target = nodesById.get(edge.to);
           const ports = chooseElkPorts(source, target);
@@ -1103,13 +1217,16 @@ const TYPE_COLUMNS = {
       console.info('[flow] ELK auto layout', {
         nodes: elkGraph.children.length,
         edges: elkGraph.edges.length,
-        spacing: { node: 18, layers: 42 },
+        spacing: { node: 26, layers: 50 },
       });
 
       const result: any = await elkInstance.layout(elkGraph);
       const resultNodes = new Map<string, any>((result.children || []).map((node: any) => [node.id, node]));
+      const connectedLayoutNodeIds = new Set(layoutEdges.flatMap(edge => [edge.from, edge.to]));
       for (const node of graph.nodes) {
-        const laidOut = resultNodes.get(node.id);
+        const laidOut = connectedLayoutNodeIds.has(node.id)
+          ? resultNodes.get(node.id)
+          : inferDisconnectedLayoutPosition(node, resultNodes, connectedLayoutNodeIds);
         if (!laidOut) continue;
         node.position.x = Math.round((laidOut.x || 0) + 46);
         node.position.y = Math.round((laidOut.y || 0) + 58);
@@ -1118,6 +1235,40 @@ const TYPE_COLUMNS = {
       // ELK places nodes. The local router owns all visible routes so it can
       // keep every edge in a separate lane after layout and manual movement.
       elkRoutes.clear();
+    }
+
+    function inferDisconnectedLayoutPosition(node, resultNodes, connectedLayoutNodeIds) {
+      const column = Math.round(node.layout.column);
+      const candidates = graph.nodes.filter(peer =>
+        peer.id !== node.id
+        && connectedLayoutNodeIds.has(peer.id)
+        && resultNodes.has(peer.id)
+        && Math.round(peer.layout.column) === column
+      );
+      const typedPeers = candidates.filter(peer => peer.type === node.type);
+      const peers = (typedPeers.length ? typedPeers : candidates)
+        .sort((a, b) => a.layout.row - b.layout.row || a.id.localeCompare(b.id));
+      if (!peers.length) return resultNodes.get(node.id);
+
+      const before = [...peers].reverse().find(peer => peer.layout.row <= node.layout.row);
+      const after = peers.find(peer => peer.layout.row >= node.layout.row);
+      if (before && after && before.id !== after.id) {
+        const start = resultNodes.get(before.id);
+        const end = resultNodes.get(after.id);
+        const rowRange = after.layout.row - before.layout.row;
+        const progress = rowRange ? (node.layout.row - before.layout.row) / rowRange : 0;
+        return {
+          x: start.x + (end.x - start.x) * progress,
+          y: start.y + (end.y - start.y) * progress,
+        };
+      }
+
+      const anchor = before || after;
+      const position = resultNodes.get(anchor.id);
+      return {
+        x: position.x,
+        y: position.y + (node.layout.row - anchor.layout.row) * ROW_GAP,
+      };
     }
 
     function elkPort(nodeId, name, side) {
@@ -1324,19 +1475,18 @@ const TYPE_COLUMNS = {
 
     viewport.addEventListener('pointerdown', (event) => {
       if (event.button !== 0 || (event.target as Element).closest('.node')) return;
-      selectedNodeId = null;
-      nodeLayer.querySelectorAll('.node').forEach(el => el.classList.remove('selected'));
-      renderInspector();
-      updateToolbar();
-
       isPanning = true;
       viewport.classList.add('panning');
       viewport.setPointerCapture(event.pointerId);
-      panStart = { x: event.clientX, y: event.clientY, panX, panY, pointerId: event.pointerId };
+      panStart = { x: event.clientX, y: event.clientY, panX, panY, pointerId: event.pointerId, moved: false };
     });
 
     viewport.addEventListener('pointermove', (event) => {
       if (!isPanning || !panStart || event.pointerId !== panStart.pointerId) return;
+      const dx = event.clientX - panStart.x;
+      const dy = event.clientY - panStart.y;
+      if (!panStart.moved && Math.hypot(dx, dy) <= 3) return;
+      panStart.moved = true;
       panX = panStart.panX + (event.clientX - panStart.x);
       panY = panStart.panY + (event.clientY - panStart.y);
       applyTransform();
@@ -1344,10 +1494,18 @@ const TYPE_COLUMNS = {
 
     function endPan(event) {
       if (!isPanning || !panStart || event.pointerId !== panStart.pointerId) return;
+      const shouldClearSelection = event.type === 'pointerup' && !panStart.moved;
       isPanning = false;
       viewport.classList.remove('panning');
       if (viewport.hasPointerCapture(event.pointerId)) viewport.releasePointerCapture(event.pointerId);
       panStart = null;
+      if (shouldClearSelection) {
+        selectedNodeId = null;
+        nodeLayer.querySelectorAll('.node').forEach(el => el.classList.remove('selected', 'selection-connected', 'selection-dimmed'));
+        scheduleEdgeRender();
+        renderInspector();
+        updateToolbar();
+      }
     }
     viewport.addEventListener('pointerup', endPan);
     viewport.addEventListener('pointercancel', endPan);
@@ -1491,24 +1649,27 @@ const TYPE_COLUMNS = {
 
     function restore() {
       let hasSavedGraph = false;
+      let restoredGraph: FlowGraph;
       try {
         const saved = localStorage.getItem(STORAGE_KEY);
-        hasSavedGraph = Boolean(saved);
-        flowDocument = normalizeDocument(saved ? JSON.parse(saved) : initialGraph);
+        const savedSourceSignature = localStorage.getItem(SOURCE_STORAGE_KEY);
+        hasSavedGraph = Boolean(saved) && savedSourceSignature === initialGraphSignature;
+        flowDocument = normalizeDocument(hasSavedGraph ? JSON.parse(saved!) : initialGraph);
         activeVariantId = variantIdFromUrl();
-        const restoredGraph = activeVariantId ? materializeVariant(flowDocument, activeVariantId) : flowDocument.graph;
+        restoredGraph = activeVariantId ? materializeVariant(flowDocument, activeVariantId) : flowDocument.graph;
         graph = normalizeGraph(restoredGraph);
         authoredLayoutHintIds = extractLayoutHintIds(restoredGraph);
       } catch {
         flowDocument = normalizeDocument(initialGraph);
         activeVariantId = variantIdFromUrl();
-        const restoredGraph = activeVariantId ? materializeVariant(flowDocument, activeVariantId) : flowDocument.graph;
+        restoredGraph = activeVariantId ? materializeVariant(flowDocument, activeVariantId) : flowDocument.graph;
         graph = normalizeGraph(restoredGraph);
         authoredLayoutHintIds = extractLayoutHintIds(restoredGraph);
       }
       updateLayoutEngineLabel();
       renderAll();
-      requestAnimationFrame(() => hasSavedGraph ? fitView() : autoLayout());
+      const hasAllPositions = graph.nodes.every(node => restoredGraph.layout?.positions?.[node.id]);
+      requestAnimationFrame(() => hasSavedGraph && hasAllPositions ? fitView() : autoLayout());
     }
 
     function iconSvg(type) {
@@ -1523,6 +1684,13 @@ const TYPE_COLUMNS = {
         goal: `<svg ${common}><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><path d="M12 4v4"/><path d="M20 12h-4"/></svg>`,
       };
       return icons[type] || icons.process;
+    }
+
+    function variantEffectIcon(effect: 'added' | 'changed' | 'connected') {
+      const common = 'viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
+      if (effect === 'added') return `<svg ${common}><path d="M8 3v10M3 8h10"/></svg>`;
+      if (effect === 'changed') return `<svg ${common}><path d="m3 11.5-.5 2 2-.5 7.7-7.7-1.5-1.5Z"/><path d="m9.7 4.8 1.5 1.5"/></svg>`;
+      return `<svg ${common}><path d="M3 8h10M9 4l4 4-4 4"/></svg>`;
     }
 
     function svgEl(tag, attrs) {

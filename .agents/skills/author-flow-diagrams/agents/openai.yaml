@@ -1,0 +1,4 @@
+interface:
+  display_name: "Author Flow Diagrams"
+  short_description: "Author readable Flow DSL diagrams and variants"
+  default_prompt: "Use $author-flow-diagrams to create or improve this repository's Flow DSL diagram."

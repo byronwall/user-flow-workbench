@@ -62,3 +62,49 @@ variant per-job-resume "One resume per posting" {
   add edge resume-to-library tailored-resume -> resume-library
   add edge library-to-goal resume-library -> goal emphasis=true
 }
+variant evidence-corpus-projection "Resume as an evidence projection" {
+  description "Build a durable body of verified career evidence, then let each job posting constrain the resume projected from it."
+
+  remove edge e8
+  set node inventory title="2. Build the evidence corpus" body="Extract durable evidence from resumes, project notes, reviews, work samples, metrics, and structured user answers. Keep provenance for every claim." tags=["evidence system","reusable"]
+  set node map-evidence title="3. Constrain evidence by the posting" body="Use the target posting as a selection constraint. Rank verified evidence by relevance, strength, recency, and the role’s likely evaluation criteria."
+  set node draft title="4. Project a job-specific resume" body="Generate a concise resume view from the selected evidence. Change emphasis and wording without changing the underlying facts." tags=["projection"]
+  set node handoff-evidence title="Corpus → qualified evidence" body="The durable evidence corpus supplies verified claims with provenance, scope, confidence, and reusable source detail."
+  set node match-matrix title="Job-constrained evidence plan" body="A ranked plan that identifies which verified evidence to include, omit, clarify, or reserve for an interview."
+  set node tailored-resume title="Resume projection" body="A job-specific projection of the shared evidence corpus, optimized for the posting without becoming a separate source of truth." tags=["deliverable","projection"]
+  set node ux-sources title="Posting + evidence context" body="Show the posting beside the reusable evidence corpus and explain why each item is selected or omitted."
+  set node goal title="Submit the best defensible projection" body="The job seeker submits an optimized resume while the durable evidence corpus remains reusable for future roles."
+  add node evidence-corpus deliverable "Career evidence corpus" body="A living, source-backed record of accomplishments, skills, scope, metrics, domains, work samples, and approved claims." tags=["deliverable","source of truth"] layout=3,2
+  add edge inventory-to-corpus inventory -> evidence-corpus emphasis=true
+  add edge corpus-to-handoff evidence-corpus -> handoff-evidence
+}
+variant guided-evidence-interview "Agent-guided evidence interview" {
+  description "Pause drafting when important evidence is weak, then ask focused questions that help the user recover specific, defensible proof."
+
+  remove edge e12
+  set node draft title="5. Draft from verified answers" body="Rewrite and reorder content only after the user confirms the added context, scope, metrics, and wording." tags=["transformation","verified input"]
+  set node handoff-review title="Interview-backed draft → approval" body="The draft combines source resume evidence with user-approved answers, then returns every proposed claim for final review."
+  set node ux-evidence title="Evidence questions + confidence" body="Explain each weak match, ask one focused question at a time, and show how an answer changes confidence or relevance."
+  add node find-gaps process "4. Find high-value evidence gaps" body="Select only gaps where stronger evidence could materially change the application. Ignore low-value keyword gaps." tags=["agent triage"] layout=2,5
+  add node evidence-interview ux "Run a focused evidence interview" body="Ask for situation, action, result, scope, and measurable impact. Let the user skip questions or mark evidence as unavailable." tags=["guided review","user control"] layout=4,5
+  add node verified-answers deliverable "Verified evidence answers" body="User-approved facts and context that can support stronger bullets without inventing experience." tags=["deliverable","verified"] layout=3,5
+  add edge matrix-to-gaps match-matrix -> find-gaps label="prioritize gaps"
+  add edge gaps-to-interview find-gaps -> evidence-interview
+  add edge user-to-interview user -> evidence-interview label="answer or skip"
+  add edge interview-to-answers evidence-interview -> verified-answers emphasis=true
+  add edge answers-to-draft verified-answers -> draft
+}
+variant independent-claim-audit "Independent agent claim audit" {
+  description "Separate persuasive rewriting from factual review so a second agent challenges unsupported, vague, or inflated claims before approval."
+
+  remove edge e14
+  set node draft title="4. Draft persuasive changes" body="A writing agent foregrounds relevant evidence and improves clarity, specificity, and role alignment." tags=["writing agent"]
+  set node handoff-review title="Audited draft → human approval" body="Only claims that pass the independent audit move to the user. Challenges and unresolved risks remain visible."
+  set node ux-diff title="Diff + audit findings" body="Show each edit with its source evidence, audit result, and reason for any warning. Let the user revise, reject, or approve it."
+  add node claim-audit process "5. Audit every changed claim" body="A separate review agent checks provenance, factual entailment, unsupported numbers, seniority inflation, and meaning changed by compression." tags=["review agent","independent"] layout=2,7
+  add node audit-report deliverable "Claim audit report" body="A per-change record of passed checks, challenges, missing support, and required user decisions." tags=["deliverable","risk review"] layout=3,7
+  add edge draft-to-audit draft -> claim-audit label="challenge edits"
+  add edge evidence-to-audit handoff-evidence -> claim-audit label="verify sources"
+  add edge audit-to-report claim-audit -> audit-report emphasis=true
+  add edge report-to-review audit-report -> handoff-review
+}
