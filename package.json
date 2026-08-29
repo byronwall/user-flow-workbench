@@ -6,7 +6,9 @@
     "dev": "vinxi dev",
     "build": "vinxi build",
     "start": "vinxi start",
-    "test:dsl": "node --experimental-strip-types --test src/lib/graph-dsl.test.ts",
+    "flow": "node --experimental-strip-types src/cli/flow.ts",
+    "check:flows": "pnpm flow check",
+    "test:dsl": "node --experimental-strip-types --test src/lib/graph-dsl.test.ts src/lib/graph-lint.test.ts src/cli/flow.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "packageManager": "pnpm@11.9.0",

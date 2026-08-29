@@ -395,8 +395,6 @@ const TYPE_COLUMNS = {
 
       // Stable ordering makes lane assignment deterministic.
       const edges = [...canvasEdges()].sort((a, b) => {
-        const selectedOrder = Number(selection.connectedEdgeIds.has(a.id)) - Number(selection.connectedEdgeIds.has(b.id));
-        if (selectedOrder) return selectedOrder;
         const af = nodesById.get(a.from)?.layout.column ?? 0;
         const bf = nodesById.get(b.from)?.layout.column ?? 0;
         return af - bf || a.from.localeCompare(b.from) || a.to.localeCompare(b.to);

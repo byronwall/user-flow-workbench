@@ -93,9 +93,10 @@ variant guided-evidence-interview "Agent-guided evidence interview" {
   set node tailored-resume layout=9,1
   add node find-gaps process "4. Find high-value evidence gaps" body="Select only gaps where stronger evidence could materially change the application. Ignore low-value keyword gaps." tags=["agent triage"] layout=6,1
   add node evidence-interview ux "Run a focused evidence interview" body="Ask for situation, action, result, scope, and measurable impact. Let the user skip questions or mark evidence as unavailable." tags=["guided review","user control"]
-  add node verified-answers input "User-confirmed evidence" body="Facts and context supplied by the user after focused questions expose an important evidence gap." tags=["conditional","supplied-by:user","origin: job seeker"] layout=1,5
+  add node verified-answers input "User-confirmed evidence" body="Facts and context supplied by the user after focused questions expose an important evidence gap." tags=["conditional","supplied-by:user","origin: job seeker"] layout=7,5
   add edge matrix-to-gaps match-matrix -> find-gaps label="prioritize gaps"
   add edge user-to-answers user -> verified-answers label="answers or skips"
+  add edge gaps-to-answers find-gaps -> verified-answers label="requests evidence"
   add edge answers-to-draft verified-answers -> draft
   add edge interview-at-gaps evidence-interview -> find-gaps relation=appears-at
   add edge interview-supports-truth evidence-interview -> need-truth relation=supports

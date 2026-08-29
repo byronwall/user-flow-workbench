@@ -240,6 +240,18 @@ Use `handoff` for a transfer. Use `deliverable` for the durable item transferred
 
 The renderer derives outcomes. A `deliverable` with no outgoing `flow` edge is an outcome. An intermediate deliverable remains an artifact.
 
+## Lint rules
+
+Run `pnpm flow check` to parse and lint production and example `.flow` files.
+Pass file or directory paths to check other flows.
+
+`FLOWLINT001` reports each `process` node that has no outgoing `flow` edge.
+The check materializes every variant.
+A semantic edge such as `addresses` does not count as process output.
+
+Run `pnpm flow format <path>` to rewrite files in canonical form.
+Use `pnpm flow format --check <path>` to check formatting without editing files.
+
 ## Lexical rules
 
 ### Identifiers

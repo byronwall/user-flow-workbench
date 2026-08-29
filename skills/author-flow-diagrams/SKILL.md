@@ -44,6 +44,8 @@ Use typed relations by meaning:
 
 A deliverable with no outgoing `flow` edge is an outcome. Do not add a goal node.
 
+Every process must have an outgoing `flow` edge. Semantic relations do not count as process output.
+
 Write short titles that remain clear on title-only cards. Put qualifications, evidence, and acceptance detail in `body`. Add tags only when agents or future edits can use them.
 
 Create one dominant left-to-right story. Add branches only when they show a real alternative, dependency, recovery path, or UX requirement. Avoid duplicate nodes that state the same idea.
@@ -85,11 +87,33 @@ The UI highlights variant impact. Added nodes show as `NEW`. Changed nodes show 
 
 Use `clear all` only for a complete replacement graph. It must be the first operation. Add every required node and edge after it. If the alternative has little shared meaning with the base graph, consider a separate production flow instead.
 
+## Use the Flow CLI
+
+Run the semantic check on each changed flow:
+
+```sh
+pnpm flow check path/to/changed.flow
+```
+
+The check parses the file and lints the base graph. It also materializes and lints every variant.
+
+`FLOWLINT001` identifies a process without an outgoing `flow` edge. Repair the path in the affected base graph or variant.
+
+Use the canonical formatter only when rewriting the full file is intended:
+
+```sh
+pnpm flow format path/to/changed.flow
+pnpm flow format --check path/to/changed.flow
+```
+
+Canonical formatting removes comments. Do not run the write form when comments must remain.
+
 ## Review before completion
 
 Confirm these properties:
 
 - The base graph tells a complete story.
+- Every process has an outgoing `flow` edge.
 - Every edge references nodes that exist at that operation.
 - No removed node leaves a dangling edge.
 - Each variant creates a meaningful result, not a cosmetic duplicate.
@@ -103,6 +127,7 @@ Run the repository checks after a production flow change:
 ```sh
 pnpm test:dsl
 pnpm typecheck
+pnpm check:flows
 ```
 
 Do not run browser validation unless the user requests it or the change affects canvas interaction.

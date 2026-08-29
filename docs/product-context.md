@@ -92,6 +92,8 @@ Do not model variants as a vertical lane of special nodes. Each variant applies 
 - Node and edge identities are required and stable.
 - Canonical formatting makes repeated agent edits converge.
 - Recoverable parsing returns stable diagnostics for repair loops.
+- The reusable semantic linter checks the base graph and each materialized variant.
+- A process node must have at least one outgoing `flow` edge.
 - Nodes contain semantic data only.
 - Edge relations separate operational flow from supporting metadata.
 - The optional top-level `layout` object stores hints and exact positions by node ID.

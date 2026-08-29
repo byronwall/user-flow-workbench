@@ -19,7 +19,25 @@ Run the production checks with:
 
 ```sh
 pnpm typecheck
+pnpm check:flows
 pnpm build
+```
+
+Use the Flow CLI to check or canonically format any `.flow` file or directory:
+
+```sh
+pnpm flow check path/to/flow.flow
+pnpm flow format path/to/flows
+pnpm flow format --check path/to/flow.flow
+```
+
+## Install the diagram skill
+
+The repository publishes its diagram-authoring skill from `skills/author-flow-diagrams`.
+Install it into another agent environment with:
+
+```sh
+npx skills add byronwall/user-flow-workbench --skill author-flow-diagrams
 ```
 
 ## Current capabilities
