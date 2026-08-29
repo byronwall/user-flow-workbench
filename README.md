@@ -4,6 +4,8 @@ This repository contains a SolidStart SPA for schema-first product and user-flow
 
 The app combines a graph editor, a canvas, an inspector, and layout logic. The initial example maps a truthful resume-tailoring flow. The tool is general. The resume flow is sample data, not the product boundary.
 
+![User Flow Workbench showing an operational flow, variant tabs, and a detail inspector](docs/images/readme/flow-workbench.svg)
+
 ## Start the app
 
 Use Node.js 22 and pnpm 11. Then run:
@@ -29,6 +31,29 @@ Use the Flow CLI to check or canonically format any `.flow` file or directory:
 pnpm flow check path/to/flow.flow
 pnpm flow format path/to/flows
 pnpm flow format --check path/to/flow.flow
+```
+
+Build and serve the workbench for every `.flow` file below the current directory:
+
+```sh
+pnpm build
+pnpm flow view
+pnpm flow view path/to/project --port 4317
+```
+
+Open the printed local URL. The index lists nested flow files and reports syntax errors.
+
+The workbench reads source files from disk. Browser edits remain in local storage and do not change source files.
+
+Install the published CLI globally or run it without installation:
+
+```sh
+pnpm add --global user-flow-workbench
+flow check path/to/flow.flow
+flow view path/to/project
+
+pnpm dlx user-flow-workbench check path/to/flow.flow
+pnpm dlx user-flow-workbench view path/to/project
 ```
 
 ## Install the diagram skill
@@ -61,6 +86,8 @@ npx skills add byronwall/user-flow-workbench --skill author-flow-diagrams
 - Use ELK Layered for automatic placement and orthogonal routes.
 - Fall back to a local Manhattan router when ELK is unavailable.
 - Expose a small `window.flow` API for agents and scripts.
+- Discover nested `.flow` files through the local `flow view` server.
+- Keep browser edits separate for each source path and workspace.
 
 ## Project direction
 
@@ -72,8 +99,10 @@ See [docs/product-context.md](docs/product-context.md) for the original intent, 
 
 ## Architecture
 
-- `src/routes/index.tsx` loads the starter graph and renders the SPA.
-- `src/routes/api/graph.ts` serves the starter graph as JSON.
+- `src/routes/index.tsx` lists discovered files and loads the selected flow.
+- `src/routes/api/flows.ts` serves the file catalog.
+- `src/routes/api/graph.ts` safely loads one catalog document as JSON.
+- `src/server/flow-catalog.ts` owns discovery, path checks, parsing, and workspace identities.
 - `src/components/` contains the page shell, toolbar, DSL panel, canvas, and inspector.
 - `src/lib/graph-dsl.ts` parses and writes the agent-facing flow DSL.
 - `src/lib/flow-workbench.ts` contains direct manipulation, routing, layout, and the agent API.
@@ -82,7 +111,7 @@ See [docs/product-context.md](docs/product-context.md) for the original intent, 
 
 ELK is installed as a package and loads as a separate browser bundle. The local Manhattan router remains the fallback. The browser keeps the editable working graph in `localStorage`.
 
-The API parses [resume-alignment.flow](src/data/flows/resume-alignment.flow) directly. Edit that file to change the production example. Do not maintain a parallel JSON fixture.
+The API parses selected `.flow` files directly. It does not maintain parallel JSON fixtures.
 
 ## Flow DSL
 

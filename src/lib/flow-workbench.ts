@@ -2,7 +2,7 @@ import { graphToDsl, materializeVariant, parseGraphDsl, parseGraphDslWithDiagnos
 import { edgeRelation, isFlowEdge, isOperationalNode, terminalDeliverableIds } from "./graph-semantics";
 import type { CanvasGraph, CanvasNode, FlowDocument, FlowGraph, NodePosition, NodeType } from "../types/graph";
 
-export function mountFlowWorkbench(initialGraph: unknown) {
+export function mountFlowWorkbench(initialGraph: unknown, options: { storageKey?: string } = {}) {
 const TYPE_COLUMNS = {
       actor: 0,
       input: 1,
@@ -28,8 +28,9 @@ const TYPE_COLUMNS = {
     const WRAPPED_BAND_GAP = 96;
     const GUTTER_LANE_GAP = 12;
     const ROUTE_REUSE_PENALTY = 500;
-    const STORAGE_KEY = 'user-flow-workbench-v5-stage-rows';
-    const SOURCE_STORAGE_KEY = 'user-flow-workbench-v5-stage-rows-source';
+    const storageNamespace = options.storageKey || 'default';
+    const STORAGE_KEY = `user-flow-workbench-v5-stage-rows:${storageNamespace}`;
+    const SOURCE_STORAGE_KEY = `user-flow-workbench-v5-stage-rows-source:${storageNamespace}`;
     const INSPECTOR_TYPES_QUERY_PARAM = 'nodeTypes';
     const initialGraphSignature = JSON.stringify(initialGraph);
 
@@ -65,7 +66,9 @@ const TYPE_COLUMNS = {
     const dslEditor = $<HTMLTextAreaElement>('dslEditor');
     const inspector = $<HTMLDivElement>('inspector');
     const variantTabs = $<HTMLDivElement>('variantTabs');
-    const variantContext = $<HTMLDivElement>('variantContext');
+    const variantDescription = $<HTMLDivElement>('variantDescription');
+    const variantDescriptionText = $<HTMLParagraphElement>('variantDescriptionText');
+    const variantLegendItems = $<HTMLSpanElement>('variantLegendItems');
 
     function clone<T>(value: T): T { return JSON.parse(JSON.stringify(value)) as T; }
 
@@ -217,24 +220,6 @@ const TYPE_COLUMNS = {
       if (syncJson) syncDslEditor();
     }
 
-    function variantImpact(variant) {
-      const counts = { added: 0, removed: 0, changed: 0, positioned: 0 };
-      for (const operation of variant.operations) {
-        if (operation.kind.startsWith('add-')) counts.added += 1;
-        else if (operation.kind.startsWith('remove-')) counts.removed += 1;
-        else if (operation.kind === 'set-position') counts.positioned += 1;
-        else if (operation.kind !== 'clear-all') counts.changed += 1;
-      }
-      const parts = [
-        counts.added && `${counts.added} added`,
-        counts.removed && `${counts.removed} removed`,
-        counts.changed && `${counts.changed} changed`,
-        counts.positioned && `${counts.positioned} positioned`,
-        variant.operations.some(operation => operation.kind === 'clear-all') && 'base cleared',
-      ].filter(Boolean);
-      return parts.join(' · ') || 'No changes';
-    }
-
     function renderVariantTabs() {
       const tabs = [{ id: null, title: 'Base' }, ...flowDocument.variants];
       variantTabs.innerHTML = tabs.map((tab, index) => {
@@ -245,10 +230,14 @@ const TYPE_COLUMNS = {
       variantTabs.querySelectorAll<HTMLButtonElement>('[data-variant-id]').forEach(button => {
         button.addEventListener('click', () => selectVariant(button.dataset.variantId || null));
       });
+      requestAnimationFrame(() => {
+        variantTabs.querySelector<HTMLButtonElement>('[aria-selected="true"]')
+          ?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      });
       const active = flowDocument.variants.find(variant => variant.id === activeVariantId);
-      variantContext.innerHTML = active
-        ? `<span>${escapeHtml(active.description || 'Variant view')}</span><span class="variant-key">Variant impact highlighted</span><strong>${escapeHtml(variantImpact(active))}</strong>`
-        : `<span>Shared graph</span><strong>${canvasNodes().length} flow nodes · ${canvasEdges().length} flow edges</strong>`;
+      variantDescription.hidden = !active;
+      variantDescriptionText.textContent = active?.description || '';
+      variantLegendItems.hidden = !active;
       viewport.setAttribute('aria-labelledby', `variant-tab-${activeVariantId || 'base'}`);
     }
 
@@ -1066,19 +1055,31 @@ const TYPE_COLUMNS = {
       const isOutcome = terminalDeliverableIds(graph).has(node.id);
 
       inspector.innerHTML = `
+        <button type="button" class="inspector-back" data-clear-selection>
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m9.5 3-5 5 5 5"/></svg>
+          All nodes
+        </button>
         <div class="inspector-summary">
           <span class="node-icon" aria-hidden="true">${iconSvg(node.type)}</span>
           <div><strong>${escapeHtml(node.title)}</strong><span>${escapeHtml(isOutcome ? 'deliverable · outcome' : node.type)} · ${escapeHtml(node.id)}</span></div>
         </div>
-        <div class="field">
-          <label>ID</label>
-          <input data-field="id" value="${escapeAttr(node.id)}" />
-        </div>
-        <div class="field">
-          <label>Type</label>
-          <select data-field="type">
-            ${Object.keys(TYPE_COLUMNS).map(type => `<option value="${type}" ${type === node.type ? 'selected' : ''}>${type}</option>`).join('')}
-          </select>
+        ${activeVariantId ? `
+          <div class="variant-readonly-note">
+            <span>Variant fields are read-only.</span>
+            <button type="button" data-open-code>Edit in Flow DSL</button>
+          </div>
+        ` : ''}
+        <div class="field-grid">
+          <div class="field">
+            <label>ID</label>
+            <input data-field="id" value="${escapeAttr(node.id)}" />
+          </div>
+          <div class="field">
+            <label>Type</label>
+            <select data-field="type">
+              ${Object.keys(TYPE_COLUMNS).map(type => `<option value="${type}" ${type === node.type ? 'selected' : ''}>${type}</option>`).join('')}
+            </select>
+          </div>
         </div>
         <div class="field">
           <label>Title</label>
@@ -1105,6 +1106,13 @@ const TYPE_COLUMNS = {
           <div class="small">Dragging changes <code>position</code>. Auto layout recomputes positions from <code>layout</code>.</div>
         ` : '<div class="small">Semantic records stay out of the flow canvas. Edit their relations in the DSL.</div>'}
       `;
+
+      inspector.querySelector<HTMLButtonElement>('[data-clear-selection]')?.addEventListener('click', () => {
+        selectNode(null);
+      });
+      inspector.querySelector<HTMLButtonElement>('[data-open-code]')?.addEventListener('click', () => {
+        document.getElementById('code-tab')?.click();
+      });
 
       inspector.querySelectorAll<HTMLButtonElement>('[data-related-node-id]').forEach(button => {
         button.addEventListener('click', () => {

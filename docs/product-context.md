@@ -80,6 +80,8 @@ Do not model variants as a vertical lane of special nodes. Each variant applies 
 - Keep a no-library fallback.
 - Keep the graph schema and agent API visible.
 - Put the inspector and Flow DSL in tabs within a full-height right sidebar.
+- Show active-view descriptions in the sidebar and the variant-impact key in the canvas legend.
+- Do not show variant-operation totals in the interface.
 - Show the base graph and variants as tabs.
 - Keep variant operations separate from the complete graph used by the renderer.
 - Permit `clear all` only as the first operation in a replacement variant.
@@ -104,8 +106,15 @@ Do not model variants as a vertical lane of special nodes. Each variant applies 
 - Semantic form controls are read-only in a materialized variant. Agents edit variant changes in the DSL.
 - The app is a TypeScript SolidStart SPA.
 - Production examples live as editable `.flow` files in `src/data/flows`.
-- The server parses the resume `.flow` source and serves its document from `GET /api/graph`.
+- `flow view` serves the packaged SolidStart application on the loopback interface.
+- The server discovers `.flow` files below its selected root.
+- The index shows a picker before it loads a document.
+- `GET /api/flows` serves the discovered file catalog.
+- `GET /api/graph` parses one validated relative path.
+- The server rejects traversal paths, symbolic links, and ignored build directories.
 - The browser stores the editable working graph in `localStorage`.
+- Browser storage uses the workspace identity and relative source path.
+- Browser edits do not write back to source files.
 - The `variant` URL parameter stores the active tab across refreshes.
 - ELK loads from the installed `elkjs@0.12.0` package as a separate browser bundle.
 - ELK uses a rightward layered graph with semantic column partitions.

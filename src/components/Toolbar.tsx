@@ -1,9 +1,12 @@
-export function Toolbar() {
+export function Toolbar(props: { documentPath: string }) {
   return (
     <header class="topbar">
       <div class="brand">
-        <h1>User Flow Workbench</h1>
-        <p>Operational flows with needs and UX kept as linked semantic context.</p>
+        <h1>
+          <span class="brand-full">User Flow Workbench</span>
+          <span class="brand-compact">Workbench</span>
+        </h1>
+        <p title={props.documentPath}>{props.documentPath}</p>
       </div>
       <div class="toolbar" aria-label="Canvas actions">
         <button class="btn primary" id="autoLayoutBtn" type="button">Auto layout</button>
@@ -14,8 +17,9 @@ export function Toolbar() {
       </div>
       <div class="spacer" />
       <div class="toolbar" aria-label="Graph actions">
+        <a class="btn flow-switcher" href="/" rel="external">All flows</a>
         <button class="btn" id="exportBtn" type="button">Export JSON</button>
-        <button class="btn" id="resetBtn" type="button">Reset example</button>
+        <button class="btn" id="resetBtn" type="button">Reset file</button>
       </div>
     </header>
   );

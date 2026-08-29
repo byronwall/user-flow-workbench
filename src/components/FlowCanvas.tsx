@@ -24,13 +24,18 @@ export function FlowCanvas() {
         <span>Drag node = move</span>
         <span id="layoutEngineLabel">Separated local routes</span>
       </div>
-      <div class="canvas-legend" aria-label="Node color legend">
+      <div class="canvas-legend" aria-label="Diagram legend">
         <span class="legend-item"><i data-type="actor" />User</span>
         <span class="legend-item"><i data-type="input" />Input</span>
         <span class="legend-item"><i data-type="process" />Process</span>
         <span class="legend-item"><i data-type="deliverable" />Artifact</span>
         <span class="legend-item"><i data-type="handoff" />Handoff</span>
         <span class="legend-item"><i data-type="outcome" />Outcome</span>
+        <span class="variant-legend-group" id="variantLegendItems" hidden>
+          <span class="legend-item variant-legend-item"><i data-variant-effect="added" />New</span>
+          <span class="legend-item variant-legend-item"><i data-variant-effect="changed" />Changed</span>
+          <span class="legend-item variant-legend-item"><i data-variant-effect="connected" />Path</span>
+        </span>
       </div>
     </main>
   );

@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 
+import { spawn } from "node:child_process";
 import { readdir, readFile, stat, writeFile } from "node:fs/promises";
-import { resolve } from "node:path";
-import { pathToFileURL } from "node:url";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { formatGraphDslDiagnostic, graphToDsl, parseGraphDslWithDiagnostics } from "../lib/graph-dsl.ts";
 import { lintFlowDocument, type GraphLintDiagnostic } from "../lib/graph-lint.ts";
 
@@ -16,6 +17,16 @@ export interface FlowCliIO {
   error(message: string): void;
 }
 
+export interface FlowViewOptions {
+  root: string;
+  host: string;
+  port: number;
+}
+
+export interface FlowCliRuntime {
+  startView(options: FlowViewOptions, io: FlowCliIO): Promise<number>;
+}
+
 const defaultIO: FlowCliIO = {
   out: (message) => console.log(message),
   error: (message) => console.error(message),
@@ -23,11 +34,85 @@ const defaultIO: FlowCliIO = {
 
 function usage(): string {
   return `Usage:
-  pnpm flow check [path ...]
-  pnpm flow format [--check] <path ...>
+  flow check [path ...]
+  flow format [--check] <path ...>
+  flow view [directory] [--port <number>]
 
 Paths can be .flow files or directories. Check uses src/data/flows and
-docs/examples when no path is given.`;
+docs/examples when no path is given. View searches the current directory
+when no directory is given.`;
+}
+
+const defaultRuntime: FlowCliRuntime = {
+  async startView(options, io) {
+    const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+    const outputDirectories = [resolve(packageRoot, ".output"), resolve(packageRoot, "dist/app")];
+    let outputDirectory: string | undefined;
+    for (const candidate of outputDirectories) {
+      try {
+        await stat(resolve(candidate, "server/index.mjs"));
+        outputDirectory = candidate;
+        break;
+      } catch {
+        // Try the installed package location after the local build location.
+      }
+    }
+    if (!outputDirectory) {
+      throw new Error("The Flow Workbench server is not built. Run `pnpm build`, then run `flow view` again.");
+    }
+    const serverEntry = resolve(outputDirectory, "server/index.mjs");
+
+    const url = `http://${options.host}:${options.port}`;
+    io.out(`Serving flows from ${options.root}`);
+    io.out(`Flow Workbench: ${url}`);
+
+    const child = spawn(process.execPath, [serverEntry], {
+      cwd: outputDirectory,
+      env: {
+        ...process.env,
+        FLOW_WORKBENCH_ROOT: options.root,
+        NITRO_HOST: options.host,
+        NITRO_PORT: String(options.port),
+      },
+      stdio: "inherit",
+    });
+
+    return new Promise<number>((resolveExit, reject) => {
+      child.once("error", reject);
+      child.once("exit", (code, signal) => {
+        if (signal) io.error(`Flow Workbench stopped after ${signal}.`);
+        resolveExit(code ?? (signal ? 1 : 0));
+      });
+    });
+  },
+};
+
+async function viewOptions(args: string[]): Promise<FlowViewOptions> {
+  let directory: string | undefined;
+  let port = 4173;
+
+  for (let index = 0; index < args.length; index += 1) {
+    const argument = args[index];
+    if (argument === "--port") {
+      const value = args[index + 1];
+      if (!value) throw new Error("--port requires a number.");
+      port = Number(value);
+      index += 1;
+      continue;
+    }
+    if (argument.startsWith("-")) throw new Error(`Unknown view option "${argument}".`);
+    if (directory) throw new Error("view accepts one directory.");
+    directory = argument;
+  }
+
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error("--port must be an integer from 1 through 65535.");
+  }
+
+  const root = resolve(directory || ".");
+  const info = await stat(root);
+  if (!info.isDirectory()) throw new Error(`View path is not a directory: ${directory}`);
+  return { root, host: "127.0.0.1", port };
 }
 
 async function flowFiles(paths: string[]): Promise<string[]> {
@@ -97,7 +182,11 @@ async function checkFile(path: string, io: FlowCliIO): Promise<boolean> {
   return valid;
 }
 
-export async function runFlowCli(args: string[], io: FlowCliIO = defaultIO): Promise<number> {
+export async function runFlowCli(
+  args: string[],
+  io: FlowCliIO = defaultIO,
+  runtime: FlowCliRuntime = defaultRuntime,
+): Promise<number> {
   const [command, ...rest] = args;
   if (!command || command === "help" || command === "--help" || command === "-h") {
     io.out(usage());
@@ -136,6 +225,10 @@ export async function runFlowCli(args: string[], io: FlowCliIO = defaultIO): Pro
       }
     }
     return checkOnly && changed ? 1 : 0;
+  }
+
+  if (command === "view") {
+    return runtime.startView(await viewOptions(rest), io);
   }
 
   io.error(`Unknown command "${command}".\n\n${usage()}`);

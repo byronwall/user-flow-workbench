@@ -10,7 +10,6 @@ export function VariantBar() {
           aria-labelledby="variantPickerLabel"
         />
       </div>
-      <div class="variant-context" id="variantContext" aria-live="polite" />
     </section>
   );
 }

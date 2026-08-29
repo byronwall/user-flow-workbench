@@ -9,6 +9,8 @@ import type { FlowDocument } from "../types/graph";
 
 interface WorkbenchProps {
   initialGraph: FlowDocument;
+  documentKey: string;
+  documentPath: string;
 }
 
 type SidebarTab = "inspector" | "code";
@@ -27,12 +29,12 @@ export function Workbench(props: WorkbenchProps) {
   };
 
   onMount(() => {
-    mountFlowWorkbench(props.initialGraph);
+    mountFlowWorkbench(props.initialGraph, { storageKey: props.documentKey });
   });
 
   return (
     <div class="app">
-      <Toolbar />
+      <Toolbar documentPath={props.documentPath} />
       <VariantBar />
       <main class="shell">
         <FlowCanvas />
@@ -65,6 +67,10 @@ export function Workbench(props: WorkbenchProps) {
           >
             Flow DSL
           </button>
+        </div>
+        <div class="variant-description" id="variantDescription" aria-live="polite" hidden>
+          <span>Active view</span>
+          <p id="variantDescriptionText" />
         </div>
         <InspectorPanel hidden={activeSidebarTab() !== "inspector"} />
         <GraphJsonPanel hidden={activeSidebarTab() !== "code"} />
