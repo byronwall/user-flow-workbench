@@ -1,28 +1,35 @@
 import { graphToDsl, materializeVariant, parseGraphDsl, parseGraphDslWithDiagnostics } from "./graph-dsl";
+import { edgeRelation, isFlowEdge, isOperationalNode, terminalDeliverableIds } from "./graph-semantics";
 import type { CanvasGraph, CanvasNode, FlowDocument, FlowGraph, NodePosition, NodeType } from "../types/graph";
 
 export function mountFlowWorkbench(initialGraph: unknown) {
 const TYPE_COLUMNS = {
       actor: 0,
-      need: 1,
+      input: 1,
       process: 2,
       handoff: 3,
       deliverable: 3,
-      ux: 4,
-      goal: 5,
+      need: 0,
+      ux: 0,
     };
 
-    const COLUMN_X = [88, 354, 620, 886, 1152, 1418];
+    const COLUMN_START_X = 88;
+    const COLUMN_GAP = 266;
     const MAIN_TOP = 72;
     const ROW_GAP = 90;
+    const MIN_AUTO_LAYOUT_ZOOM = .58;
     const NODE_WIDTH = 216;
-    const NODE_HEIGHT = 58;
+    const NODE_HEIGHT = 64;
     const ROUTE_GRID = 10;
     const ROUTE_CLEARANCE = 12;
+    const PORT_LANE_GAP = 20;
+    const PORT_EDGE_INSET = 12;
+    const ALIGNMENT_SNAP_THRESHOLD = 16;
+    const WRAPPED_BAND_GAP = 96;
+    const GUTTER_LANE_GAP = 12;
     const ROUTE_REUSE_PENALTY = 500;
-    const LANE_LABELS = ['User', 'Fundamental needs', 'Process', 'Handoffs + deliverables', 'UI / UX considerations', 'Outcome'];
-    const STORAGE_KEY = 'user-flow-workbench-v4';
-    const SOURCE_STORAGE_KEY = 'user-flow-workbench-v4-source';
+    const STORAGE_KEY = 'user-flow-workbench-v5-stage-rows';
+    const SOURCE_STORAGE_KEY = 'user-flow-workbench-v5-stage-rows-source';
     const INSPECTOR_TYPES_QUERY_PARAM = 'nodeTypes';
     const initialGraphSignature = JSON.stringify(initialGraph);
 
@@ -54,7 +61,6 @@ const TYPE_COLUMNS = {
     const viewport = $<HTMLDivElement>('viewport');
     const world = $<HTMLDivElement>('world');
     const nodeLayer = $<HTMLDivElement>('nodeLayer');
-    const laneLayer = $<HTMLDivElement>('laneLayer');
     const edgeLayer = $<SVGGElement>('edgeLayer');
     const dslEditor = $<HTMLTextAreaElement>('dslEditor');
     const inspector = $<HTMLDivElement>('inspector');
@@ -68,34 +74,14 @@ const TYPE_COLUMNS = {
     }
 
     function normalizeDocument(input: any): FlowDocument {
-      if (input?.schemaVersion === 4 && input?.graph) {
-        return {
-          dslVersion: 2,
-          schemaVersion: 4,
-          graph: clone(input.graph),
-          variants: Array.isArray(input.variants) ? clone(input.variants) : [],
-        };
+      if (input?.schemaVersion !== 5 || input?.dslVersion !== 3 || !input?.graph) {
+        throw new Error('Flow Workbench requires Flow DSL 3 and JSON schema 5.');
       }
-
-      const legacy = clone(input || {});
-      const hints = legacy.layout?.hints || Object.fromEntries(
-        (legacy.nodes || []).filter(node => node?.layout).map(node => [node.id, node.layout]),
-      );
-      const positions = legacy.layout?.positions || Object.fromEntries(
-        (legacy.nodes || []).filter(node => node?.position).map(node => [node.id, node.position]),
-      );
       return {
-        dslVersion: 2,
-        schemaVersion: 4,
-        graph: {
-          id: legacy.id || `flow-${Date.now()}`,
-          title: legacy.title || 'Untitled flow',
-          ...(legacy.description ? { description: legacy.description } : {}),
-          nodes: Array.isArray(legacy.nodes) ? legacy.nodes.map(({ layout, position, ...node }) => node) : [],
-          edges: Array.isArray(legacy.edges) ? legacy.edges : [],
-          layout: { hints, positions },
-        },
-        variants: [],
+        dslVersion: 3,
+        schemaVersion: 5,
+        graph: clone(input.graph),
+        variants: Array.isArray(input.variants) ? clone(input.variants) : [],
       };
     }
 
@@ -145,20 +131,37 @@ const TYPE_COLUMNS = {
           id: edge.id || `edge-${index + 1}`,
           from: edge.from,
           to: edge.to,
+          relation: edgeRelation(edge),
           label: edge.label || '',
           emphasis: Boolean(edge.emphasis),
         }));
 
+      const outcomeIds = terminalDeliverableIds(next);
+      const maxAuthoredColumn = next.nodes
+        .filter(node => isOperationalNode(node) && !outcomeIds.has(node.id))
+        .reduce((maximum, node) => Math.max(maximum, node.layout.column), 0);
+      next.nodes.forEach(node => {
+        if (outcomeIds.has(node.id) && !hints[node.id]) node.layout.column = maxAuthoredColumn + 1;
+      });
+
       return next;
+    }
+
+    function canvasNodes() {
+      return graph.nodes.filter(isOperationalNode);
+    }
+
+    function canvasEdges() {
+      return graph.edges.filter(isFlowEdge);
     }
 
     function toFlowGraph(includePositions = true): FlowGraph {
       const hints = Object.fromEntries(
         graph.nodes
-          .filter(node => authoredLayoutHintIds.has(node.id))
+          .filter(node => isOperationalNode(node) && authoredLayoutHintIds.has(node.id))
           .map(node => [node.id, clone(node.layout)]),
       );
-      const positions = Object.fromEntries(graph.nodes.map(node => [node.id, clone(node.position)]));
+      const positions = Object.fromEntries(canvasNodes().map(node => [node.id, clone(node.position)]));
       return {
         id: graph.id,
         title: graph.title,
@@ -168,10 +171,11 @@ const TYPE_COLUMNS = {
           ...(body ? { body } : {}),
           ...(tags.length ? { tags: clone(tags) } : {}),
         })),
-        edges: graph.edges.map(({ id, from, to, label, emphasis }) => ({
+        edges: graph.edges.map(({ id, from, to, relation, label, emphasis }) => ({
           id,
           from,
           to,
+          ...(relation && relation !== 'flow' ? { relation } : {}),
           ...(label ? { label } : {}),
           ...(emphasis ? { emphasis: true } : {}),
         })),
@@ -206,7 +210,6 @@ const TYPE_COLUMNS = {
 
     function renderAll({ syncJson = true } = {}) {
       renderNodes();
-      renderLanes();
       scheduleEdgeRender();
       renderInspector();
       updateToolbar();
@@ -245,7 +248,7 @@ const TYPE_COLUMNS = {
       const active = flowDocument.variants.find(variant => variant.id === activeVariantId);
       variantContext.innerHTML = active
         ? `<span>${escapeHtml(active.description || 'Variant view')}</span><span class="variant-key">Variant impact highlighted</span><strong>${escapeHtml(variantImpact(active))}</strong>`
-        : `<span>Shared graph</span><strong>${graph.nodes.length} nodes · ${graph.edges.length} edges</strong>`;
+        : `<span>Shared graph</span><strong>${canvasNodes().length} flow nodes · ${canvasEdges().length} flow edges</strong>`;
       viewport.setAttribute('aria-labelledby', `variant-tab-${activeVariantId || 'base'}`);
     }
 
@@ -338,39 +341,17 @@ const TYPE_COLUMNS = {
       elkLayoutActive = false;
       updateLayoutEngineLabel();
       renderAll();
-      const hasAllPositions = graph.nodes.every(node => materialized.layout?.positions?.[node.id]);
+      const hasAllPositions = canvasNodes().every(node => materialized.layout?.positions?.[node.id]);
       if (hasAllPositions) fitView();
       else void autoLayout();
-    }
-
-    function renderLanes() {
-      laneLayer.innerHTML = '';
-      const positions = LANE_LABELS.map((label, column) => {
-        const xs = graph.nodes
-          .filter(node => Math.round(node.layout.column) === column)
-          .map(node => node.position.x)
-          .sort((a, b) => a - b);
-        const x = xs.length ? xs[Math.floor(xs.length / 2)] : COLUMN_X[column];
-        return { label, column, x };
-      });
-
-      positions.forEach((lane, index) => {
-        const next = positions[index + 1];
-        const width = next ? Math.max(220, next.x - lane.x) : 252;
-        const el = document.createElement('div');
-        el.className = 'lane';
-        el.style.left = `${Math.round(lane.x - 16)}px`;
-        el.style.width = `${Math.round(width)}px`;
-        el.innerHTML = `<div class="lane-label">${escapeHtml(lane.label)}</div>`;
-        laneLayer.appendChild(el);
-      });
     }
 
     function renderNodes() {
       nodeLayer.innerHTML = '';
       const variantEffects = getVariantNodeEffects();
       const selection = getSelectionEmphasis();
-      for (const node of graph.nodes) {
+      const outcomeIds = terminalDeliverableIds(graph);
+      for (const node of canvasNodes()) {
         const el = document.createElement('article');
         const variantEffect = variantEffects.get(node.id);
         const selectionClass = node.id === selectedNodeId
@@ -380,7 +361,7 @@ const TYPE_COLUMNS = {
             : selectedNodeId
               ? ' selection-dimmed'
               : '';
-        el.className = `node${selectionClass}${variantEffect ? ` variant-affected variant-${variantEffect}` : ''}`;
+        el.className = `node${outcomeIds.has(node.id) ? ' outcome' : ''}${selectionClass}${variantEffect ? ` variant-affected variant-${variantEffect}` : ''}`;
         el.dataset.id = node.id;
         el.dataset.type = node.type;
         if (variantEffect) el.dataset.variantEffect = variantEffect === 'added' ? 'NEW' : variantEffect === 'changed' ? 'CHANGED' : 'PATH';
@@ -407,19 +388,20 @@ const TYPE_COLUMNS = {
     function renderEdges() {
       edgeLayer.innerHTML = '';
       const rects = getNodeRects();
-      const nodesById = new Map(graph.nodes.map(node => [node.id, node]));
+      const nodesById = new Map(canvasNodes().map(node => [node.id, node]));
       const segmentUsage = new Map();
-      const portLaneOffsets = buildPortLaneOffsets(graph.edges, rects);
+      const portLaneOffsets = buildPortLaneOffsets(canvasEdges(), rects);
       const selection = getSelectionEmphasis();
 
       // Stable ordering makes lane assignment deterministic.
-      const edges = [...graph.edges].sort((a, b) => {
+      const edges = [...canvasEdges()].sort((a, b) => {
         const selectedOrder = Number(selection.connectedEdgeIds.has(a.id)) - Number(selection.connectedEdgeIds.has(b.id));
         if (selectedOrder) return selectedOrder;
         const af = nodesById.get(a.from)?.layout.column ?? 0;
         const bf = nodesById.get(b.from)?.layout.column ?? 0;
         return af - bf || a.from.localeCompare(b.from) || a.to.localeCompare(b.to);
       });
+      const gutterLanes = buildGutterLanes(edges, rects);
 
       for (const edge of edges) {
         const from = nodesById.get(edge.from);
@@ -428,7 +410,7 @@ const TYPE_COLUMNS = {
         const toRect = rects.get(edge.to);
         if (!from || !to || !fromRect || !toRect) continue;
 
-        const route = routeEdge(edge, fromRect, toRect, rects, segmentUsage, portLaneOffsets);
+        const route = routeEdge(edge, fromRect, toRect, rects, segmentUsage, portLaneOffsets, gutterLanes);
         if (!route.points.length) continue;
 
         const selectionClass = selection.connectedEdgeIds.has(edge.id)
@@ -455,10 +437,16 @@ const TYPE_COLUMNS = {
       const connectedEdgeIds = new Set<string>();
       if (!selectedNodeId) return { connectedNodeIds, connectedEdgeIds };
 
-      for (const edge of graph.edges) {
+      for (const edge of canvasEdges()) {
         if (edge.from !== selectedNodeId && edge.to !== selectedNodeId) continue;
         connectedEdgeIds.add(edge.id);
         connectedNodeIds.add(edge.from === selectedNodeId ? edge.to : edge.from);
+      }
+      for (const edge of graph.edges.filter(edge => !isFlowEdge(edge))) {
+        if (edge.from !== selectedNodeId && edge.to !== selectedNodeId) continue;
+        const relatedId = edge.from === selectedNodeId ? edge.to : edge.from;
+        const relatedNode = graph.nodes.find(node => node.id === relatedId);
+        if (relatedNode && isOperationalNode(relatedNode)) connectedNodeIds.add(relatedId);
       }
 
       return { connectedNodeIds, connectedEdgeIds };
@@ -466,7 +454,7 @@ const TYPE_COLUMNS = {
 
     function getNodeRects() {
       const rects = new Map();
-      for (const node of graph.nodes) {
+      for (const node of canvasNodes()) {
         const el = nodeLayer.querySelector<HTMLElement>(`[data-id="${cssEscape(node.id)}"]`);
         rects.set(node.id, {
           id: node.id,
@@ -479,11 +467,22 @@ const TYPE_COLUMNS = {
       return rects;
     }
 
-    function routeEdge(edge, fromRect, toRect, rects, segmentUsage, portLaneOffsets) {
+    function routeEdge(edge, fromRect, toRect, rects, segmentUsage, portLaneOffsets, gutterLanes) {
       const ports = choosePorts(fromRect, toRect, {
         start: portLaneOffsets.get(`${edge.id}:start`) || 0,
         end: portLaneOffsets.get(`${edge.id}:end`) || 0,
-      });
+      }, rects);
+      const alignedPoints = alignedDirectRoute(ports, fromRect, toRect, rects);
+      if (alignedPoints) {
+        return { points: alignedPoints, gridSegments: [], labelPosition: null };
+      }
+      const gutterY = gutterLanes.get(edge.id);
+      const gutterPoints = Number.isFinite(gutterY)
+        ? routeThroughGutter(ports, gutterY, fromRect, toRect, rects)
+        : null;
+      if (gutterPoints) {
+        return { points: gutterPoints, gridSegments: [], labelPosition: null };
+      }
       const obstacles = [...rects.values()].map(rect => inflateRect(rect, ROUTE_CLEARANCE));
       const bounds = routeBounds(rects);
 
@@ -500,7 +499,9 @@ const TYPE_COLUMNS = {
       const points = dedupePoints([
         ports.startAnchor,
         ports.startPort,
+        orthogonalBend(ports.startPort, startGrid, ports.startSide),
         ...compressedGrid,
+        orthogonalBend(endGrid, ports.endPort, ports.endSide),
         ports.endPort,
         ports.endAnchor,
       ]);
@@ -512,6 +513,113 @@ const TYPE_COLUMNS = {
       };
     }
 
+    function buildGutterLanes(edges, rects) {
+      const groups = new Map();
+      for (const edge of edges) {
+        const fromRect = rects.get(edge.from);
+        const toRect = rects.get(edge.to);
+        if (!fromRect || !toRect) continue;
+        const gutter = wrappedGutter(fromRect, toRect, rects);
+        if (!gutter) continue;
+        if (!groups.has(gutter.key)) groups.set(gutter.key, []);
+        groups.get(gutter.key).push({ edge, gutter, order: fromRect.x + fromRect.w / 2 });
+      }
+
+      const lanes = new Map();
+      for (const entries of groups.values()) {
+        entries.sort((a, b) => a.order - b.order || a.edge.id.localeCompare(b.edge.id));
+        const gutter = entries[0].gutter;
+        const preferredHalfSpan = (entries.length - 1) * GUTTER_LANE_GAP / 2;
+        const maxHalfSpan = Math.max(0, (gutter.bottom - gutter.top) / 2 - ROUTE_CLEARANCE * 2);
+        const halfSpan = Math.min(preferredHalfSpan, maxHalfSpan);
+        entries.forEach((entry, index) => {
+          const offset = entries.length > 1
+            ? -halfSpan + index * (halfSpan * 2 / (entries.length - 1))
+            : 0;
+          lanes.set(entry.edge.id, gutter.center + offset);
+        });
+      }
+      return lanes;
+    }
+
+    function wrappedGutter(fromRect, toRect, rects) {
+      const fromCenter = rectCenter(fromRect);
+      const toCenter = rectCenter(toRect);
+      const dx = toCenter.x - fromCenter.x;
+      const dy = toCenter.y - fromCenter.y;
+      if (dy <= Math.max(fromRect.h, toRect.h) || dx >= Math.abs(dy) * .72) return null;
+
+      const intervals = [...rects.values()]
+        .map(rect => ({ top: rect.y, bottom: rect.y + rect.h }))
+        .sort((a, b) => a.top - b.top);
+      const bands = [];
+      for (const interval of intervals) {
+        const band = bands[bands.length - 1];
+        if (!band || interval.top - band.bottom >= WRAPPED_BAND_GAP / 2) bands.push({ ...interval });
+        else band.bottom = Math.max(band.bottom, interval.bottom);
+      }
+
+      for (let index = 1; index < bands.length; index += 1) {
+        const top = bands[index - 1].bottom;
+        const bottom = bands[index].top;
+        const center = (top + bottom) / 2;
+        if (fromCenter.y < center && toCenter.y > center) {
+          return { key: `${top}:${bottom}`, top, bottom, center };
+        }
+      }
+      return null;
+    }
+
+    function routeThroughGutter(ports, gutterY, fromRect, toRect, rects) {
+      const points = compressOrthogonal(dedupePoints([
+        ports.startAnchor,
+        ports.startPort,
+        { x: ports.startPort.x, y: gutterY },
+        { x: ports.endPort.x, y: gutterY },
+        ports.endPort,
+        ports.endAnchor,
+      ]));
+      const blockers = [...rects.values()]
+        .filter(rect => rect.id !== fromRect.id && rect.id !== toRect.id)
+        .map(rect => inflateRect(rect, ROUTE_CLEARANCE));
+      const blocked = points.slice(1).some((point, index) =>
+        blockers.some(rect => segmentCrossesRect(points[index], point, rect))
+      );
+      return blocked ? null : points;
+    }
+
+    function alignedDirectRoute(ports, fromRect, toRect, rects) {
+      const horizontal = ports.startSide === 'right'
+        && ports.endSide === 'left'
+        && ports.startAnchor.x <= ports.endAnchor.x
+        && ports.startAnchor.y === ports.endAnchor.y;
+      const vertical = ports.startSide === 'bottom'
+        && ports.endSide === 'top'
+        && ports.startAnchor.y <= ports.endAnchor.y
+        && ports.startAnchor.x === ports.endAnchor.x;
+      if (!horizontal && !vertical) return null;
+
+      const blockers = [...rects.values()]
+        .filter(rect => rect.id !== fromRect.id && rect.id !== toRect.id)
+        .map(rect => inflateRect(rect, ROUTE_CLEARANCE));
+      const blocked = blockers.some(rect => segmentCrossesRect(ports.startAnchor, ports.endAnchor, rect));
+      return blocked ? null : [ports.startAnchor, ports.endAnchor];
+    }
+
+    function segmentCrossesRect(a, b, rect) {
+      if (a.y === b.y) {
+        return a.y > rect.y && a.y < rect.y + rect.h
+          && Math.max(a.x, b.x) > rect.x
+          && Math.min(a.x, b.x) < rect.x + rect.w;
+      }
+      if (a.x === b.x) {
+        return a.x > rect.x && a.x < rect.x + rect.w
+          && Math.max(a.y, b.y) > rect.y
+          && Math.min(a.y, b.y) < rect.y + rect.h;
+      }
+      return true;
+    }
+
     function buildPortLaneOffsets(edges, rects) {
       const groups = new Map();
 
@@ -519,7 +627,7 @@ const TYPE_COLUMNS = {
         const fromRect = rects.get(edge.from);
         const toRect = rects.get(edge.to);
         if (!fromRect || !toRect) continue;
-        const ports = choosePorts(fromRect, toRect);
+        const ports = choosePorts(fromRect, toRect, undefined, rects);
         const fromCenter = rectCenter(fromRect);
         const toCenter = rectCenter(toRect);
 
@@ -543,17 +651,15 @@ const TYPE_COLUMNS = {
       for (const entries of groups.values()) {
         entries.sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
         const verticalSide = ['left', 'right'].includes(entries[0].side);
-        const axisStart = verticalSide ? entries[0].rect.y : entries[0].rect.x;
         const dimension = verticalSide ? entries[0].rect.h : entries[0].rect.w;
-        const center = axisStart + dimension / 2;
-        const firstLane = Math.ceil((axisStart + 4) / ROUTE_GRID) * ROUTE_GRID;
-        const lastLane = Math.floor((axisStart + dimension - 4) / ROUTE_GRID) * ROUTE_GRID;
-        const laneCount = Math.max(1, Math.floor((lastLane - firstLane) / ROUTE_GRID) + 1);
+        const maxHalfSpan = Math.max(0, dimension / 2 - PORT_EDGE_INSET);
+        const preferredHalfSpan = (entries.length - 1) * PORT_LANE_GAP / 2;
+        const halfSpan = Math.min(maxHalfSpan, preferredHalfSpan);
         entries.forEach((entry, index) => {
-          const laneIndex = entries.length > 1
-            ? Math.round(index * (laneCount - 1) / (entries.length - 1))
-            : Math.round((laneCount - 1) / 2);
-          offsets.set(entry.key, firstLane + laneIndex * ROUTE_GRID - center);
+          const offset = entries.length > 1
+            ? -halfSpan + index * (halfSpan * 2 / (entries.length - 1))
+            : 0;
+          offsets.set(entry.key, offset);
         });
       }
       return offsets;
@@ -578,58 +684,79 @@ const TYPE_COLUMNS = {
         : { x: anchor.x + amount, y: anchor.y };
     }
 
-    function choosePorts(a, b, laneOffsets = { start: 0, end: 0 }) {
+    function orthogonalBend(from, to, side) {
+      return ['left', 'right'].includes(side)
+        ? { x: to.x, y: from.y }
+        : { x: from.x, y: to.y };
+    }
+
+    function choosePorts(a, b, laneOffsets = { start: 0, end: 0 }, rects = null) {
       const ac = { x: a.x + a.w / 2, y: a.y + a.h / 2 };
       const bc = { x: b.x + b.w / 2, y: b.y + b.h / 2 };
       const dx = bc.x - ac.x;
       const dy = bc.y - ac.y;
-      const horizontal = Math.abs(dx) >= Math.abs(dy) * 0.72;
-
-      if (horizontal) {
-        const rightward = dx >= 0;
-        const startSide = rightward ? 'right' : 'left';
-        const endSide = rightward ? 'left' : 'right';
-        const startAnchor = offsetAnchor(
-          { x: rightward ? a.x + a.w : a.x, y: ac.y },
-          startSide,
-          laneOffsets.start,
-        );
-        const endAnchor = offsetAnchor(
-          { x: rightward ? b.x : b.x + b.w, y: bc.y },
-          endSide,
-          laneOffsets.end,
-        );
-        return {
-          startAnchor,
-          endAnchor,
-          startPort: { x: startAnchor.x + (rightward ? ROUTE_CLEARANCE + 8 : -ROUTE_CLEARANCE - 8), y: startAnchor.y },
-          endPort: { x: endAnchor.x + (rightward ? -ROUTE_CLEARANCE - 8 : ROUTE_CLEARANCE + 8), y: endAnchor.y },
-          startSide,
-          endSide,
-        };
-      }
-
-      const downward = dy >= 0;
-      const startSide = downward ? 'bottom' : 'top';
-      const endSide = downward ? 'top' : 'bottom';
-      const startAnchor = offsetAnchor(
-        { x: ac.x, y: downward ? a.y + a.h : a.y },
-        startSide,
-        laneOffsets.start,
-      );
-      const endAnchor = offsetAnchor(
-        { x: bc.x, y: downward ? b.y : b.y + b.h },
-        endSide,
-        laneOffsets.end,
-      );
+      const wrapsToNextRow = dy > Math.max(a.h, b.h) && dx < Math.abs(dy) * 0.72;
+      const preferredStartSide = wrapsToNextRow ? 'bottom' : 'right';
+      const alternateStartSide = wrapsToNextRow ? 'right' : 'bottom';
+      const preferredEndSide = wrapsToNextRow ? 'top' : 'left';
+      const alternateEndSide = wrapsToNextRow ? 'left' : 'top';
+      const startSide = portSideBlocked(a, preferredStartSide, rects)
+        ? alternateStartSide
+        : preferredStartSide;
+      const endSide = portSideBlocked(b, preferredEndSide, rects)
+        ? alternateEndSide
+        : preferredEndSide;
+      const startAnchor = offsetAnchor(sideAnchor(a, startSide), startSide, laneOffsets.start);
+      const endAnchor = offsetAnchor(sideAnchor(b, endSide), endSide, laneOffsets.end);
       return {
         startAnchor,
         endAnchor,
-        startPort: { x: startAnchor.x, y: startAnchor.y + (downward ? ROUTE_CLEARANCE + 8 : -ROUTE_CLEARANCE - 8) },
-        endPort: { x: endAnchor.x, y: endAnchor.y + (downward ? -ROUTE_CLEARANCE - 8 : ROUTE_CLEARANCE + 8) },
+        startPort: extendFromAnchor(startAnchor, startSide),
+        endPort: extendFromAnchor(endAnchor, endSide),
         startSide,
         endSide,
       };
+    }
+
+    function sideAnchor(rect, side) {
+      const center = rectCenter(rect);
+      if (side === 'left') return { x: rect.x, y: center.y };
+      if (side === 'right') return { x: rect.x + rect.w, y: center.y };
+      if (side === 'top') return { x: center.x, y: rect.y };
+      return { x: center.x, y: rect.y + rect.h };
+    }
+
+    function extendFromAnchor(anchor, side) {
+      const distance = ROUTE_CLEARANCE + 8;
+      if (side === 'left') return { x: anchor.x - distance, y: anchor.y };
+      if (side === 'right') return { x: anchor.x + distance, y: anchor.y };
+      if (side === 'top') return { x: anchor.x, y: anchor.y - distance };
+      return { x: anchor.x, y: anchor.y + distance };
+    }
+
+    function portSideBlocked(rect, side, rects) {
+      if (!rects) return false;
+      const reach = ROUTE_CLEARANCE * 2 + 8;
+      const vertical = side === 'top' || side === 'bottom';
+      const positive = side === 'right' || side === 'bottom';
+      const boundary = vertical
+        ? (positive ? rect.y + rect.h : rect.y)
+        : (positive ? rect.x + rect.w : rect.x);
+      const corridorStart = vertical ? rect.x + PORT_EDGE_INSET : rect.y + PORT_EDGE_INSET;
+      const corridorEnd = vertical ? rect.x + rect.w - PORT_EDGE_INSET : rect.y + rect.h - PORT_EDGE_INSET;
+
+      return [...rects.values()].some(other => {
+        if (other.id === rect.id) return false;
+        const nearEdge = vertical
+          ? (positive ? other.y : other.y + other.h)
+          : (positive ? other.x : other.x + other.w);
+        const distance = (nearEdge - boundary) * (positive ? 1 : -1);
+        if (distance < 0 || distance > reach) return false;
+        const otherStart = vertical ? other.x : other.y;
+        const otherEnd = vertical ? other.x + other.w : other.y + other.h;
+        return otherStart - ROUTE_CLEARANCE < corridorEnd
+          && otherEnd + ROUTE_CLEARANCE > corridorStart;
+      });
     }
 
     function aStarOrthogonal(start, goal, obstacles, bounds, segmentUsage) {
@@ -838,6 +965,33 @@ const TYPE_COLUMNS = {
       edgeLayer.appendChild(text);
     }
 
+    function relatedNodes(nodeId: string) {
+      const nodesById = new Map(graph.nodes.map(node => [node.id, node]));
+      const pick = (ids) => ids.map(id => nodesById.get(id)).filter(Boolean);
+      return {
+        addresses: pick(graph.edges.filter(edge => edgeRelation(edge) === 'addresses' && edge.from === nodeId).map(edge => edge.to)),
+        addressedBy: pick(graph.edges.filter(edge => edgeRelation(edge) === 'addresses' && edge.to === nodeId).map(edge => edge.from)),
+        appearsAt: pick(graph.edges.filter(edge => edgeRelation(edge) === 'appears-at' && edge.from === nodeId).map(edge => edge.to)),
+        uxAtStep: pick(graph.edges.filter(edge => edgeRelation(edge) === 'appears-at' && edge.to === nodeId).map(edge => edge.from)),
+        supports: pick(graph.edges.filter(edge => edgeRelation(edge) === 'supports' && edge.from === nodeId).map(edge => edge.to)),
+        supportedBy: pick(graph.edges.filter(edge => edgeRelation(edge) === 'supports' && edge.to === nodeId).map(edge => edge.from)),
+      };
+    }
+
+    function relationSection(title: string, nodes): string {
+      if (!nodes.length) return '';
+      return `
+        <section class="inspector-relations">
+          <h4>${escapeHtml(title)}</h4>
+          ${nodes.map(item => `
+            <button type="button" class="inspector-relation-row" data-related-node-id="${escapeAttr(item.id)}">
+              <span class="node-icon" data-type="${escapeAttr(item.type)}" aria-hidden="true">${iconSvg(item.type)}</span>
+              <span><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.body || item.type)}</small></span>
+            </button>
+          `).join('')}
+        </section>`;
+    }
+
     function renderInspector() {
       const node = graph.nodes.find(item => item.id === selectedNodeId);
       if (!node) {
@@ -905,10 +1059,18 @@ const TYPE_COLUMNS = {
         return;
       }
 
+      const relations = relatedNodes(node.id);
+      const relationMarkup = isOperationalNode(node)
+        ? `${relationSection('Needs addressed', relations.addresses)}${relationSection('UX at this step', relations.uxAtStep)}`
+        : node.type === 'need'
+          ? `${relationSection('Addressed by', relations.addressedBy)}${relationSection('Supported by UX', relations.supportedBy)}`
+          : `${relationSection('Appears at', relations.appearsAt)}${relationSection('Supports needs', relations.supports)}`;
+      const isOutcome = terminalDeliverableIds(graph).has(node.id);
+
       inspector.innerHTML = `
         <div class="inspector-summary">
           <span class="node-icon" aria-hidden="true">${iconSvg(node.type)}</span>
-          <div><strong>${escapeHtml(node.title)}</strong><span>${escapeHtml(node.type)} · ${escapeHtml(node.id)}</span></div>
+          <div><strong>${escapeHtml(node.title)}</strong><span>${escapeHtml(isOutcome ? 'deliverable · outcome' : node.type)} · ${escapeHtml(node.id)}</span></div>
         </div>
         <div class="field">
           <label>ID</label>
@@ -932,16 +1094,26 @@ const TYPE_COLUMNS = {
           <label>Tags (comma separated)</label>
           <input data-field="tags" value="${escapeAttr(node.tags.join(', '))}" />
         </div>
-        <div class="field-grid">
-          <div class="field"><label>Column</label><input type="number" data-field="layout.column" value="${node.layout.column}" /></div>
-          <div class="field"><label>Row</label><input type="number" step="0.5" data-field="layout.row" value="${node.layout.row}" /></div>
-        </div>
-        <div class="field-grid">
-          <div class="field"><label>X</label><input type="number" data-field="position.x" value="${Math.round(node.position.x)}" /></div>
-          <div class="field"><label>Y</label><input type="number" data-field="position.y" value="${Math.round(node.position.y)}" /></div>
-        </div>
-        <div class="small">Dragging changes <code>position</code>. Auto layout recomputes positions from <code>layout</code>.</div>
+        ${relationMarkup}
+        ${isOperationalNode(node) ? `
+          <div class="field-grid">
+            <div class="field"><label>Column</label><input type="number" data-field="layout.column" value="${node.layout.column}" /></div>
+            <div class="field"><label>Row</label><input type="number" step="0.5" data-field="layout.row" value="${node.layout.row}" /></div>
+          </div>
+          <div class="field-grid">
+            <div class="field"><label>X</label><input type="number" data-field="position.x" value="${Math.round(node.position.x)}" /></div>
+            <div class="field"><label>Y</label><input type="number" data-field="position.y" value="${Math.round(node.position.y)}" /></div>
+          </div>
+          <div class="small">Dragging changes <code>position</code>. Auto layout recomputes positions from <code>layout</code>.</div>
+        ` : '<div class="small">Semantic records stay out of the flow canvas. Edit their relations in the DSL.</div>'}
       `;
+
+      inspector.querySelectorAll<HTMLButtonElement>('[data-related-node-id]').forEach(button => {
+        button.addEventListener('click', () => {
+          const relatedNodeId = button.dataset.relatedNodeId;
+          if (relatedNodeId) selectNode(relatedNodeId);
+        });
+      });
 
       inspector.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>('[data-field]').forEach(input => {
         if (activeVariantId) {
@@ -1004,7 +1176,6 @@ const TYPE_COLUMNS = {
       elkLayoutActive = false;
       updateLayoutEngineLabel();
       renderNodes();
-      renderLanes();
       scheduleEdgeRender();
       if (rerenderInspector) renderInspector();
       syncDslEditor();
@@ -1110,7 +1281,7 @@ const TYPE_COLUMNS = {
           elkLayoutActive = true;
           updateLayoutEngineLabel();
           renderAll();
-          fitView(.58);
+          fitView(MIN_AUTO_LAYOUT_ZOOM);
           return;
         }
 
@@ -1119,7 +1290,7 @@ const TYPE_COLUMNS = {
         elkRoutes.clear();
         updateLayoutEngineLabel('ELK unavailable · local layout');
         renderAll();
-        fitView(.58);
+        fitView(MIN_AUTO_LAYOUT_ZOOM);
       } catch (error) {
         console.warn('[flow] ELK layout failed; using local layout fallback.', error);
         autoLayoutFallback();
@@ -1127,7 +1298,7 @@ const TYPE_COLUMNS = {
         elkRoutes.clear();
         updateLayoutEngineLabel('ELK failed · local layout');
         renderAll();
-        fitView(.58);
+        fitView(MIN_AUTO_LAYOUT_ZOOM);
       } finally {
         button.disabled = false;
         button.textContent = originalText;
@@ -1143,11 +1314,11 @@ const TYPE_COLUMNS = {
 
     async function autoLayoutWithElk() {
       const rects = getNodeRects();
-      const nodesById = new Map(graph.nodes.map(node => [node.id, node]));
-      const sortedNodes = [...graph.nodes].sort((a, b) =>
+      const nodesById = new Map(canvasNodes().map(node => [node.id, node]));
+      const sortedNodes = [...canvasNodes()].sort((a, b) =>
         a.layout.column - b.layout.column || a.layout.row - b.layout.row || a.id.localeCompare(b.id)
       );
-      const layoutEdges = graph.edges.filter(edge => {
+      const layoutEdges = canvasEdges().filter(edge => {
         const source = nodesById.get(edge.from);
         const target = nodesById.get(edge.to);
         if (!source || !target) return false;
@@ -1182,7 +1353,7 @@ const TYPE_COLUMNS = {
             width: rect.w,
             height: rect.h,
             layoutOptions: {
-              'elk.partitioning.partition': String(clamp(Math.round(node.layout.column), 0, COLUMN_X.length - 1)),
+              'elk.partitioning.partition': String(Math.max(0, Math.round(node.layout.column))),
               'elk.portConstraints': 'FIXED_SIDE',
             },
             ports: [
@@ -1223,7 +1394,7 @@ const TYPE_COLUMNS = {
       const result: any = await elkInstance.layout(elkGraph);
       const resultNodes = new Map<string, any>((result.children || []).map((node: any) => [node.id, node]));
       const connectedLayoutNodeIds = new Set(layoutEdges.flatMap(edge => [edge.from, edge.to]));
-      for (const node of graph.nodes) {
+      for (const node of canvasNodes()) {
         const laidOut = connectedLayoutNodeIds.has(node.id)
           ? resultNodes.get(node.id)
           : inferDisconnectedLayoutPosition(node, resultNodes, connectedLayoutNodeIds);
@@ -1231,6 +1402,8 @@ const TYPE_COLUMNS = {
         node.position.x = Math.round((laidOut.x || 0) + 46);
         node.position.y = Math.round((laidOut.y || 0) + 58);
       }
+      alignNearCenterlines();
+      wrapLongFlow();
 
       // ELK places nodes. The local router owns all visible routes so it can
       // keep every edge in a separate lane after layout and manual movement.
@@ -1239,7 +1412,7 @@ const TYPE_COLUMNS = {
 
     function inferDisconnectedLayoutPosition(node, resultNodes, connectedLayoutNodeIds) {
       const column = Math.round(node.layout.column);
-      const candidates = graph.nodes.filter(peer =>
+      const candidates = canvasNodes().filter(peer =>
         peer.id !== node.id
         && connectedLayoutNodeIds.has(peer.id)
         && resultNodes.has(peer.id)
@@ -1291,8 +1464,8 @@ const TYPE_COLUMNS = {
 
     function autoLayoutFallback() {
       const columns = new Map();
-      for (const node of graph.nodes) {
-        const column = clamp(Math.round(node.layout.column), 0, COLUMN_X.length - 1);
+      for (const node of canvasNodes()) {
+        const column = Math.max(0, Math.round(node.layout.column));
         if (!columns.has(column)) columns.set(column, []);
         columns.get(column).push(node);
       }
@@ -1303,10 +1476,100 @@ const TYPE_COLUMNS = {
         for (const node of nodes) {
           const preferredY = MAIN_TOP + node.layout.row * ROW_GAP;
           const y = Math.max(preferredY, previousBottom + 18);
-          node.position.x = COLUMN_X[column];
+          node.position.x = columnX(column);
           node.position.y = Math.round(y);
           previousBottom = node.position.y + getNodeHeight(node.id);
         }
+      }
+      alignNearCenterlines();
+      wrapLongFlow();
+    }
+
+    function alignNearCenterlines() {
+      const nodes = canvasNodes();
+      const rects = getNodeRects();
+      const centers = nodes
+        .map(node => {
+          const rect = rects.get(node.id) || { ...node.position, w: NODE_WIDTH, h: NODE_HEIGHT };
+          return { node, rect, center: node.position.y + rect.h / 2 };
+        })
+        .sort((a, b) => a.center - b.center || a.node.id.localeCompare(b.node.id));
+      const groups = [];
+
+      for (const entry of centers) {
+        const group = groups[groups.length - 1];
+        if (!group || entry.center - group[0].center > ALIGNMENT_SNAP_THRESHOLD) groups.push([entry]);
+        else group.push(entry);
+      }
+
+      for (const group of groups) {
+        if (group.length < 2) continue;
+        const sortedCenters = group.map(entry => entry.center).sort((a, b) => a - b);
+        const sharedCenter = Math.round(sortedCenters[Math.floor(sortedCenters.length / 2)]);
+        for (const entry of group) {
+          const nextY = Math.round(sharedCenter - entry.rect.h / 2);
+          if (canNudgeNodeVertically(entry.node.id, nextY, entry.rect, rects)) {
+            entry.node.position.y = nextY;
+            entry.rect.y = nextY;
+          }
+        }
+      }
+    }
+
+    function canNudgeNodeVertically(nodeId, nextY, rect, rects) {
+      const gap = 18;
+      return ![...rects.values()].some(other => {
+        if (other.id === nodeId) return false;
+        const overlapsHorizontally = rect.x < other.x + other.w && rect.x + rect.w > other.x;
+        const overlapsVertically = nextY < other.y + other.h + gap && nextY + rect.h + gap > other.y;
+        return overlapsHorizontally && overlapsVertically;
+      });
+    }
+
+    function wrapLongFlow() {
+      const nodes = canvasNodes();
+      const logicalColumns = [...new Set(nodes.map(node => Math.round(node.layout.column)))].sort((a, b) => a - b);
+      if (logicalColumns.length < 2) return;
+
+      const viewportAspect = clamp(viewport.clientWidth / Math.max(1, viewport.clientHeight), .75, 3.5);
+      const estimatedBandToColumnRatio = 240 / COLUMN_GAP;
+      const idealColumnsPerRow = clamp(
+        Math.ceil(Math.sqrt(logicalColumns.length * viewportAspect * estimatedBandToColumnRatio * 1.15)),
+        3,
+        Math.min(6, logicalColumns.length),
+      );
+      const readableColumnsPerRow = Math.max(3, Math.floor(
+        ((viewport.clientWidth - 128) / MIN_AUTO_LAYOUT_ZOOM - NODE_WIDTH) / COLUMN_GAP + 1,
+      ));
+      const maxColumnsPerRow = Math.min(idealColumnsPerRow, readableColumnsPerRow);
+      if (logicalColumns.length <= maxColumnsPerRow) return;
+
+      const rects = getNodeRects();
+      const bandCount = Math.ceil(logicalColumns.length / maxColumnsPerRow);
+      const baseBandSize = Math.floor(logicalColumns.length / bandCount);
+      const largerBandCount = logicalColumns.length % bandCount;
+      const bandSizes = Array.from({ length: bandCount }, (_, band) => baseBandSize + (band < largerBandCount ? 1 : 0));
+      const columnPlacement = new Map<number, { band: number; visualColumn: number }>();
+      let columnCursor = 0;
+      bandSizes.forEach((size, band) => {
+        for (let visualColumn = 0; visualColumn < size; visualColumn += 1) {
+          columnPlacement.set(logicalColumns[columnCursor++], { band, visualColumn });
+        }
+      });
+      let bandTop = MAIN_TOP;
+
+      for (let band = 0; band < bandCount; band += 1) {
+        const bandNodes = nodes.filter(node => columnPlacement.get(Math.round(node.layout.column))?.band === band);
+        const sourceTop = Math.min(...bandNodes.map(node => node.position.y));
+        const sourceBottom = Math.max(...bandNodes.map(node => node.position.y + (rects.get(node.id)?.h || NODE_HEIGHT)));
+
+        for (const node of bandNodes) {
+          const placement = columnPlacement.get(Math.round(node.layout.column));
+          node.position.x = columnX(placement?.visualColumn || 0);
+          node.position.y = Math.round(bandTop + node.position.y - sourceTop);
+        }
+
+        bandTop += sourceBottom - sourceTop + WRAPPED_BAND_GAP;
       }
     }
 
@@ -1322,9 +1585,9 @@ const TYPE_COLUMNS = {
     }
 
     function fitView(minZoom = .34) {
-      if (!graph.nodes.length) return;
+      if (!canvasNodes().length) return;
       const rects = getNodeRects();
-      const bounds = graph.nodes.reduce((acc, node) => {
+      const bounds = canvasNodes().reduce((acc, node) => {
         const rect = rects.get(node.id) || { w: NODE_WIDTH, h: NODE_HEIGHT };
         acc.minX = Math.min(acc.minX, node.position.x);
         acc.minY = Math.min(acc.minY, node.position.y);
@@ -1361,7 +1624,7 @@ const TYPE_COLUMNS = {
         id,
         type,
         title: partial.title || 'New node',
-        body: partial.body || 'Describe the need, handoff, deliverable, process step, or UX consideration.',
+        body: partial.body || 'Describe the input, need, handoff, deliverable, process step, or UX consideration.',
         tags: partial.tags || [],
         layout: partial.layout || { column: TYPE_COLUMNS[type], row: graph.nodes.length % 7 },
         position: partial.position || { x: 900, y: 500 },
@@ -1382,6 +1645,7 @@ const TYPE_COLUMNS = {
         id: edge.id || `edge-${Date.now()}`,
         from: edge.from,
         to: edge.to,
+        relation: edge.relation || 'flow',
         label: edge.label || '',
         emphasis: Boolean(edge.emphasis),
       };
@@ -1637,11 +1901,11 @@ const TYPE_COLUMNS = {
       toDSL: (options = {}) => graphToDsl(toFlowDocument(), options),
       exportJSON: () => JSON.stringify(toFlowDocument(), null, 2),
       schema: {
-        dslVersion: 2,
-        schemaVersion: 4,
+        dslVersion: 3,
+        schemaVersion: 5,
         nodeTypes: Object.keys(TYPE_COLUMNS),
         node: 'node <id> <type> "<title>" body="..." tags=["a","b"] layout=<column>,<row>',
-        edge: 'edge <id> <from> -> <to> label="..." emphasis=true',
+        edge: 'edge <id> <from> -> <to> relation=flow|addresses|supports|appears-at label="..." emphasis=true',
         position: 'position <node-id> <x>,<y> (optional)',
         variant: 'variant <id> "<title>" { add|remove|set|unset|position|clear all }',
       },
@@ -1668,7 +1932,7 @@ const TYPE_COLUMNS = {
       }
       updateLayoutEngineLabel();
       renderAll();
-      const hasAllPositions = graph.nodes.every(node => restoredGraph.layout?.positions?.[node.id]);
+      const hasAllPositions = canvasNodes().every(node => restoredGraph.layout?.positions?.[node.id]);
       requestAnimationFrame(() => hasSavedGraph && hasAllPositions ? fitView() : autoLayout());
     }
 
@@ -1677,11 +1941,11 @@ const TYPE_COLUMNS = {
       const icons = {
         actor: `<svg ${common}><circle cx="12" cy="7.5" r="3.2"/><path d="M5.5 20c.7-4.2 3-6.4 6.5-6.4s5.8 2.2 6.5 6.4"/></svg>`,
         need: `<svg ${common}><path d="M9 18h6"/><path d="M10 21h4"/><path d="M8.2 14.2A6 6 0 1 1 15.8 14c-1 .8-1.6 1.6-1.8 2.4h-4c-.2-.8-.8-1.5-1.8-2.2Z"/></svg>`,
+        input: `<svg ${common}><path d="M12 3v11"/><path d="m8 10 4 4 4-4"/><path d="M5 17v3h14v-3"/></svg>`,
         process: `<svg ${common}><rect x="4" y="5" width="16" height="14" rx="3"/><path d="m9 9 3 3-3 3"/><path d="M13 15h3"/></svg>`,
         handoff: `<svg ${common}><path d="M4 8h12"/><path d="m13 5 3 3-3 3"/><path d="M20 16H8"/><path d="m11 13-3 3 3 3"/></svg>`,
         deliverable: `<svg ${common}><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5"/><path d="M10 13h5"/><path d="M10 17h5"/></svg>`,
         ux: `<svg ${common}><path d="m5 4 12 8-6 1-3 6Z"/><path d="m13 13 4 5"/></svg>`,
-        goal: `<svg ${common}><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><path d="M12 4v4"/><path d="M20 12h-4"/></svg>`,
       };
       return icons[type] || icons.process;
     }
@@ -1699,6 +1963,7 @@ const TYPE_COLUMNS = {
       return el;
     }
 
+    function columnX(column: number) { return COLUMN_START_X + Math.max(0, column) * COLUMN_GAP; }
     function clamp(value, min, max) { return Math.min(max, Math.max(min, value)); }
     function cssEscape(value) { return CSS.escape(String(value)); }
     function escapeHtml(value) {

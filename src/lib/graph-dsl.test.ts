@@ -2,15 +2,16 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { graphToDsl, materializeVariant, parseGraphDsl, parseGraphDslWithDiagnostics } from "./graph-dsl.ts";
+import { projectOperationalGraph, terminalDeliverableIds } from "./graph-semantics.ts";
 
-const COMPLETE_SOURCE = `flow 2
+const COMPLETE_SOURCE = `flow 3
 
 graph checkout "Online checkout"
 description "Move from intent to confirmation."
 
 node customer actor "Customer" body="Wants to buy an item." tags=["person","buyer"] layout=0,1
 node payment process "Submit payment" body="Authorize the selected method." tags=["checkout","money"] layout=2,1
-node confirmation goal "Order confirmed" layout=3,1
+node confirmation deliverable "Order confirmation" layout=3,1
 
 edge starts-payment customer -> payment label="checks out"
 edge payment-completes payment -> confirmation label="approved" emphasis=true
@@ -20,7 +21,7 @@ position payment 620,154
 position confirmation 940,154
 `;
 
-const VARIANT_SOURCE = `flow 2
+const VARIANT_SOURCE = `flow 3
 
 graph checkout "Online checkout"
 description "Move from intent to confirmation."
@@ -29,7 +30,7 @@ node customer actor "Customer" body="Wants to buy an item."
 node cart process "Review cart"
 node shipping process "Enter shipping details"
 node payment process "Submit payment"
-node confirmation goal "Order confirmed"
+node confirmation deliverable "Order confirmation"
 
 edge customer-cart customer -> cart
 edge cart-shipping cart -> shipping
@@ -51,8 +52,8 @@ variant express "Express checkout" {
 
 test("parses and formats every base field", () => {
   const document = parseGraphDsl(COMPLETE_SOURCE);
-  assert.equal(document.dslVersion, 2);
-  assert.equal(document.schemaVersion, 4);
+  assert.equal(document.dslVersion, 3);
+  assert.equal(document.schemaVersion, 5);
   assert.deepEqual(document.graph.nodes[1].tags, ["checkout", "money"]);
   assert.deepEqual(document.graph.layout?.hints?.payment, { column: 2, row: 1 });
   assert.deepEqual(document.graph.layout?.positions?.payment, { x: 620, y: 154 });
@@ -73,13 +74,13 @@ test("materializes ordered variant operations without changing the base graph", 
 });
 
 test("clear all creates an independent graph when it is first", () => {
-  const document = parseGraphDsl(`flow 2
+  const document = parseGraphDsl(`flow 3
 graph source "Source"
 node old actor "Old"
 variant replacement "Replacement" {
   clear all
   add node start actor "New start"
-  add node done goal "Done"
+  add node done deliverable "Done"
   add edge start-done start -> done
 }
 `);
@@ -90,11 +91,11 @@ variant replacement "Replacement" {
 });
 
 test("canonical formatting is idempotent and removes comments", () => {
-  const noisy = `flow\t2
+  const noisy = `flow\t3
 # graph metadata
 graph   checkout   "Online checkout"
 node customer actor "Customer" layout=0.0,1.00 tags=["person", "buyer"] body="Wants to buy."
-node confirmation goal "Confirmed"
+node confirmation deliverable "Confirmation"
 edge done customer   -> confirmation emphasis=false label="success"
 `;
   const once = graphToDsl(parseGraphDsl(noisy));
@@ -105,17 +106,82 @@ edge done customer   -> confirmation emphasis=false label="success"
 });
 
 test("stable edge IDs survive insertion and reordering", () => {
-  const document = parseGraphDsl(`flow 2
+  const document = parseGraphDsl(`flow 3
 graph graph "Graph"
 node a actor "A"
 node b process "B"
-node c goal "C"
+node c deliverable "C"
 edge a-to-b a -> b
 edge b-to-c b -> c
 `);
   document.graph.edges.unshift({ id: "a-to-c", from: "a", to: "c" });
   const reparsed = parseGraphDsl(graphToDsl(document));
   assert.deepEqual(reparsed.graph.edges.map((edge) => edge.id), ["a-to-c", "a-to-b", "b-to-c"]);
+});
+
+test("typed semantic relations round-trip and stay out of the operational projection", () => {
+  const source = `flow 3
+
+graph alignment "Resume alignment"
+
+node user actor "Job seeker"
+node evidence process "Inventory evidence"
+node resume deliverable "Tailored resume"
+node truthful need "Stay truthful"
+node diff ux "Diff and approval"
+
+edge user-evidence user -> evidence
+edge evidence-resume evidence -> resume
+edge evidence-truth evidence -> truthful relation=addresses
+edge diff-review diff -> evidence relation=appears-at
+edge diff-truth diff -> truthful relation=supports
+`;
+  const document = parseGraphDsl(source);
+  assert.equal(graphToDsl(document), source);
+  assert.equal(document.graph.edges.find((edge) => edge.id === "user-evidence")?.relation, undefined);
+  assert.equal(document.graph.edges.find((edge) => edge.id === "evidence-truth")?.relation, "addresses");
+
+  const projection = projectOperationalGraph(document.graph);
+  assert.deepEqual(projection.nodes.map((node) => node.id), ["user", "evidence", "resume"]);
+  assert.deepEqual(projection.edges.map((edge) => edge.id), ["user-evidence", "evidence-resume"]);
+  assert.deepEqual([...terminalDeliverableIds(document.graph)], ["resume"]);
+
+  const explicitFlow = parseGraphDsl(source.replace("edge user-evidence user -> evidence", "edge user-evidence user -> evidence relation=flow"));
+  assert.equal(explicitFlow.graph.edges[0].relation, undefined);
+  assert.equal(graphToDsl(explicitFlow), source);
+});
+
+test("validates relation endpoint semantics", () => {
+  const cases = [
+    ["edge bad need -> step", "Flow edge"],
+    ["edge bad need -> step relation=addresses", "Addresses edge"],
+    ["edge bad step -> need relation=supports", "Supports edge"],
+    ["edge bad need -> step relation=appears-at", "Appears-at edge"],
+  ];
+  for (const [edge, message] of cases) {
+    const result = parseGraphDslWithDiagnostics(`flow 3
+graph g "G"
+node step process "Step"
+node need need "Need"
+node interface ux "Interface"
+${edge}
+`);
+    assert.ok(result.diagnostics.some((diagnostic) => diagnostic.code === "FLOW208" && diagnostic.message.includes(message)), edge);
+  }
+});
+
+test("terminal deliverables are derived from outgoing flow edges only", () => {
+  const document = parseGraphDsl(`flow 3
+graph outputs "Outputs"
+node step process "Step"
+node intermediate deliverable "Intermediate artifact"
+node final deliverable "Final output"
+node trust need "Stay truthful"
+edge step-artifact step -> intermediate
+edge artifact-output intermediate -> final
+edge artifact-trust intermediate -> trust relation=addresses
+`);
+  assert.deepEqual([...terminalDeliverableIds(document.graph)], ["final"]);
 });
 
 test("rejects ambiguous base values and invalid ordered variant operations", () => {
@@ -126,7 +192,7 @@ test("rejects ambiguous base values and invalid ordered variant operations", () 
     ['node a actor "A" body=unquoted', "FLOW122"],
   ];
   for (const [node, code] of cases) {
-    const result = parseGraphDslWithDiagnostics(`flow 2\ngraph g "G"\n${node}\n`);
+    const result = parseGraphDslWithDiagnostics(`flow 3\ngraph g "G"\n${node}\n`);
     assert.ok(result.diagnostics.some((diagnostic) => diagnostic.code === code), `${node} must report ${code}`);
   }
 
@@ -138,16 +204,16 @@ test("rejects ambiguous base values and invalid ordered variant operations", () 
     `set node a title="Changed"\n  clear all`,
   ];
   for (const operation of invalid) {
-    const result = parseGraphDslWithDiagnostics(`flow 2\ngraph g "G"\nnode a actor "A"\nvariant broken "Broken" {\n  ${operation}\n}\n`);
+    const result = parseGraphDslWithDiagnostics(`flow 3\ngraph g "G"\nnode a actor "A"\nvariant broken "Broken" {\n  ${operation}\n}\n`);
     assert.ok(result.diagnostics.length > 0, operation);
   }
 });
 
 test("returns repair-grade variant diagnostics with source context", () => {
-  const result = parseGraphDslWithDiagnostics(`flow 2
+  const result = parseGraphDslWithDiagnostics(`flow 3
 graph repair "Repair"
 node start actor "Start"
-node confirmation goal "Confirmation"
+node confirmation deliverable "Confirmation"
 variant typo "Typo" {
   set node confirmaton title="Done"
 }
@@ -160,7 +226,7 @@ variant typo "Typo" {
 });
 
 test("formats exponential positions as canonical decimals", () => {
-  const document = parseGraphDsl(`flow 2\ngraph tiny "Tiny"\nnode a actor "A"\n`);
+  const document = parseGraphDsl(`flow 3\ngraph tiny "Tiny"\nnode a actor "A"\n`);
   document.graph.layout = { positions: { a: { x: 1e-7, y: 1e21 } } };
   const formatted = graphToDsl(document, { includePositions: true });
   assert.match(formatted, /position a 0\.0000001,1000000000000000000000/);
@@ -170,7 +236,10 @@ test("formats exponential positions as canonical decimals", () => {
 test("the production resume flow stays valid and canonical", () => {
   const source = readFileSync(new URL("../data/flows/resume-alignment.flow", import.meta.url), "utf8");
   const document = parseGraphDsl(source);
+  assert.equal(document.graph.nodes.find((node) => node.id === "source-posting")?.type, "input");
+  assert.equal(document.graph.nodes.find((node) => node.id === "source-resume")?.type, "input");
   assert.equal(document.variants[0]?.id, "per-job-resume");
   assert.equal(materializeVariant(document, "per-job-resume").nodes.length, 21);
+  assert.equal(materializeVariant(document, "guided-evidence-interview").nodes.find((node) => node.id === "verified-answers")?.type, "input");
   assert.equal(graphToDsl(document), source);
 });

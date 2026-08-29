@@ -1,82 +1,85 @@
-flow 2
+flow 3
 
 graph resume-alignment-flow "Tailor a resume to a job posting"
-description "Map user intent to fundamental needs, process, handoffs, deliverables, UX, and outcome."
+description "Transform a job posting and verified career evidence into a reviewed, job-specific resume."
 
-node user actor "Job seeker" body="Has an existing resume and a target job posting. Wants a stronger application without inventing experience." tags=["source of truth"] layout=0,3
-node need-understand need "Understand what the role actually needs" body="Translate a noisy posting into the outcomes, skills, constraints, seniority signals, and evidence that matter most." tags=["fundamental need"] layout=1,1
-node need-truth need "Stay truthful and defensible" body="Every tailored claim must be grounded in real experience the user can defend in an interview." tags=["trust"] layout=1,3
-node need-effort need "Spend effort where it changes the outcome" body="Prioritize high-impact changes instead of asking the user to rewrite everything for every application." tags=["efficiency"] layout=1,5
-node parse-posting process "1. Parse the job posting" body="Extract responsibilities, required capabilities, preferences, repeated themes, seniority cues, and likely evaluation criteria." tags=["input: posting"] layout=2,0
-node inventory process "2. Inventory resume evidence" body="Break the current resume into roles, accomplishments, skills, scope, metrics, domains, and keywords." tags=["input: resume"] layout=2,2
-node map-evidence process "3. Map requirements to evidence" body="For each meaningful requirement: matched, weakly matched, unsupported, or irrelevant. Rank by application impact." tags=["reasoning"] layout=2,4
-node draft process "4. Draft targeted changes" body="Reorder, tighten, and rewrite bullets to foreground relevant evidence. Add terminology only when substantively true." tags=["transformation"] layout=2,6
-node handoff-req handoff "Posting → requirements model" body="The raw posting becomes a structured, prioritized set of needs that later steps can cite." tags=["handoff"] layout=3,0
-node requirements-brief deliverable "Requirements brief" body="A compact model of what matters most: top outcomes, skills, constraints, keywords, and evidence expectations." tags=["deliverable"] layout=3,1
-node handoff-evidence handoff "Resume → evidence model" body="Resume claims become structured evidence with provenance back to the user’s source content." tags=["handoff"] layout=3,2
-node match-matrix deliverable "Match / gap matrix" body="Requirement-by-requirement mapping with evidence, confidence, gaps, and recommended treatment." tags=["deliverable"] layout=3,4
-node handoff-review handoff "Draft → human approval" body="Suggested edits remain proposed changes until the user reviews unsupported assumptions and wording changes." tags=["approval"] layout=3,6
-node tailored-resume deliverable "Tailored resume" body="A ready-to-export resume emphasizing the strongest true evidence for this specific role." tags=["deliverable"] layout=3,7
-node ux-sources ux "Side-by-side source context" body="Keep the posting and resume visible beside extracted requirements and evidence so the user can verify reasoning quickly." tags=["traceability"] layout=4,0
-node ux-evidence ux "Evidence chips + confidence" body="Every recommendation shows why it exists, what source supports it, and whether the match is strong or tentative." tags=["explainability"] layout=4,2
-node ux-priority ux "Prioritized actions, not a wall of edits" body="Lead with the few changes most likely to improve relevance. Separate critical fixes from optional polish." tags=["focus"] layout=4,4
-node ux-diff ux "Diff + approval gate" body="Show before/after text, let the user accept per change, and flag statements that may overreach the source resume." tags=["control","trust"] layout=4,6
-node goal goal "Submit a stronger, truthful application" body="The final resume is more relevant to the target role, easy to defend in an interview, and faster to produce." tags=["desired outcome"] layout=5,3.5
+node user actor "Job seeker" body="Has an existing resume and a target job posting. Wants a stronger application without inventing experience." tags=["source of truth"] layout=0,1
+node source-posting input "Target job posting" body="The posting selected for this application. The user supplies it, while the employer remains its source." tags=["required","supplied-by:user","origin: employer"] layout=1,0
+node source-resume input "Current resume" body="The source resume supplied by the user for evidence extraction and comparison." tags=["required","supplied-by:user","origin: job seeker"] layout=1,2
+node parse-posting process "1. Parse the job posting" body="Extract responsibilities, required capabilities, preferences, repeated themes, seniority cues, and likely evaluation criteria." layout=2,0
+node inventory process "2. Inventory resume evidence" body="Break the current resume into roles, accomplishments, skills, scope, metrics, domains, and keywords." layout=2,2
+node map-evidence process "3. Map requirements to evidence" body="For each meaningful requirement: matched, weakly matched, unsupported, or irrelevant. Rank by application impact." tags=["reasoning"] layout=4,1
+node draft process "4. Draft targeted changes" body="Reorder, tighten, and rewrite bullets to foreground relevant evidence. Add terminology only when substantively true." tags=["transformation"] layout=6,1
+node requirements-brief deliverable "Requirements brief" body="A compact model of what matters most: top outcomes, skills, constraints, keywords, and evidence expectations." tags=["deliverable"] layout=3,0
+node resume-evidence-model deliverable "Resume evidence model" body="Structured resume claims with provenance back to the user’s source content." tags=["deliverable","evidence model"] layout=3,2
+node match-matrix deliverable "Match / gap matrix" body="Requirement-by-requirement mapping with evidence, confidence, gaps, and recommended treatment." tags=["deliverable"] layout=5,1
+node handoff-review handoff "Draft → human approval" body="Suggested edits remain proposed changes until the user reviews unsupported assumptions and wording changes." tags=["approval"] layout=7,1
+node tailored-resume deliverable "Tailored resume" body="A ready-to-export resume emphasizing the strongest true evidence for this specific role." tags=["deliverable"] layout=8,1
+node need-understand need "Understand what the role actually needs" body="Translate a noisy posting into the outcomes, skills, constraints, seniority signals, and evidence that matter most." tags=["fundamental need"]
+node need-truth need "Stay truthful and defensible" body="Every tailored claim must be grounded in real experience the user can defend in an interview." tags=["trust"]
+node need-effort need "Spend effort where it changes the outcome" body="Prioritize high-impact changes instead of asking the user to rewrite everything for every application." tags=["efficiency"]
+node ux-sources ux "Side-by-side source context" body="Keep the posting and resume visible beside extracted requirements and evidence so the user can verify reasoning quickly." tags=["traceability"]
+node ux-evidence ux "Evidence chips + confidence" body="Every recommendation shows why it exists, what source supports it, and whether the match is strong or tentative." tags=["explainability"]
+node ux-priority ux "Prioritized actions, not a wall of edits" body="Lead with the few changes most likely to improve relevance. Separate critical fixes from optional polish." tags=["focus"]
+node ux-diff ux "Diff + approval gate" body="Show before/after text, let the user accept per change, and flag statements that may overreach the source resume." tags=["control","trust"]
 
-edge e1 user -> need-understand
-edge e2 user -> need-truth
-edge e3 user -> need-effort
-edge e4 need-understand -> parse-posting label="interpret"
-edge e5 need-truth -> inventory label="ground in evidence"
-edge e6 parse-posting -> handoff-req
-edge e7 handoff-req -> requirements-brief
-edge e8 inventory -> handoff-evidence
+edge user-to-posting user -> source-posting label="selects or provides"
+edge user-to-resume user -> source-resume label="provides"
+edge posting-to-parse source-posting -> parse-posting label="consumed by"
+edge resume-to-inventory source-resume -> inventory label="consumed by"
+edge e6 parse-posting -> requirements-brief
+edge e8 inventory -> resume-evidence-model
 edge e9 requirements-brief -> map-evidence
-edge e10 handoff-evidence -> map-evidence
+edge e10 resume-evidence-model -> map-evidence
 edge e11 map-evidence -> match-matrix label="rank matches + gaps" emphasis=true
 edge e12 match-matrix -> draft
-edge e13 need-effort -> draft label="focus high-value edits"
 edge e14 draft -> handoff-review
 edge e15 handoff-review -> tailored-resume
-edge e16 requirements-brief -> ux-sources
-edge e17 match-matrix -> ux-evidence
-edge e18 match-matrix -> ux-priority
-edge e19 handoff-review -> ux-diff
-edge e20 tailored-resume -> goal emphasis=true
-edge e21 ux-sources -> goal
-edge e22 ux-evidence -> goal
-edge e23 ux-priority -> goal
-edge e24 ux-diff -> goal
+edge e4 parse-posting -> need-understand relation=addresses
+edge e5 inventory -> need-truth relation=addresses
+edge e13 draft -> need-effort relation=addresses
+edge e16 ux-sources -> parse-posting relation=appears-at
+edge e17 ux-evidence -> map-evidence relation=appears-at
+edge e18 ux-priority -> draft relation=appears-at
+edge e19 ux-diff -> handoff-review relation=appears-at
+edge ux-sources-understand ux-sources -> need-understand relation=supports
+edge ux-sources-truth ux-sources -> need-truth relation=supports
+edge ux-evidence-truth ux-evidence -> need-truth relation=supports
+edge ux-priority-effort ux-priority -> need-effort relation=supports
+edge ux-diff-truth ux-diff -> need-truth relation=supports
 
 variant per-job-resume "One resume per posting" {
   description "Save each approved result as a distinct resume tied to its job posting."
 
   remove edge e15
-  remove edge e20
-  set node tailored-resume title="Job-specific resume" body="A distinct resume version that records the strongest true evidence for one job posting." tags=["deliverable","job-specific"] layout=3,8
-  set node goal title="Build a reusable application record" body="The job seeker gets a truthful resume for this posting and keeps a clear version for later review."
-  add node save-version process "Save as a new resume version" body="Create a new version instead of replacing the source resume or a resume for another posting." tags=["versioning"] layout=2,8
-  add node resume-library deliverable "Job-specific resume library" body="A traceable set of resumes, with one approved version for each job posting." tags=["deliverable","history"] layout=3,9
+  set node tailored-resume title="Job-specific resume" body="A distinct resume version that records the strongest true evidence for one job posting." tags=["deliverable","job-specific"] layout=9,1
+  add node save-version process "Save as a new resume version" body="Create a new version instead of replacing the source resume or a resume for another posting." tags=["versioning"] layout=8,1
+  add node resume-library deliverable "Job-specific resume library" body="A traceable set of resumes, with one approved version for each job posting." tags=["deliverable","history"] layout=10,1
   add edge review-to-version handoff-review -> save-version
   add edge version-to-resume save-version -> tailored-resume
   add edge resume-to-library tailored-resume -> resume-library
-  add edge library-to-goal resume-library -> goal emphasis=true
 }
 variant evidence-corpus-projection "Resume as an evidence projection" {
   description "Build a durable body of verified career evidence, then let each job posting constrain the resume projected from it."
 
   remove edge e8
+  set node source-resume title="Career evidence sources" body="Resumes, project notes, reviews, work samples, metrics, and other career records supplied by the user." tags=["required","supplied-by:user","origin: job seeker"]
   set node inventory title="2. Build the evidence corpus" body="Extract durable evidence from resumes, project notes, reviews, work samples, metrics, and structured user answers. Keep provenance for every claim." tags=["evidence system","reusable"]
   set node map-evidence title="3. Constrain evidence by the posting" body="Use the target posting as a selection constraint. Rank verified evidence by relevance, strength, recency, and the role’s likely evaluation criteria."
   set node draft title="4. Project a job-specific resume" body="Generate a concise resume view from the selected evidence. Change emphasis and wording without changing the underlying facts." tags=["projection"]
-  set node handoff-evidence title="Corpus → qualified evidence" body="The durable evidence corpus supplies verified claims with provenance, scope, confidence, and reusable source detail."
+  set node resume-evidence-model title="Qualified evidence set" body="The durable evidence corpus supplies verified claims with provenance, scope, confidence, and reusable source detail."
   set node match-matrix title="Job-constrained evidence plan" body="A ranked plan that identifies which verified evidence to include, omit, clarify, or reserve for an interview."
   set node tailored-resume title="Resume projection" body="A job-specific projection of the shared evidence corpus, optimized for the posting without becoming a separate source of truth." tags=["deliverable","projection"]
   set node ux-sources title="Posting + evidence context" body="Show the posting beside the reusable evidence corpus and explain why each item is selected or omitted."
-  set node goal title="Submit the best defensible projection" body="The job seeker submits an optimized resume while the durable evidence corpus remains reusable for future roles."
+  set node resume-evidence-model layout=4,2
+  set node map-evidence layout=5,1
+  set node match-matrix layout=6,1
+  set node draft layout=7,1
+  set node handoff-review layout=8,1
+  set node tailored-resume layout=9,1
   add node evidence-corpus deliverable "Career evidence corpus" body="A living, source-backed record of accomplishments, skills, scope, metrics, domains, work samples, and approved claims." tags=["deliverable","source of truth"] layout=3,2
   add edge inventory-to-corpus inventory -> evidence-corpus emphasis=true
-  add edge corpus-to-handoff evidence-corpus -> handoff-evidence
+  add edge corpus-to-evidence-model evidence-corpus -> resume-evidence-model
 }
 variant guided-evidence-interview "Agent-guided evidence interview" {
   description "Pause drafting when important evidence is weak, then ask focused questions that help the user recover specific, defensible proof."
@@ -85,14 +88,18 @@ variant guided-evidence-interview "Agent-guided evidence interview" {
   set node draft title="5. Draft from verified answers" body="Rewrite and reorder content only after the user confirms the added context, scope, metrics, and wording." tags=["transformation","verified input"]
   set node handoff-review title="Interview-backed draft → approval" body="The draft combines source resume evidence with user-approved answers, then returns every proposed claim for final review."
   set node ux-evidence title="Evidence questions + confidence" body="Explain each weak match, ask one focused question at a time, and show how an answer changes confidence or relevance."
-  add node find-gaps process "4. Find high-value evidence gaps" body="Select only gaps where stronger evidence could materially change the application. Ignore low-value keyword gaps." tags=["agent triage"] layout=2,5
-  add node evidence-interview ux "Run a focused evidence interview" body="Ask for situation, action, result, scope, and measurable impact. Let the user skip questions or mark evidence as unavailable." tags=["guided review","user control"] layout=4,5
-  add node verified-answers deliverable "Verified evidence answers" body="User-approved facts and context that can support stronger bullets without inventing experience." tags=["deliverable","verified"] layout=3,5
+  set node draft layout=7,1
+  set node handoff-review layout=8,1
+  set node tailored-resume layout=9,1
+  add node find-gaps process "4. Find high-value evidence gaps" body="Select only gaps where stronger evidence could materially change the application. Ignore low-value keyword gaps." tags=["agent triage"] layout=6,1
+  add node evidence-interview ux "Run a focused evidence interview" body="Ask for situation, action, result, scope, and measurable impact. Let the user skip questions or mark evidence as unavailable." tags=["guided review","user control"]
+  add node verified-answers input "User-confirmed evidence" body="Facts and context supplied by the user after focused questions expose an important evidence gap." tags=["conditional","supplied-by:user","origin: job seeker"] layout=1,5
   add edge matrix-to-gaps match-matrix -> find-gaps label="prioritize gaps"
-  add edge gaps-to-interview find-gaps -> evidence-interview
-  add edge user-to-interview user -> evidence-interview label="answer or skip"
-  add edge interview-to-answers evidence-interview -> verified-answers emphasis=true
+  add edge user-to-answers user -> verified-answers label="answers or skips"
   add edge answers-to-draft verified-answers -> draft
+  add edge interview-at-gaps evidence-interview -> find-gaps relation=appears-at
+  add edge interview-supports-truth evidence-interview -> need-truth relation=supports
+  add edge gaps-address-effort find-gaps -> need-effort relation=addresses
 }
 variant independent-claim-audit "Independent agent claim audit" {
   description "Separate persuasive rewriting from factual review so a second agent challenges unsupported, vague, or inflated claims before approval."
@@ -101,10 +108,12 @@ variant independent-claim-audit "Independent agent claim audit" {
   set node draft title="4. Draft persuasive changes" body="A writing agent foregrounds relevant evidence and improves clarity, specificity, and role alignment." tags=["writing agent"]
   set node handoff-review title="Audited draft → human approval" body="Only claims that pass the independent audit move to the user. Challenges and unresolved risks remain visible."
   set node ux-diff title="Diff + audit findings" body="Show each edit with its source evidence, audit result, and reason for any warning. Let the user revise, reject, or approve it."
-  add node claim-audit process "5. Audit every changed claim" body="A separate review agent checks provenance, factual entailment, unsupported numbers, seniority inflation, and meaning changed by compression." tags=["review agent","independent"] layout=2,7
-  add node audit-report deliverable "Claim audit report" body="A per-change record of passed checks, challenges, missing support, and required user decisions." tags=["deliverable","risk review"] layout=3,7
+  set node handoff-review layout=9,1
+  set node tailored-resume layout=10,1
+  add node claim-audit process "5. Audit every changed claim" body="A separate review agent checks provenance, factual entailment, unsupported numbers, seniority inflation, and meaning changed by compression." tags=["review agent","independent"] layout=7,1
+  add node audit-report deliverable "Claim audit report" body="A per-change record of passed checks, challenges, missing support, and required user decisions." tags=["deliverable","risk review"] layout=8,1
   add edge draft-to-audit draft -> claim-audit label="challenge edits"
-  add edge evidence-to-audit handoff-evidence -> claim-audit label="verify sources"
+  add edge evidence-to-audit resume-evidence-model -> claim-audit label="verify sources"
   add edge audit-to-report claim-audit -> audit-report emphasis=true
   add edge report-to-review audit-report -> handoff-review
 }

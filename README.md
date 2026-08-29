@@ -26,12 +26,15 @@ pnpm build
 
 - Write one node per line in a compact flow DSL.
 - Give every edge a stable ID with `edge id from -> to`.
-- Convert the DSL to schema version 4 JSON for rendering and export.
+- Convert Flow DSL 3 to schema version 5 JSON for rendering and export.
+- Keep needs and UX in the semantic model without placing them on the flow canvas.
+- Derive outcomes from terminal deliverables.
 - Define ordered structural variants and render them as tabs.
 - Replace the base graph with `clear all` inside a variant.
 - Keep semantic nodes and edges separate from optional layout state.
 - Save exact positions as optional `position id x,y` DSL lines.
 - Request automatic placement when positions do not exist.
+- Wrap long stage sequences into rows that fit the current canvas.
 - Drag nodes and pan or zoom the canvas.
 - Show title-only nodes and full details in the inspector.
 - Add, duplicate, delete, and edit nodes.
@@ -43,7 +46,7 @@ pnpm build
 
 ## Project direction
 
-The tool should make complex flows easy to read and easy to revise. It should show actors, fundamental needs, process steps, handoffs, deliverables, interface considerations, and outcomes in one coherent view.
+The tool should make complex flows easy to read and easy to revise. The canvas shows the operational path. The inspector shows the needs and UX attached to that path.
 
 Variants are views of the same starting graph. Each variant stores ordered changes. The app materializes each result and renders it in a tab.
 
@@ -67,16 +70,16 @@ The API parses [resume-alignment.flow](src/data/flows/resume-alignment.flow) dir
 
 See the normative [Flow DSL specification](docs/flow-dsl-spec.md). A complete example is in [checkout.flow](docs/examples/checkout.flow).
 
-Draft 0.3 uses `flow 2`, required edge IDs, variant blocks, quoted strings, structural tags, and canonical formatting.
+Draft 0.4 uses `flow 3`, typed edge relations, required edge IDs, variant blocks, quoted strings, structural tags, and canonical formatting.
 
 The shortest useful graph has two node lines and one edge line:
 
 ```text
-flow 2
+flow 3
 
 graph signup "New user signup"
 node visitor actor "Visitor"
-node account goal "Account created"
+node account deliverable "Account"
 edge signup-completes visitor -> account label="signs up" emphasis=true
 
 variant assisted "Assisted signup" {
@@ -87,7 +90,18 @@ variant assisted "Assisted signup" {
 Node options stay on the same line:
 
 ```text
-node form process "Complete form" body="Collect the required details." tags=["signup","input"] layout=2,0
+node details input "Signup details" body="The account information supplied by the visitor." tags=["signup","required"] layout=1,0
+node form process "Complete form" body="Validate the supplied account details." tags=["signup"] layout=2,0
+```
+
+Edges default to operational flow. Typed semantic relations stay in the inspector:
+
+```text
+node trust need "Know the account is valid"
+node guidance ux "Explain validation errors"
+edge form-addresses-trust form -> trust relation=addresses
+edge guidance-at-form guidance -> form relation=appears-at
+edge guidance-supports-trust guidance -> trust relation=supports
 ```
 
 The `layout` option is a hint. Omit it to derive a column from the node type and a stable row. Exact positions are also optional:
@@ -95,7 +109,7 @@ The `layout` option is a hint. Omit it to derive a column from the node type and
 ```text
 # Optional manual positions. Delete these lines to use automatic layout.
 position visitor 88,72
-position account 1418,72
+position account 1152,72
 ```
 
 Use **Add positions** after moving nodes to write all current coordinates back to the DSL. JSON export puts hints and positions in the top-level `layout` object. Nodes stay semantic and do not own canvas state.

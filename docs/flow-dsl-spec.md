@@ -1,16 +1,17 @@
 # Flow DSL specification
 
-Status: Draft 0.3
-DSL version: 2
-JSON schema version: 4
+Status: Draft 0.4
+DSL version: 3
+JSON schema version: 5
 
 ## Purpose
 
-Flow DSL describes a directed product or user-flow graph. It supports deterministic agent generation and mutation.
+Flow DSL describes an operational flow plus semantic needs and UX records. It supports deterministic agent generation and mutation.
 
-The format separates two concerns:
+The format separates three concerns:
 
 - Nodes and edges contain semantic graph data.
+- Edge relations distinguish operational flow from supporting metadata.
 - Layout hints and exact positions contain optional presentation data.
 
 A valid graph does not require layout hints or positions. The renderer creates an initial layout when positions are absent.
@@ -20,16 +21,24 @@ Variants are ordered changes to the shared base graph. The app materializes each
 ## Complete example
 
 ```text
-flow 2
+flow 3
 
 graph checkout "Online checkout"
 description "Checkout flow from purchase intent through confirmation."
 
 node customer actor "Customer"
+node payment-method input "Payment method" body="The payment details supplied for authorization." layout=1,1
 node payment process "Submit payment" body="Authorize the selected payment method." tags=["checkout","money"] layout=2,1
-node confirmation goal "Order confirmed" layout=3,1
+node confirmation deliverable "Order confirmation" layout=4,1
+node trust need "Know whether payment succeeded"
+node recovery ux "Explain payment recovery"
 
+edge customer-provides-payment customer -> payment-method
+edge method-to-payment payment-method -> payment
 edge payment-completes payment -> confirmation label="approved" emphasis=true
+edge payment-addresses-trust payment -> trust relation=addresses
+edge recovery-at-payment recovery -> payment relation=appears-at
+edge recovery-supports-trust recovery -> trust relation=supports
 
 variant saved-card "Use saved card" {
   description "Skip payment entry when a valid saved card exists."
@@ -37,8 +46,9 @@ variant saved-card "Use saved card" {
   set edge payment-completes label="confirmed"
 }
 
+position payment-method 354,154
 position payment 620,154
-position confirmation 940,154
+position confirmation 1152,154
 ```
 
 See [checkout.flow](examples/checkout.flow) for a larger example.
@@ -66,10 +76,10 @@ Blank lines can separate sections. A `#` starts a comment outside a quoted strin
 ### Version
 
 ```text
-flow 2
+flow 3
 ```
 
-This line is required and must be first. Version 2 is the only supported DSL version.
+This line is required and must be first. Version 3 is the only supported DSL version. Earlier versions are not supported.
 
 The DSL version and JSON schema version are independent.
 
@@ -111,12 +121,12 @@ Node options use this canonical order:
 
 Tags must be non-empty and unique. Tag order is preserved.
 
-Layout values are hints. They are not exact canvas coordinates.
+Layout values are hints. They are not exact canvas coordinates. Treat `column` as logical stage order. Automatic layout can wrap long stage sequences into multiple left-to-right rows.
 
 ### Edge
 
 ```text
-edge <edge-id> <from-node-id> -> <to-node-id> [label="<label>"] [emphasis=true]
+edge <edge-id> <from-node-id> -> <to-node-id> [relation=<relation>] [label="<label>"] [emphasis=true]
 ```
 
 Each edge ID is required and must be unique. Both referenced nodes must exist.
@@ -125,8 +135,21 @@ The arrow points from the source node to the target node.
 
 Edge options use this canonical order:
 
-1. `label`
-2. `emphasis`
+1. `relation`
+2. `label`
+3. `emphasis`
+
+The relation defaults to `flow`. Canonical output omits `relation=flow`.
+
+| Relation | Required endpoints | Canvas behavior |
+| --- | --- | --- |
+| `flow` | Operational node → operational node | Rendered and used for layout |
+| `addresses` | Operational node → need | Shown in the inspector |
+| `supports` | UX → need | Shown in the inspector |
+| `appears-at` | UX → operational node | Shown in the inspector |
+
+Operational node types are `actor`, `input`, `process`, `handoff`, and `deliverable`.
+Needs, UX nodes, and semantic relations do not enter canvas layout.
 
 `emphasis` accepts `true` or `false`. Canonical output omits `emphasis=false`.
 
@@ -165,7 +188,7 @@ remove edge <edge-id>
 set node <node-id> <one or more node options>
 set edge <edge-id> <one or more edge options>
 unset node <node-id> body|tags|layout
-unset edge <edge-id> label|emphasis
+unset edge <edge-id> relation|label|emphasis
 position <node-id> <x>,<y>
 clear all
 ```
@@ -180,12 +203,12 @@ Variant positions override base positions for the same node. Positions are optio
 
 ### Materialization and JSON
 
-Schema version 4 stores the agent document in this shape:
+Schema version 5 stores the agent document in this shape:
 
 ```json
 {
-  "dslVersion": 2,
-  "schemaVersion": 4,
+  "dslVersion": 3,
+  "schemaVersion": 5,
   "graph": { "id": "checkout", "title": "Online checkout", "nodes": [], "edges": [] },
   "variants": [
     { "id": "saved-card", "title": "Use saved card", "operations": [] }
@@ -202,16 +225,20 @@ The interface shows the base graph and each variant as tabs. It derives the impa
 | Type | Required meaning | Good example | Do not use for |
 | --- | --- | --- | --- |
 | `actor` | Person or system that performs actions | `Customer` | An action or outcome |
-| `need` | Problem, requirement, or user motivation | `Understand delivery timing` | A business goal or step |
+| `need` | Problem, constraint, or user motivation | `Understand delivery timing` | An operational step |
+| `input` | Information or material that enters this flow from outside it | `Target job posting` | An artifact created by this flow |
 | `process` | Operational action or transformation | `Validate payment` | A UI surface |
 | `handoff` | Transfer of information, control, or state | `Payment result` | The resulting artifact |
 | `deliverable` | Durable artifact or output | `Order receipt` | The transfer that produced it |
 | `ux` | User interaction, interface behavior, or guidance | `Explain payment recovery` | Backend-only processing |
-| `goal` | Desired end state or measurable outcome | `Order confirmed` | One intermediate action |
 
-Use `need` for why the flow matters. Use `goal` for the state the flow should produce.
+Use `need` and `ux` as semantic records. Connect them with typed semantic relations. They do not render on the canvas.
+
+Use `input` for a resource that crosses into the flow. Connect its provider and its first consumer.
 
 Use `handoff` for a transfer. Use `deliverable` for the durable item transferred or produced.
+
+The renderer derives outcomes. A `deliverable` with no outgoing `flow` edge is an outcome. An intermediate deliverable remains an artifact.
 
 ## Lexical rules
 
@@ -307,7 +334,7 @@ This EBNF defines the accepted command shapes. `WS` means one or more spaces or 
 
 ```text
 document       = version, NL+, graph, NL+, description?, node+, edge*, variant*, position*, EOF ;
-version        = "flow", WS, "2" ;
+version        = "flow", WS, "3" ;
 graph          = "graph", WS, id, WS, string ;
 description    = "description", WS, string ;
 
@@ -318,7 +345,8 @@ tags           = "tags=", stringArray ;
 layout         = "layout=", number, ",", number ;
 
 edge           = "edge", WS, id, WS, id, WS, "->", WS, id, edgeOption* ;
-edgeOption     = WS, (label | emphasis) ;
+edgeOption     = WS, (relation | label | emphasis) ;
+relation       = "relation=", edgeRelation ;
 label          = "label=", string ;
 emphasis       = "emphasis=", ("true" | "false") ;
 
@@ -333,8 +361,9 @@ unset          = "unset", WS, ("node" | "edge"), WS, id, WS, id ;
 clear          = "clear", WS, "all" ;
 
 position       = "position", WS, id, WS, number, ",", number ;
-nodeType       = "actor" | "need" | "process" | "handoff" |
-                 "deliverable" | "ux" | "goal" ;
+nodeType       = "actor" | "need" | "input" | "process" | "handoff" |
+                 "deliverable" | "ux" ;
+edgeRelation   = "flow" | "addresses" | "supports" | "appears-at" ;
 stringArray    = "[", [string, {",", string}], "]" ;
 id             = idStart, {idContinue} ;
 idStart        = ASCII_LETTER | DIGIT ;
@@ -351,7 +380,7 @@ The parser treats a newline as a recovery boundary. It can skip one malformed co
 `graphToDsl` produces one canonical representation. It applies these option orders:
 
 - Node: `body`, `tags`, `layout`.
-- Edge: `label`, `emphasis`.
+- Edge: `relation`, `label`, `emphasis`.
 
 It preserves node and edge array order. It omits absent options and `emphasis=false`.
 
@@ -369,11 +398,11 @@ The second invariant means formatting is idempotent.
 
 ## JSON mapping
 
-The strict parser returns a schema version 3 graph.
+The strict parser returns a schema version 5 document.
 
 | DSL field | JSON field |
 | --- | --- |
-| `flow 1` | `dslVersion: 1` |
+| `flow 3` | `dslVersion: 3` |
 | Graph ID | `id` |
 | Graph title | `title` |
 | Description | `description` |
@@ -385,6 +414,7 @@ The strict parser returns a schema version 3 graph.
 | Edge ID | `edges[].id` |
 | Edge source | `edges[].from` |
 | Edge target | `edges[].to` |
+| `relation` | `edges[].relation` |
 | `label` | `edges[].label` |
 | `emphasis=true` | `edges[].emphasis: true` |
 | Node `layout` | `layout.hints[nodeId]` |
@@ -432,12 +462,13 @@ A malformed command does not prevent later valid lines from entering the partial
 
 A canonical document must meet these rules:
 
-- It starts with `flow 1`.
+- It starts with `flow 3`.
 - It has one graph line and at least one node.
 - Command sections use the required order.
 - Every node and edge ID is unique.
 - Every edge and position reference resolves.
 - Every node uses an allowed node type.
+- Every edge relation uses the required endpoint types.
 - Every option uses `key=value`.
 - Every string uses double quotes.
 - Tags are non-empty, unique strings.

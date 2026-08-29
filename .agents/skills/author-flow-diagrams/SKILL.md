@@ -27,13 +27,22 @@ Use node types by meaning:
 
 - `actor`: a person or system that acts.
 - `need`: a motivation, constraint, or problem.
+- `input`: information or material that enters the flow from outside it.
 - `process`: an action or transformation.
 - `handoff`: a transfer of state, control, or information.
 - `deliverable`: a durable artifact or output.
 - `ux`: interface behavior, guidance, or user control.
-- `goal`: the desired end state.
 
-Use `need` for why the flow matters. Use `goal` for the result. Keep handoffs distinct from the artifacts they produce.
+Use `need` for why the flow matters. Use `ux` for interface behavior. These nodes stay out of the canvas.
+
+Use typed relations by meaning:
+
+- Omit `relation` for operational `flow` edges.
+- Use `addresses` from an operational node to a need.
+- Use `appears-at` from a UX node to an operational node.
+- Use `supports` from a UX node to a need.
+
+A deliverable with no outgoing `flow` edge is an outcome. Do not add a goal node.
 
 Write short titles that remain clear on title-only cards. Put qualifications, evidence, and acceptance detail in `body`. Add tags only when agents or future edits can use them.
 
@@ -45,18 +54,16 @@ Use edge labels when the relationship is not clear from the two titles. Apply `e
 
 Do not add exact positions to a new diagram. The renderer must produce a good first view without them.
 
-Add `layout=<column>,<row>` only when semantic order or grouping needs guidance. Use the standard columns:
+Add `layout=<column>,<row>` only when order or grouping needs guidance. Give each operational stage a later column than its flow predecessors.
 
-| Column | Types |
+| Column | Typical stage |
 | --- | --- |
 | `0` | `actor` |
-| `1` | `need` |
-| `2` | `process` |
-| `3` | `handoff`, `deliverable` |
-| `4` | `ux` |
-| `5` | `goal` |
+| `1` | inbound `input` |
+| `2+` | ordered processes, handoffs, and intermediate deliverables |
+| last | terminal deliverable outcome |
 
-Use row values to keep related nodes near each other. Place a handoff close to its deliverable. Stagger parallel branches to reduce edge overlap.
+Needs and UX nodes do not need layout hints. Use row values to keep parallel branches aligned. Keep the dominant flow strictly left to right.
 
 Preserve authored positions when making a semantic edit unless the user requests a new layout. Treat positions as optional saved view state, not semantic data.
 

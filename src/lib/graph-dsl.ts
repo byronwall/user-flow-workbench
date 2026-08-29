@@ -1,5 +1,6 @@
-import { NODE_TYPES } from "../types/graph.ts";
+import { EDGE_RELATIONS, NODE_TYPES } from "../types/graph.ts";
 import type {
+  EdgeRelation,
   EdgeSetChanges,
   FlowDocument,
   FlowGraph,
@@ -13,14 +14,16 @@ import type {
   VariantOperation,
 } from "../types/graph.ts";
 
-export const FLOW_DSL_VERSION = 2 as const;
-export const FLOW_SCHEMA_VERSION = 4 as const;
+export const FLOW_DSL_VERSION = 3 as const;
+export const FLOW_SCHEMA_VERSION = 5 as const;
 
 const IDENTIFIER_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 const NUMBER_SOURCE = "-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?";
 const NUMBER_PATTERN = new RegExp(`^${NUMBER_SOURCE}$`);
 const PAIR_PATTERN = new RegExp(`^(${NUMBER_SOURCE}),(${NUMBER_SOURCE})$`);
 const NODE_TYPE_SET = new Set<string>(NODE_TYPES);
+const EDGE_RELATION_SET = new Set<string>(EDGE_RELATIONS);
+const OPERATIONAL_NODE_TYPES = new Set<NodeType>(["actor", "input", "process", "handoff", "deliverable"]);
 
 export type GraphDslDiagnosticCategory =
   | "syntax"
@@ -303,6 +306,8 @@ export function parseGraphDslWithDiagnostics(source: string): GraphDslParseResul
     validateNodeReference(edge.from, edge.value.from, nodeIds, diagnostics, edge.value.id);
     validateNodeReference(edge.to, edge.value.to, nodeIds, diagnostics, edge.value.id);
   }
+  const nodesById = new Map(nodes.map((node) => [node.id, node]));
+  for (const edge of locatedEdges) validateEdgeRelation(edge, nodesById, diagnostics);
   for (const position of locatedPositions) validateNodeReference(position.token, position.nodeId, nodeIds, diagnostics);
 
   const hasHints = Object.keys(hints).length > 0;
@@ -490,6 +495,16 @@ export function materializeVariant(document: FlowDocument, variantId: string): F
   if (!graph.nodes.length) {
     throw variantError("FLOW318", variant, Math.max(0, variant.operations.length - 1), "Materialized graph must contain at least one node.");
   }
+  const nodesById = new Map(graph.nodes.map((node) => [node.id, node]));
+  for (const edge of graph.edges) {
+    const source = nodesById.get(edge.from);
+    const target = nodesById.get(edge.to);
+    if (!source || !target) continue;
+    const message = edgeRelationError(edge, source, target);
+    if (message) {
+      throw variantError("FLOW328", variant, Math.max(0, variant.operations.length - 1), message, [edge.id]);
+    }
+  }
   return graph;
 }
 
@@ -561,10 +576,11 @@ function parseVariantOperation(tokens: Token[], variantId: string): VariantOpera
       return { kind: "set-node", nodeId: targetId, changes };
     }
     if (tokens[1].raw === "edge") {
-      const options = readOptions(tokens.slice(3), new Set(["from", "to", "label", "emphasis"]));
+      const options = readOptions(tokens.slice(3), new Set(["from", "to", "relation", "label", "emphasis"]));
       const changes: EdgeSetChanges = {};
       if (options.from) changes.from = parseIdentifier(optionToken(options.from));
       if (options.to) changes.to = parseIdentifier(optionToken(options.to));
+      if (options.relation) changes.relation = parseEdgeRelation(options.relation);
       if (options.label) changes.label = parseQuotedString(optionToken(options.label));
       if (options.emphasis) changes.emphasis = parseBoolean(options.emphasis, "emphasis");
       return { kind: "set-edge", edgeId: targetId, changes };
@@ -582,10 +598,10 @@ function parseVariantOperation(tokens: Token[], variantId: string): VariantOpera
       return { kind: "unset-node", nodeId: targetId, property: property as "body" | "tags" | "layout" };
     }
     if (tokens[1].raw === "edge") {
-      if (!["label", "emphasis"].includes(property)) {
-        fail("FLOW325", "variant", tokens[3], "Edge unset supports label or emphasis.", { variantId });
+      if (!["relation", "label", "emphasis"].includes(property)) {
+        fail("FLOW325", "variant", tokens[3], "Edge unset supports relation, label, or emphasis.", { variantId });
       }
-      return { kind: "unset-edge", edgeId: targetId, property: property as "label" | "emphasis" };
+      return { kind: "unset-edge", edgeId: targetId, property: property as "relation" | "label" | "emphasis" };
     }
     fail("FLOW326", "variant", tokens[1], "unset requires node or edge.", { variantId });
   }
@@ -624,6 +640,7 @@ function formatVariantOperation(operation: VariantOperation): string {
     const parts = [`set edge ${formatIdentifier(operation.edgeId)}`];
     if (operation.changes.from) parts.push(`from=${formatIdentifier(operation.changes.from)}`);
     if (operation.changes.to) parts.push(`to=${formatIdentifier(operation.changes.to)}`);
+    if (operation.changes.relation) parts.push(`relation=${operation.changes.relation}`);
     if (operation.changes.label !== undefined) parts.push(`label=${quote(operation.changes.label)}`);
     if (operation.changes.emphasis !== undefined) parts.push(`emphasis=${operation.changes.emphasis}`);
     return parts.join(" ");
@@ -643,6 +660,7 @@ function formatNode(node: GraphNode, hint?: LayoutHint): string {
 
 function formatEdge(edge: GraphEdge): string {
   const parts = [`edge ${formatIdentifier(edge.id)} ${formatIdentifier(edge.from)} -> ${formatIdentifier(edge.to)}`];
+  if (edge.relation && edge.relation !== "flow") parts.push(`relation=${edge.relation}`);
   if (edge.label) parts.push(`label=${quote(edge.label)}`);
   if (edge.emphasis) parts.push("emphasis=true");
   return parts.join(" ");
@@ -673,13 +691,15 @@ function parseEdge(tokens: Token[]): LocatedEdge {
   const id = parseIdentifier(tokens[1]);
   const from = parseIdentifier(tokens[2]);
   const to = parseIdentifier(tokens[4]);
-  const options = readOptions(tokens.slice(5), new Set(["label", "emphasis"]));
+  const options = readOptions(tokens.slice(5), new Set(["relation", "label", "emphasis"]));
+  const relation = options.relation ? parseEdgeRelation(options.relation) : "flow";
   const emphasis = options.emphasis ? parseBoolean(options.emphasis, "emphasis") : false;
   return {
     value: {
       id,
       from,
       to,
+      ...(relation !== "flow" ? { relation } : {}),
       ...(options.label ? { label: parseQuotedString(optionToken(options.label)) } : {}),
       ...(emphasis ? { emphasis: true } : {}),
     },
@@ -718,6 +738,19 @@ function parseNodeType(token: Token): NodeType {
     });
   }
   return token.raw as NodeType;
+}
+
+function parseEdgeRelation(token: Token): EdgeRelation {
+  const valueToken = optionToken(token);
+  if (!EDGE_RELATION_SET.has(valueToken.raw)) {
+    const suggestion = nearest(valueToken.raw, [...EDGE_RELATIONS]);
+    fail("FLOW156", "option", valueToken, `Unknown edge relation "${valueToken.raw}".`, {
+      actual: valueToken.raw,
+      expected: EDGE_RELATIONS.join(", "),
+      ...(suggestion ? { suggestion: `Did you mean "${suggestion}"?` } : {}),
+    });
+  }
+  return valueToken.raw as EdgeRelation;
 }
 
 function parseBoolean(token: Token, label: string): boolean {
@@ -857,6 +890,39 @@ function validateNodeReference(
     ...(relatedId ? { relatedId } : {}),
     ...(suggestion ? { suggestion: `Did you mean "${suggestion}"?` } : {}),
   }));
+}
+
+function validateEdgeRelation(
+  edge: LocatedEdge,
+  nodesById: Map<string, GraphNode>,
+  diagnostics: GraphDslDiagnostic[],
+) {
+  const source = nodesById.get(edge.value.from);
+  const target = nodesById.get(edge.value.to);
+  if (!source || !target) return;
+  const message = edgeRelationError(edge.value, source, target);
+  if (!message) return;
+  diagnostics.push(makeDiagnostic("FLOW208", "reference", edge.from, message, { relatedId: edge.value.id }));
+}
+
+function edgeRelationError(edge: GraphEdge, source: GraphNode, target: GraphNode): string | undefined {
+  const relation = edge.relation || "flow";
+  const sourceOperational = OPERATIONAL_NODE_TYPES.has(source.type);
+  const targetOperational = OPERATIONAL_NODE_TYPES.has(target.type);
+
+  if (relation === "flow" && (!sourceOperational || !targetOperational)) {
+    return `Flow edge "${edge.id}" must connect two operational nodes.`;
+  }
+  if (relation === "addresses" && (!sourceOperational || target.type !== "need")) {
+    return `Addresses edge "${edge.id}" must connect an operational node to a need.`;
+  }
+  if (relation === "supports" && (source.type !== "ux" || target.type !== "need")) {
+    return `Supports edge "${edge.id}" must connect a UX node to a need.`;
+  }
+  if (relation === "appears-at" && (source.type !== "ux" || !targetOperational)) {
+    return `Appears-at edge "${edge.id}" must connect a UX node to an operational node.`;
+  }
+  return undefined;
 }
 
 function optionValue(token: Token): string {

@@ -3,7 +3,6 @@ export function FlowCanvas() {
     <main class="canvas-wrap">
       <div class="viewport" id="viewport" role="tabpanel" tabindex="0" aria-label="Flow diagram canvas">
         <div class="world" id="world">
-          <div id="laneLayer" />
           <svg class="edges" id="edgeSvg" viewBox="0 0 2240 1300" preserveAspectRatio="none" aria-hidden="true">
             <defs>
               <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="strokeWidth">
@@ -24,6 +23,14 @@ export function FlowCanvas() {
         <span>Drag background = pan</span>
         <span>Drag node = move</span>
         <span id="layoutEngineLabel">Separated local routes</span>
+      </div>
+      <div class="canvas-legend" aria-label="Node color legend">
+        <span class="legend-item"><i data-type="actor" />User</span>
+        <span class="legend-item"><i data-type="input" />Input</span>
+        <span class="legend-item"><i data-type="process" />Process</span>
+        <span class="legend-item"><i data-type="deliverable" />Artifact</span>
+        <span class="legend-item"><i data-type="handoff" />Handoff</span>
+        <span class="legend-item"><i data-type="outcome" />Outcome</span>
       </div>
     </main>
   );

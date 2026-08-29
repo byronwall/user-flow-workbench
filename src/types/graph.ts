@@ -1,14 +1,18 @@
 export const NODE_TYPES = [
   "actor",
   "need",
+  "input",
   "process",
   "handoff",
   "deliverable",
   "ux",
-  "goal",
 ] as const;
 
 export type NodeType = (typeof NODE_TYPES)[number];
+
+export const EDGE_RELATIONS = ["flow", "addresses", "supports", "appears-at"] as const;
+
+export type EdgeRelation = (typeof EDGE_RELATIONS)[number];
 
 export interface GraphNode {
   id: string;
@@ -22,6 +26,7 @@ export interface GraphEdge {
   id: string;
   from: string;
   to: string;
+  relation?: EdgeRelation;
   label?: string;
   emphasis?: boolean;
 }
@@ -54,7 +59,7 @@ export type NodeSetChanges = Partial<Pick<GraphNode, "type" | "title" | "body" |
   layout?: LayoutHint;
 };
 
-export type EdgeSetChanges = Partial<Pick<GraphEdge, "from" | "to" | "label" | "emphasis">>;
+export type EdgeSetChanges = Partial<Pick<GraphEdge, "from" | "to" | "relation" | "label" | "emphasis">>;
 
 export type VariantOperation =
   | { kind: "clear-all" }
@@ -65,7 +70,7 @@ export type VariantOperation =
   | { kind: "set-node"; nodeId: string; changes: NodeSetChanges }
   | { kind: "set-edge"; edgeId: string; changes: EdgeSetChanges }
   | { kind: "unset-node"; nodeId: string; property: "body" | "tags" | "layout" }
-  | { kind: "unset-edge"; edgeId: string; property: "label" | "emphasis" }
+  | { kind: "unset-edge"; edgeId: string; property: "relation" | "label" | "emphasis" }
   | { kind: "set-position"; nodeId: string; position: NodePosition };
 
 export interface FlowVariant {
@@ -77,8 +82,8 @@ export interface FlowVariant {
 
 /** The persisted, agent-facing document. Variants store ordered differences from graph. */
 export interface FlowDocument {
-  dslVersion: 2;
-  schemaVersion: 4;
+  dslVersion: 3;
+  schemaVersion: 5;
   graph: FlowGraph;
   variants: FlowVariant[];
 }

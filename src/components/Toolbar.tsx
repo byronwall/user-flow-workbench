@@ -8,7 +8,7 @@ export function Toolbar(props: ToolbarProps) {
     <header class="topbar">
       <div class="brand">
         <h1>User Flow Workbench</h1>
-        <p>Schema-first flow mapping for needs, process, handoffs, deliverables, and UX.</p>
+        <p>Operational flows with needs and UX kept as linked semantic context.</p>
       </div>
       <div class="toolbar" aria-label="Canvas actions">
         <button class="btn primary" id="autoLayoutBtn" type="button">Auto layout</button>
