@@ -1,4 +1,4 @@
-import { createSignal, onCleanup, onMount } from "solid-js";
+import { createSignal, onMount } from "solid-js";
 import { mountFlowWorkbench } from "../lib/flow-workbench";
 import { FlowCanvas } from "./FlowCanvas";
 import { GraphJsonPanel } from "./GraphJsonPanel";
@@ -11,53 +11,64 @@ interface WorkbenchProps {
   initialGraph: FlowDocument;
 }
 
-const CODE_PANEL_QUERY_PARAM = "code";
-const HIDDEN_CODE_PANEL_VALUE = "hidden";
+type SidebarTab = "inspector" | "code";
 
 export function Workbench(props: WorkbenchProps) {
-  const [isCodePanelVisible, setIsCodePanelVisible] = createSignal(true);
+  const [activeSidebarTab, setActiveSidebarTab] = createSignal<SidebarTab>("inspector");
 
-  const readCodePanelVisibility = () => {
-    const url = new URL(window.location.href);
-    return url.searchParams.get(CODE_PANEL_QUERY_PARAM) !== HIDDEN_CODE_PANEL_VALUE;
-  };
+  const selectSidebarTab = (tab: SidebarTab) => setActiveSidebarTab(tab);
 
-  const updateCodePanelUrl = (isVisible: boolean) => {
-    const url = new URL(window.location.href);
-    if (isVisible) url.searchParams.delete(CODE_PANEL_QUERY_PARAM);
-    else url.searchParams.set(CODE_PANEL_QUERY_PARAM, HIDDEN_CODE_PANEL_VALUE);
-    window.history.replaceState(window.history.state, "", url);
-  };
-
-  const toggleCodePanel = () => {
-    setIsCodePanelVisible((isVisible) => {
-      const nextVisibility = !isVisible;
-      updateCodePanelUrl(nextVisibility);
-      return nextVisibility;
-    });
+  const handleTabKeyDown = (event: KeyboardEvent) => {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    event.preventDefault();
+    const nextTab = activeSidebarTab() === "inspector" ? "code" : "inspector";
+    selectSidebarTab(nextTab);
+    document.getElementById(`${nextTab}-tab`)?.focus();
   };
 
   onMount(() => {
-    const syncCodePanelFromUrl = () => setIsCodePanelVisible(readCodePanelVisibility());
-    syncCodePanelFromUrl();
-    window.addEventListener("popstate", syncCodePanelFromUrl);
-    onCleanup(() => window.removeEventListener("popstate", syncCodePanelFromUrl));
-
     mountFlowWorkbench(props.initialGraph);
   });
 
   return (
     <div class="app">
-      <Toolbar
-        isCodePanelVisible={isCodePanelVisible()}
-        onToggleCodePanel={toggleCodePanel}
-      />
+      <Toolbar />
       <VariantBar />
-      <div class="shell" classList={{ "code-panel-hidden": !isCodePanelVisible() }}>
-        <GraphJsonPanel />
+      <main class="shell">
         <FlowCanvas />
-        <InspectorPanel />
-      </div>
+      </main>
+      <aside class="sidebar" aria-label="Flow details and code">
+        <div class="sidebar-tabs" role="tablist" aria-label="Sidebar views">
+          <button
+            class="sidebar-tab"
+            id="inspector-tab"
+            type="button"
+            role="tab"
+            aria-controls="inspector-panel"
+            aria-selected={activeSidebarTab() === "inspector"}
+            tabIndex={activeSidebarTab() === "inspector" ? 0 : -1}
+            onClick={() => selectSidebarTab("inspector")}
+            onKeyDown={handleTabKeyDown}
+          >
+            Inspector
+          </button>
+          <button
+            class="sidebar-tab"
+            id="code-tab"
+            type="button"
+            role="tab"
+            aria-controls="code-panel"
+            aria-selected={activeSidebarTab() === "code"}
+            tabIndex={activeSidebarTab() === "code" ? 0 : -1}
+            onClick={() => selectSidebarTab("code")}
+            onKeyDown={handleTabKeyDown}
+          >
+            Flow DSL
+          </button>
+        </div>
+        <InspectorPanel hidden={activeSidebarTab() !== "inspector"} />
+        <GraphJsonPanel hidden={activeSidebarTab() !== "code"} />
+      </aside>
     </div>
   );
 }

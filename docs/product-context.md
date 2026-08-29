@@ -79,6 +79,7 @@ Do not model variants as a vertical lane of special nodes. Each variant applies 
 - Give each edge a separate connection lane and strongly avoid reused route segments.
 - Keep a no-library fallback.
 - Keep the graph schema and agent API visible.
+- Put the inspector and Flow DSL in tabs within a full-height right sidebar.
 - Show the base graph and variants as tabs.
 - Keep variant operations separate from the complete graph used by the renderer.
 - Permit `clear all` only as the first operation in a replacement variant.

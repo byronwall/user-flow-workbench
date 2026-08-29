@@ -1,10 +1,17 @@
-export function InspectorPanel() {
+interface InspectorPanelProps {
+  hidden: boolean;
+}
+
+export function InspectorPanel(props: InspectorPanelProps) {
   return (
-    <aside class="panel right">
-      <div class="panel-head">
-        <h2>Inspector</h2>
-      </div>
+    <section
+      class="sidebar-panel"
+      id="inspector-panel"
+      role="tabpanel"
+      aria-labelledby="inspector-tab"
+      hidden={props.hidden}
+    >
       <div class="panel-body" id="inspector" />
-    </aside>
+    </section>
   );
 }

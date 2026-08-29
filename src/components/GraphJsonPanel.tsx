@@ -1,8 +1,17 @@
-export function GraphJsonPanel() {
+interface GraphJsonPanelProps {
+  hidden: boolean;
+}
+
+export function GraphJsonPanel(props: GraphJsonPanelProps) {
   return (
-    <aside class="panel left" id="graph-json-panel">
+    <section
+      class="sidebar-panel"
+      id="code-panel"
+      role="tabpanel"
+      aria-labelledby="code-tab"
+      hidden={props.hidden}
+    >
       <div class="panel-head">
-        <h2>Flow DSL</h2>
         <p>Write each node on one line. List edges after the nodes.</p>
       </div>
       <div class="panel-body">
@@ -25,6 +34,6 @@ export function GraphJsonPanel() {
           <code> position</code> lines after manual placement.
         </div>
       </div>
-    </aside>
+    </section>
   );
 }
