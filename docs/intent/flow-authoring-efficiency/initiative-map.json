@@ -1,0 +1,359 @@
+{
+  "schema_version": "0.4.0",
+  "initiative": {
+    "title": "Reliable and efficient flow authoring",
+    "slug": "flow-authoring-efficiency",
+    "scale": "capability",
+    "current_phase": "plan",
+    "last_updated": "2026-08-30",
+    "summary": "Owner-grouped implementation for CLI rendering, authoring guidance, documentation gates, and agent efficiency; current-scope verification is complete."
+  },
+  "artifacts": {
+    "intent_brief": {
+      "path": "intent-brief.md",
+      "status": "current",
+      "updated_at": "2026-08-30"
+    },
+    "brainstorm": {
+      "path": "brainstorm.md",
+      "status": "not-requested",
+      "updated_at": null
+    },
+    "shape_brief": {
+      "path": "shape-brief.md",
+      "status": "current",
+      "updated_at": "2026-08-30"
+    },
+    "implementation_plan": {
+      "path": "implementation-plan.md",
+      "status": "current",
+      "updated_at": "2026-08-30"
+    }
+  },
+  "sources": [
+    {
+      "id": "request-review",
+      "type": "user-request",
+      "location": "codex://threads/01a053cf-abcc-7181-a369-a5c591073494",
+      "anchor": "Review this thread; evaluate skills, CLI, agent effectiveness and token efficiency",
+      "authority": "user"
+    },
+    {
+      "id": "request-render",
+      "type": "user-request",
+      "location": "codex://threads/01a053cf-abcc-7181-a369-a5c591073494",
+      "anchor": "Is there anyway to get a rendering of the diagram from the flow CLI?",
+      "authority": "user"
+    },
+    {
+      "id": "request-plan",
+      "type": "user-request",
+      "location": "codex://threads/01a053cf-abcc-7181-a369-a5c591073494",
+      "anchor": "put all of this into a set of plans, grouped by domain/owner",
+      "authority": "user"
+    },
+    {
+      "id": "soccer-run",
+      "type": "task-history",
+      "location": "codex://threads/01a0539f-59f5-7490-965f-f21aa8ee6a0f",
+      "anchor": "Create soccer app flow diagrams; complete turn and command evidence",
+      "authority": "observed"
+    },
+    {
+      "id": "install-run",
+      "type": "task-history",
+      "location": "codex://threads/01a0539b-d562-7103-8b3a-ae695f0ea72b",
+      "anchor": "Install user flow skill globally; symlink fix completed before soccer task",
+      "authority": "observed"
+    },
+    {
+      "id": "cli-code",
+      "type": "repository",
+      "location": "/Users/byronwall/Projects/user-flow-workbench/src/cli/flow.ts",
+      "anchor": "usage, defaultRuntime.startView, runFlowCli",
+      "authority": "implementation"
+    },
+    {
+      "id": "canvas-code",
+      "type": "repository",
+      "location": "/Users/byronwall/Projects/user-flow-workbench/src/lib/flow-workbench.ts",
+      "anchor": "autoLayout, window.flow, restore",
+      "authority": "implementation"
+    },
+    {
+      "id": "soccer-policy",
+      "type": "repository",
+      "location": "/Users/byronwall/Projects/soccer-schedule/AGENTS.md",
+      "anchor": "format and verify requirements; direct-script fallback",
+      "authority": "repository-policy"
+    }
+  ],
+  "intent": {
+    "claims": [
+      {
+        "id": "render",
+        "type": "goal",
+        "statement": "Make diagram rendering accessible through the Flow CLI.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "next implementation",
+        "sources": [
+          "request-render"
+        ]
+      },
+      {
+        "id": "owners",
+        "type": "goal",
+        "statement": "Group all reviewed improvements into plans by domain and owner.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "next implementation",
+        "sources": [
+          "request-plan"
+        ]
+      },
+      {
+        "id": "quality",
+        "type": "goal",
+        "statement": "Preserve useful diagram quality while reducing friction and unnecessary tokens.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "next implementation",
+        "sources": [
+          "request-review"
+        ]
+      }
+    ],
+    "themes": [
+      "visual proof",
+      "durable semantics",
+      "focused verification",
+      "efficient discovery"
+    ],
+    "conflicts": [],
+    "human_questions": []
+  },
+  "brainstorm": {
+    "status": "not-requested",
+    "requested_count": 7,
+    "options": [],
+    "selected_option": null
+  },
+  "shape": {
+    "status": "current",
+    "appetite": "Small additive slices; no platform replacement or deployment.",
+    "problem": "Visual feedback requires separate browser work; documentation inherits broad verification.",
+    "recommended_shape": "Reuse the existing viewer for local PNG capture; independently improve skill, repository gate, and authoring runbook.",
+    "success_moves": [
+      "Reuse existing renderer.",
+      "Separate process readiness from layout readiness.",
+      "Prove one image before batching.",
+      "Separate documentation and application checks.",
+      "Measure efficiency without weakening evidence."
+    ],
+    "first_proof": {
+      "question": "Can an installed Flow CLI render a faithful branched diagram without manual browser work?",
+      "artifact": "PNG from an unrelated working directory",
+      "decision_rule": "Proceed when titles, branches, complete bounds, source preservation, readiness and cleanup pass."
+    },
+    "rabbit_holes": [
+      "New DSL",
+      "Separate SVG renderer",
+      "Automatic diagram generator",
+      "Large test platform"
+    ],
+    "open_decisions": []
+  },
+  "implementation": {
+    "status": "current",
+    "progress_status": "complete",
+    "verification_record": "verification-record.md",
+    "repository_snapshot": {
+      "root": "/Users/byronwall/Projects/user-flow-workbench",
+      "revision": "8382e4a136b8cf5a25fc458b17383d3b29ddee69",
+      "worktree_status": "Working tree includes pre-existing and in-progress source and documentation changes; preserve all owner changes. This record owns intent and verification artifacts only.",
+      "subsystems": [
+        "src/cli/flow.ts",
+        "src/server/flow-catalog.ts",
+        "src/components/FlowCanvas.tsx",
+        "src/lib/flow-workbench.ts",
+        "skills/author-flow-diagrams",
+        "scripts/prepare-package.mjs"
+      ],
+      "test_commands": [
+        "pnpm test:dsl",
+        "pnpm typecheck"
+      ],
+      "deployment_surfaces": [
+        "Global CLI package; no deployment or publication authorized"
+      ]
+    },
+    "dependencies": [
+      {
+        "id": "browser",
+        "name": "Local browser capture runtime",
+        "material": true,
+        "application_seam": "Render runtime with start, capture, and cleanup operations",
+        "first_proof_role": {
+          "mode": "real",
+          "rationale": "A fake cannot prove HTML/SVG rendering, fonts, layout completion, or screenshot fidelity."
+        },
+        "failure_modes": [
+          "missing executable",
+          "startup timeout",
+          "layout timeout",
+          "capture error",
+          "interruption"
+        ],
+        "proof_rungs": [
+          "fake command failure tests",
+          "real local browser capture",
+          "installed package smoke outside repository"
+        ],
+        "local_proof": "Capture representative diagrams with a real browser; inject lifecycle errors at the runtime boundary.",
+        "live_proof": "No cloud proof needed; installed local package and browser prove distribution fidelity.",
+        "rollout": "Add optional render command; keep other commands browser-independent."
+      },
+      {
+        "id": "viewer",
+        "name": "Packaged viewer and ELK readiness",
+        "material": true,
+        "application_seam": "Owned server identity plus explicit render completion result",
+        "first_proof_role": {
+          "mode": "real",
+          "rationale": "The exported image must use the real viewer renderer."
+        },
+        "failure_modes": [
+          "occupied port",
+          "wrong server identity",
+          "ELK unavailable",
+          "restore race",
+          "stale browser state"
+        ],
+        "proof_rungs": [
+          "controlled process failures",
+          "real layout and fallback capture",
+          "packaged viewer smoke"
+        ],
+        "local_proof": "Occupied-port tests and real capture with source-only state and layout engine reporting.",
+        "live_proof": "No remote service; verify installed build includes renderer assets.",
+        "rollout": "Preserve interactive viewer and layout fallback."
+      }
+    ],
+    "fast_local_loop": {
+      "command": "Proposed: pnpm flow render docs/examples/checkout.flow --output /tmp/flow-preview.png",
+      "status": "implemented and verified for current scope",
+      "network": "None after explicit browser setup",
+      "failure_injection": "Fake runtime for lifecycle failures; real browser for layout failures"
+    },
+    "milestones": [
+      {
+        "id": "render-proof",
+        "title": "An agent can inspect a rendered diagram",
+        "outcome": "Installed CLI produces a faithful PNG or explicit failure.",
+        "dependencies_introduced": [
+          "browser",
+          "viewer"
+        ],
+        "proof": "Outside-repository capture, visual comparison, timeout and cleanup checks.",
+        "valid_intermediate_state": "Single-file render works; check, format, view remain available.",
+        "rollback": "Disable render and use viewer screenshots.",
+        "status": "complete"
+      },
+      {
+        "id": "workflow-adoption",
+        "title": "A diagram set uses the shorter verified workflow",
+        "outcome": "Batch images, focused authoring guidance, and documentation gate support measured evaluation.",
+        "dependencies_introduced": [],
+        "proof": "Nine-flow batch and matched authoring evaluation with equal quality criteria.",
+        "valid_intermediate_state": "Independent owner changes remain useful even if contact sheets are deferred.",
+        "rollback": "Retain old viewer workflow, complete reference, and full app verification.",
+        "status": "complete"
+      }
+    ],
+    "cut_line": [
+      "SVG/PDF",
+      "Cloud rendering",
+      "Automatic diagram generation",
+      "Visual scoring platform",
+      "Package publication",
+      "Package-manager security changes"
+    ],
+    "open_decisions": [
+      {
+        "decision": "Choose local browser runtime and explicit setup contract.",
+        "owner": "Flow Workbench maintainer",
+        "proof": "Read primary runtime documentation and capture using installed package without Codex-only capabilities.",
+        "fallback": "Keep viewer screenshot workflow if portable capture is not yet proven."
+      }
+    ],
+    "owner_plans": [
+      {
+        "owner": "Flow Workbench maintainer",
+        "path": "flow-cli.md",
+        "status": "verified",
+        "evidence": "Thirty-two DSL tests, typecheck, prepack, global installed smoke, independent source review, and final delta recheck passed. The root installed batch is 9/9 successful with ELK at 1200 × 800, pure JSON output, and matching source hashes.",
+        "next": "Future work may address dense edge-label overlap; no routing fix was added in this scope."
+      },
+      {
+        "owner": "Authoring skill maintainer",
+        "path": "authoring-skill.md",
+        "status": "verified",
+        "evidence": "Portable links, compact format trigger, runbook path, installed sync, examples, typecheck, and 25 DSL tests passed.",
+        "next": "Keep the repository and installed copies synchronized as CLI guidance changes."
+      },
+      {
+        "owner": "Soccer application maintainer",
+        "path": "soccer-repository.md",
+        "status": "verified",
+        "evidence": "Documentation gate fixtures and targeted formatter passed; full direct verification passed 25 files and 164 tests with 18 existing warnings and 0 errors.",
+        "next": "Use the documentation gate for flow-only changes and retain full verification for mixed source changes."
+      },
+      {
+        "owner": "Agent workflow maintainer / evaluator",
+        "path": "agent-workflow.md",
+        "status": "verified_bounded",
+        "evidence": "Fresh exercise passed after one repair, rendered at 1200 × 800, and revised layout hints after inspection.",
+        "next": "Repeat with a matched task before making any efficiency claim."
+      }
+    ]
+  },
+  "evidence": {
+    "baseline": {
+      "task": "soccer-run",
+      "elapsed_ms": 470925,
+      "total_input": 1720587,
+      "cached_input": 1632640,
+      "uncached_input": 87947,
+      "output": 11281,
+      "source": "read_thread and llmly diagnose_usage report",
+      "limitations": "One task; exec attribution does not isolate shell commands. Command durations overlap. The new bounded exercise is not a matched benchmark."
+    },
+    "observations": [
+      "Nine current flows pass checks and formatting.",
+      "Historical screenshot covers overview only.",
+      "Occupied-port run printed URL before failure.",
+      "Symlink bug fixed before target task.",
+      "Installed skill contains cross-project changes absent from repo copy.",
+      "CLI repair passed 32 DSL tests, typecheck, prepack, global installed smoke, source-alias protection, pure JSON output, lifecycle cleanup, deterministic stubborn-browser tests, and final delta recheck.",
+      "Sleuth validation passed with one material-dependency warning; audit scored 8.9/10.",
+      "Local Markdown link check covered 9 files and 11 links; all resolved.",
+      "Root installed CLI batch is 9/9 successful with ELK at 1200 × 800, pure JSON report output, and matching source hashes.",
+      "Compact renders fit the graph and omit the legend below 480 pixels; compact text can be small, and dense existing edge labels can still overlap cards."
+    ],
+    "hypotheses": [
+      "Narrower source reads reduce uncached input.",
+      "Documentation-only checks reduce elapsed time.",
+      "Render command lowers cost of visual review."
+    ]
+  },
+  "history": [
+    {
+      "date": "2026-08-30",
+      "event": "Recorded repaired CLI evidence, final reviewer PASS, root installed batch success, compact-render behavior, and truthful renderer limitations."
+    }
+  ]
+}

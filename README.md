@@ -43,6 +43,18 @@ pnpm flow view path/to/project --port 4317
 
 Open the printed local URL. The index lists nested flow files and reports syntax errors.
 
+Render a diagram with the packaged viewer and a local Chrome or Chromium browser:
+
+```sh
+pnpm build
+pnpm flow render path/to/flow.flow --output tmp/flow.png
+pnpm flow render path/to/flows --output-dir tmp/flow-previews --contact-sheet
+```
+
+Rendering uses a fresh browser profile and never writes to `.flow` files or browser storage. The default canvas is 1200 × 800 CSS pixels. The supported minimum is 320 × 240 CSS pixels. The legend is hidden below 480 pixels so compact captures keep diagram content visible. Use `--width`, `--height`, `--scale`, and `--variant <id>` to change the capture. For a directory render, `--scale` also increases contact-sheet tile pixels because each tile follows its source PNG size. Existing output files are preserved unless `--overwrite` is set. The renderer does not download a browser; pass `--browser /path/to/chrome` or set `FLOW_WORKBENCH_BROWSER` when Chrome is outside the standard local paths.
+
+Directory renders preserve each source path below the output directory. They write `report.json` with one result for every source file and return a nonzero code if any file fails. `--report <path>` changes the report location. `--json` prints the result as JSON. `--contact-sheet` writes a PNG contact sheet by default with each successful preview retained at its native pixel size; pass a `.svg` path to keep an SVG sheet instead. Large directories split into `-01`, `-02`, and later pages. Existing sheets are preserved unless `--overwrite` is set.
+
 The workbench reads source files from disk. Browser edits remain in local storage and do not change source files.
 
 Install the published CLI globally or run it without installation:

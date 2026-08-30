@@ -216,6 +216,30 @@
       grid-template-rows: auto auto minmax(0, 1fr);
       height: 100%;
     }
+    html[data-flow-render="true"] .topbar,
+    html[data-flow-render="true"] .variant-bar,
+    html[data-flow-render="true"] .sidebar { display: none; }
+    html[data-flow-render="true"] .app {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: minmax(0, 1fr);
+    }
+    html[data-flow-render="true"] .shell { grid-column: 1; grid-row: 1; }
+    html[data-flow-render="true"] .canvas-status { display: none; }
+    html[data-flow-render="true"] .canvas-legend {
+      left: 8px;
+      right: 8px;
+      bottom: 8px;
+      max-width: none;
+      justify-content: flex-start;
+      gap: 4px;
+      padding: 5px 6px;
+      font-size: 9px;
+    }
+    html[data-flow-render="true"] .legend-item { gap: 3px; }
+    html[data-flow-render="true"] .legend-item i { width: 8px; height: 8px; }
+    @media (max-width: 480px) {
+      html[data-flow-render="true"] .canvas-legend { display: none; }
+    }
     .topbar {
       grid-column: 1;
       min-height: 44px;

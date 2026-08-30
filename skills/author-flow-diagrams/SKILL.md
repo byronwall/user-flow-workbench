@@ -1,133 +1,88 @@
 ---
 name: author-flow-diagrams
-description: Author or revise User Flow Workbench `.flow` diagrams that remain semantic, readable after automatic layout, and effective as base graphs with outcome-focused variants. Use for new production diagrams, example diagrams, graph restructuring, or variant design in this repository.
+description: Author or revise User Flow Workbench `.flow` diagrams with clear semantics, readable automatic layout, and durable variants in any project.
 ---
 
 # Author Flow Diagrams
 
-Create a valid Flow DSL document that reads clearly before manual positioning. Keep shared truth in the base graph. Use variants for meaningful alternatives.
+Create a valid Flow DSL source file that reads clearly before manual positioning. Keep shared truth in the base graph. Use variants for meaningful alternatives.
 
-## Start with repository context
+## Read only the needed guidance
 
-Read `docs/flow-dsl-spec.md` before authoring. It is the syntax authority.
+Start with [the base authoring reference](references/flow-dsl-base.md). It contains the short contract and a valid example.
 
-Use these locations:
+Read [the complete Flow DSL specification](references/flow-dsl-spec.md) when you use variants, positions, parser diagnostics, or deliberately rewrite canonical formatting. It is the only syntax authority. The repository copy at `docs/flow-dsl-spec.md` is its maintained source; the reference is a distribution copy for use outside this repository.
 
-- Put production diagrams in `src/data/flows/*.flow`.
-- Treat JSON as generated render or export data. Do not maintain a parallel JSON source.
-- Use `docs/examples/*.flow` only for documentation examples.
+Use the user's requested output path and instruction to omit variants when provided. Otherwise, use the project convention. In this repository, production diagrams belong in `src/data/flows/*.flow` and examples belong in `docs/examples/*.flow`. Maintain `.flow` source only. JSON is generated render or export data.
 
-Preserve existing stable node, edge, graph, and variant IDs. Change an ID only when its identity changes.
-
-## Model the base graph
-
-Make the base graph the most reusable shared flow. It must stand alone without a variant.
+## Author the shared graph
 
 Use node types by meaning:
 
 - `actor`: a person or system that acts.
 - `need`: a motivation, constraint, or problem.
-- `input`: information or material that enters the flow from outside it.
+- `input`: information or material that enters the flow.
 - `process`: an action or transformation.
 - `handoff`: a transfer of state, control, or information.
 - `deliverable`: a durable artifact or output.
 - `ux`: interface behavior, guidance, or user control.
 
-Use `need` for why the flow matters. Use `ux` for interface behavior. These nodes stay out of the canvas.
+Needs and UX records stay out of the canvas. Connect them with `addresses`, `supports`, and `appears-at` relations. Omit `relation` for operational `flow` edges.
 
-Use typed relations by meaning:
+Every `process` needs an outgoing `flow` edge. A semantic edge does not satisfy this rule. A `deliverable` with no outgoing `flow` edge is a derived outcome; do not add a separate goal node.
 
-- Omit `relation` for operational `flow` edges.
-- Use `addresses` from an operational node to a need.
-- Use `appears-at` from a UX node to an operational node.
-- Use `supports` from a UX node to a need.
+Use a `handoff` when information, control, responsibility, or state crosses a boundary. Add a `deliverable` only when the flow creates or transfers a durable artifact. Do not make two nodes for the same state merely to show a handoff and an outcome.
 
-A deliverable with no outgoing `flow` edge is an outcome. Do not add a goal node.
+Use one dominant left-to-right story. Add a branch when it shows a real alternative, dependency, recovery path, or UX requirement. A process may summarize repeated work when the repetition is not a decision the reader must inspect. Give retries their own branch when the retry changes the route, actor, state, or outcome. Label edges when the relationship is not clear from the node titles.
 
-Every process must have an outgoing `flow` edge. Semantic relations do not count as process output.
+Keep titles short because the canvas shows titles only. Put qualifications, evidence, acceptance detail, and long wording in `body`. Preserve stable graph, node, edge, and variant IDs. Add tags only when a future edit or agent can use them.
 
-Write short titles that remain clear on title-only cards. Put qualifications, evidence, and acceptance detail in `body`. Add tags only when agents or future edits can use them.
+## Keep automatic layout useful
 
-Create one dominant left-to-right story. Add branches only when they show a real alternative, dependency, recovery path, or UX requirement. Avoid duplicate nodes that state the same idea.
+Do not add exact positions to a new diagram. Add `layout=<column>,<row>` only when stage order or parallel grouping needs guidance. Keep each operational stage later than its flow predecessors. Preserve authored positions during a semantic edit unless the user asks for a new layout.
 
-Use edge labels when the relationship is not clear from the two titles. Apply `emphasis=true` only to a small number of outcome-critical edges.
+## Make variants explicit
 
-## Design for automatic layout
+Each variant starts from the shared base graph. It does not inherit from another variant. Give it one premise or outcome and a description that explains why it exists.
 
-Do not add exact positions to a new diagram. The renderer must produce a good first view without them.
-
-Add `layout=<column>,<row>` only when order or grouping needs guidance. Give each operational stage a later column than its flow predecessors.
-
-| Column | Typical stage |
-| --- | --- |
-| `0` | `actor` |
-| `1` | inbound `input` |
-| `2+` | ordered processes, handoffs, and intermediate deliverables |
-| last | terminal deliverable outcome |
-
-Needs and UX nodes do not need layout hints. Use row values to keep parallel branches aligned. Keep the dominant flow strictly left to right.
-
-Preserve authored positions when making a semantic edit unless the user requests a new layout. Treat positions as optional saved view state, not semantic data.
-
-## Author variants
-
-Give each variant one clear premise or outcome. Use a specific title and a description that explains why the variant exists.
-
-Variants start from the base graph. They do not inherit from other variants. Apply operations in source order.
-
-Prefer small, explicit differences:
-
-- Use `set` or `unset` when an existing node or edge keeps its identity.
-- Use `add` for new structure.
-- Remove connected edges before you remove their node.
+- Use `set` or `unset` when an existing identity remains.
 - Add nodes before edges that reference them.
-- Use variant `position` operations only after the semantic result renders poorly or a user moves a node.
+- Remove connected edges before removing a node.
+- Use `position` operations only after the semantic result is sound and the automatic layout needs correction.
+- Use `clear all` only as the first operation for a complete replacement graph.
 
-The UI highlights variant impact. Added nodes show as `NEW`. Changed nodes show as `CHANGED`. Endpoints of added, removed, or changed edges show as `PATH`. Use this to make the alternative easy to scan.
+## Check and review
 
-Use `clear all` only for a complete replacement graph. It must be the first operation. Add every required node and edge after it. If the alternative has little shared meaning with the base graph, consider a separate production flow instead.
-
-## Use the Flow CLI
-
-Run the semantic check on each changed flow:
+Use the installed `flow` command with explicit paths. In a checkout, `pnpm flow` is the equivalent fallback.
 
 ```sh
-pnpm flow check path/to/changed.flow
+flow check path/to/changed.flow
+flow format --check path/to/changed.flow
 ```
 
-The check parses the file and lints the base graph. It also materializes and lints every variant.
+Run both checks for a new uncommented flow. If an existing flow contains comments, preserve the comments and report that `format --check` can fail because canonical formatting removes comments. Run the write form of `flow format` only when rewriting the full source is intended. In this repository, a production-flow change also uses `pnpm test:dsl`, `pnpm typecheck`, and `pnpm check:flows`.
 
-`FLOWLINT001` identifies a process without an outgoing `flow` edge. Repair the path in the affected base graph or variant.
-
-Use the canonical formatter only when rewriting the full file is intended:
+Use the shipped render command for visual review:
 
 ```sh
-pnpm flow format path/to/changed.flow
-pnpm flow format --check path/to/changed.flow
+flow check path/to/changed.flow
+flow render path/to/changed.flow --output path/to/preview.png
 ```
 
-Canonical formatting removes comments. Do not run the write form when comments must remain.
+For a directory, use `flow render path/to/flows --output-dir path/to/previews`. Add `--variant ID`, `--width PIXELS`, `--height PIXELS`, `--scale RATIO`, `--overwrite`, or `--json` when needed. Add `--contact-sheet` and `--report PATH` for a directory. Contact sheets are PNG by default; pass a `.svg` path when an SVG is needed. Large directories split into numbered page files.
 
-## Review before completion
+The renderer uses a local Chrome or Chromium executable. Pass `--browser PATH` for one invocation, or set `FLOW_WORKBENCH_BROWSER` for a local executable outside the standard paths. It never downloads a browser and uses a fresh browser profile for each capture.
 
-Confirm these properties:
+Report three separate evidence labels:
 
-- The base graph tells a complete story.
-- Every process has an outgoing `flow` edge.
-- Every edge references nodes that exist at that operation.
-- No removed node leaves a dangling edge.
-- Each variant creates a meaningful result, not a cosmetic duplicate.
-- Titles remain scannable without body text.
-- Layout hints improve semantic grouping.
-- Exact positions are absent unless they preserve intentional manual work.
-- The file uses canonical command and option order.
+- `STRUCTURAL`: parser, lint, formatting, and repository checks passed.
+- `SOURCE`: the diagram preserves the requested scope, semantics, IDs, and source-only maintenance.
+- `VISUAL`: an image or viewer was inspected for complete bounds, readable titles, branch labels, and misleading sequences.
 
-Run the repository checks after a production flow change:
+A successful check proves structure. A successful render proves that an image was produced. Neither proves semantic fidelity or readability without source review and image inspection.
 
-```sh
-pnpm test:dsl
-pnpm typecheck
-pnpm check:flows
-```
+## Recover and hand off clearly
 
-Do not run browser validation unless the user requests it or the change affects canvas interaction.
+Fix source errors and rerun the narrowest failing check. Retry a render once when the failure is plausibly transient, such as a startup timeout, and record whether the second attempt used the same source and settings. Do not retry an unchanged failure blindly. Investigate its cause, use the viewer path when useful, and continue other bounded work.
+
+If work must stop, hand off the exact source path, command, checks that passed, failure output, changed IDs, images actually inspected, and the next bounded action. State whether the unresolved issue affects structure, source fidelity, or visual evidence.

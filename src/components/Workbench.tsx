@@ -29,7 +29,11 @@ export function Workbench(props: WorkbenchProps) {
   };
 
   onMount(() => {
-    mountFlowWorkbench(props.initialGraph, { storageKey: props.documentKey });
+    const renderMode = new URLSearchParams(window.location.search).get("render") === "1";
+    if (renderMode) {
+      document.documentElement.dataset.flowRender = "true";
+    }
+    mountFlowWorkbench(props.initialGraph, { storageKey: props.documentKey, persist: !renderMode });
   });
 
   return (

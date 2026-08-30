@@ -107,6 +107,9 @@ Do not model variants as a vertical lane of special nodes. Each variant applies 
 - The app is a TypeScript SolidStart SPA.
 - Production examples live as editable `.flow` files in `src/data/flows`.
 - `flow view` serves the packaged SolidStart application on the loopback interface.
+- `flow render` captures one file or a directory through the packaged viewer with a fresh local browser profile.
+- Render output uses a 1200 × 800 CSS pixel canvas by default, with a supported minimum of 320 × 240 pixels. The legend is hidden below 480 pixels to preserve diagram content. Directory output keeps source-relative paths and writes a JSON report.
+- Render startup uses an owned loopback server and launch identity. It waits for layout and final paint, reports ELK or fallback layout, and never downloads a browser.
 - The server discovers `.flow` files below its selected root.
 - The index shows a picker before it loads a document.
 - `GET /api/flows` serves the discovered file catalog.

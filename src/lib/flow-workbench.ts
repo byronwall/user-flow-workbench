@@ -2,7 +2,7 @@ import { graphToDsl, materializeVariant, parseGraphDsl, parseGraphDslWithDiagnos
 import { edgeRelation, isFlowEdge, isOperationalNode, terminalDeliverableIds } from "./graph-semantics";
 import type { CanvasGraph, CanvasNode, FlowDocument, FlowGraph, NodePosition, NodeType } from "../types/graph";
 
-export function mountFlowWorkbench(initialGraph: unknown, options: { storageKey?: string } = {}) {
+export function mountFlowWorkbench(initialGraph: unknown, options: { storageKey?: string; persist?: boolean } = {}) {
 const TYPE_COLUMNS = {
       actor: 0,
       input: 1,
@@ -29,6 +29,7 @@ const TYPE_COLUMNS = {
     const GUTTER_LANE_GAP = 12;
     const ROUTE_REUSE_PENALTY = 500;
     const storageNamespace = options.storageKey || 'default';
+    const persist = options.persist !== false;
     const STORAGE_KEY = `user-flow-workbench-v5-stage-rows:${storageNamespace}`;
     const SOURCE_STORAGE_KEY = `user-flow-workbench-v5-stage-rows-source:${storageNamespace}`;
     const INSPECTOR_TYPES_QUERY_PARAM = 'nodeTypes';
@@ -53,6 +54,7 @@ const TYPE_COLUMNS = {
     let elkLayoutActive = false;
     let elkInstance = null;
     let elkConstructorPromise: Promise<any> | null = null;
+    (window as any).__flowWorkbenchReady = { status: 'loading' };
 
     const $ = <T extends Element = HTMLElement>(id: string): T => {
       const element = document.getElementById(id);
@@ -201,6 +203,7 @@ const TYPE_COLUMNS = {
     function syncDslEditor() {
       const document = toFlowDocument();
       dslEditor.value = graphToDsl(document, { includePositions: includeDslPositions });
+      if (!persist) return;
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(document));
         localStorage.setItem(SOURCE_STORAGE_KEY, initialGraphSignature);
@@ -331,7 +334,7 @@ const TYPE_COLUMNS = {
       updateLayoutEngineLabel();
       renderAll();
       const hasAllPositions = canvasNodes().every(node => materialized.layout?.positions?.[node.id]);
-      if (hasAllPositions) fitView();
+      if (hasAllPositions) fitView(renderFitMinimumZoom());
       else void autoLayout();
     }
 
@@ -1287,7 +1290,7 @@ const TYPE_COLUMNS = {
           elkLayoutActive = true;
           updateLayoutEngineLabel();
           renderAll();
-          fitView(MIN_AUTO_LAYOUT_ZOOM);
+          fitView(autoLayoutFitMinimumZoom());
           return;
         }
 
@@ -1296,7 +1299,7 @@ const TYPE_COLUMNS = {
         elkRoutes.clear();
         updateLayoutEngineLabel('ELK unavailable · local layout');
         renderAll();
-        fitView(MIN_AUTO_LAYOUT_ZOOM);
+        fitView(autoLayoutFitMinimumZoom());
       } catch (error) {
         console.warn('[flow] ELK layout failed; using local layout fallback.', error);
         autoLayoutFallback();
@@ -1304,7 +1307,7 @@ const TYPE_COLUMNS = {
         elkRoutes.clear();
         updateLayoutEngineLabel('ELK failed · local layout');
         renderAll();
-        fitView(MIN_AUTO_LAYOUT_ZOOM);
+        fitView(autoLayoutFitMinimumZoom());
       } finally {
         button.disabled = false;
         button.textContent = originalText;
@@ -1590,6 +1593,14 @@ const TYPE_COLUMNS = {
       el.textContent = message || (elkLayoutActive ? 'ELK layout · separated local routes' : 'Separated local routes');
     }
 
+    function renderFitMinimumZoom() {
+      return document.documentElement.dataset.flowRender === 'true' ? .1 : .34;
+    }
+
+    function autoLayoutFitMinimumZoom() {
+      return document.documentElement.dataset.flowRender === 'true' ? .1 : MIN_AUTO_LAYOUT_ZOOM;
+    }
+
     function fitView(minZoom = .34) {
       if (!canvasNodes().length) return;
       const rects = getNodeRects();
@@ -1715,7 +1726,7 @@ const TYPE_COLUMNS = {
         updateLayoutEngineLabel();
         selectedNodeId = null;
         renderAll();
-        if (hasPositions) fitView();
+        if (hasPositions) fitView(renderFitMinimumZoom());
         else void autoLayout();
       } catch (error) {
         $('dslError').textContent = error instanceof Error ? error.message : String(error);
@@ -1890,7 +1901,7 @@ const TYPE_COLUMNS = {
         updateLayoutEngineLabel();
         selectedNodeId = null;
         renderAll();
-        if (hasPositions) fitView();
+        if (hasPositions) fitView(renderFitMinimumZoom());
         else void autoLayout();
         return clone(toFlowDocument());
       },
@@ -1921,8 +1932,8 @@ const TYPE_COLUMNS = {
       let hasSavedGraph = false;
       let restoredGraph: FlowGraph;
       try {
-        const saved = localStorage.getItem(STORAGE_KEY);
-        const savedSourceSignature = localStorage.getItem(SOURCE_STORAGE_KEY);
+        const saved = persist ? localStorage.getItem(STORAGE_KEY) : null;
+        const savedSourceSignature = persist ? localStorage.getItem(SOURCE_STORAGE_KEY) : null;
         hasSavedGraph = Boolean(saved) && savedSourceSignature === initialGraphSignature;
         flowDocument = normalizeDocument(hasSavedGraph ? JSON.parse(saved!) : initialGraph);
         activeVariantId = variantIdFromUrl();
@@ -1939,7 +1950,17 @@ const TYPE_COLUMNS = {
       updateLayoutEngineLabel();
       renderAll();
       const hasAllPositions = canvasNodes().every(node => restoredGraph.layout?.positions?.[node.id]);
-      requestAnimationFrame(() => hasSavedGraph && hasAllPositions ? fitView() : autoLayout());
+      requestAnimationFrame(async () => {
+        if (hasAllPositions) fitView();
+        else await autoLayout();
+        await document.fonts?.ready;
+        await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+        (window as any).__flowWorkbenchReady = {
+          status: 'ready',
+          layoutEngine: hasAllPositions ? 'authored' : (elkLayoutActive ? 'elk' : 'fallback'),
+          nodeCount: canvasNodes().length,
+        };
+      });
     }
 
     function iconSvg(type) {
@@ -1981,5 +2002,6 @@ const TYPE_COLUMNS = {
   return () => {
     if (edgeRenderFrame) cancelAnimationFrame(edgeRenderFrame);
     delete (window as any).flow;
+    delete (window as any).__flowWorkbenchReady;
   };
 }
