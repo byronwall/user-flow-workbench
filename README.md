@@ -25,15 +25,15 @@ pnpm check:flows
 pnpm build
 ```
 
-Use the Flow CLI to check or canonically format any `.flow` file or directory:
+Use the Flow CLI to check or canonically format any `.diagram` file or directory:
 
 ```sh
-pnpm flow check path/to/flow.flow
-pnpm flow format path/to/flows
-pnpm flow format --check path/to/flow.flow
+pnpm flow check path/to/diagram.diagram
+pnpm flow format path/to/diagrams
+pnpm flow format --check path/to/diagram.diagram
 ```
 
-Build and serve the workbench for every `.flow` file below the current directory:
+Build and serve the workbench for every `.diagram` file below the current directory:
 
 ```sh
 pnpm build
@@ -41,17 +41,17 @@ pnpm flow view
 pnpm flow view path/to/project --port 4317
 ```
 
-Open the printed local URL. The index lists nested flow files and reports syntax errors.
+Open the printed local URL. The index lists nested diagrams, shows each declared type, and reports syntax errors.
 
 Render a diagram with the packaged viewer and a local Chrome or Chromium browser:
 
 ```sh
 pnpm build
-pnpm flow render path/to/flow.flow --output tmp/flow.png
-pnpm flow render path/to/flows --output-dir tmp/flow-previews --contact-sheet
+pnpm flow render path/to/diagram.diagram --output tmp/diagram.png
+pnpm flow render path/to/diagrams --output-dir tmp/diagram-previews --contact-sheet
 ```
 
-Rendering uses a fresh browser profile and never writes to `.flow` files or browser storage. The default canvas is 1200 × 800 CSS pixels. The supported minimum is 320 × 240 CSS pixels. The legend is hidden below 480 pixels so compact captures keep diagram content visible. Use `--width`, `--height`, `--scale`, and `--variant <id>` to change the capture. For a directory render, `--scale` also increases contact-sheet tile pixels because each tile follows its source PNG size. Existing output files are preserved unless `--overwrite` is set. The renderer does not download a browser; pass `--browser /path/to/chrome` or set `FLOW_WORKBENCH_BROWSER` when Chrome is outside the standard local paths.
+Rendering uses a fresh browser profile and never writes to `.diagram` files or browser storage. The default canvas is 1200 × 800 CSS pixels. The supported minimum is 320 × 240 CSS pixels. The legend is hidden below 480 pixels so compact captures keep diagram content visible. Use `--width`, `--height`, `--scale`, and `--variant <id>` to change the capture. For a directory render, `--scale` also increases contact-sheet tile pixels because each tile follows its source PNG size. Existing output files are preserved unless `--overwrite` is set. The renderer does not download a browser; pass `--browser /path/to/chrome` or set `FLOW_WORKBENCH_BROWSER` when Chrome is outside the standard local paths.
 
 Directory renders preserve each source path below the output directory. They write `report.json` with one result for every source file and return a nonzero code if any file fails. `--report <path>` changes the report location. `--json` prints the result as JSON. `--contact-sheet` writes a PNG contact sheet by default with each successful preview retained at its native pixel size; pass a `.svg` path to keep an SVG sheet instead. Large directories split into `-01`, `-02`, and later pages. Existing sheets are preserved unless `--overwrite` is set.
 
@@ -61,10 +61,10 @@ Install the published CLI globally or run it without installation:
 
 ```sh
 pnpm add --global user-flow-workbench
-flow check path/to/flow.flow
+flow check path/to/diagram.diagram
 flow view path/to/project
 
-pnpm dlx user-flow-workbench check path/to/flow.flow
+pnpm dlx user-flow-workbench check path/to/diagram.diagram
 pnpm dlx user-flow-workbench view path/to/project
 ```
 
@@ -79,9 +79,10 @@ npx skills add byronwall/user-flow-workbench --skill author-flow-diagrams
 
 ## Current capabilities
 
+- Write one `.diagram` source file for either a flow or an overview.
 - Write one node per line in a compact flow DSL.
 - Give every edge a stable ID with `edge id from -> to`.
-- Convert Flow DSL 3 to schema version 5 JSON for rendering and export.
+- Convert flow or overview DSL to plain JSON for rendering and export.
 - Keep needs and UX in the semantic model without placing them on the flow canvas.
 - Derive outcomes from terminal deliverables.
 - Define ordered structural variants and render them as tabs.
@@ -98,7 +99,7 @@ npx skills add byronwall/user-flow-workbench --skill author-flow-diagrams
 - Use ELK Layered for automatic placement and orthogonal routes.
 - Fall back to a local Manhattan router when ELK is unavailable.
 - Expose a small `window.flow` API for agents and scripts.
-- Discover nested `.flow` files through the local `flow view` server.
+- Discover nested `.diagram` files through the local `flow view` server.
 - Keep browser edits separate for each source path and workspace.
 
 ## Project direction
@@ -118,23 +119,24 @@ See [docs/product-context.md](docs/product-context.md) for the original intent, 
 - `src/components/` contains the page shell, toolbar, DSL panel, canvas, and inspector.
 - `src/lib/graph-dsl.ts` parses and writes the agent-facing flow DSL.
 - `src/lib/flow-workbench.ts` contains direct manipulation, routing, layout, and the agent API.
-- `src/data/flows/*.flow` contains production flow documents.
+- `src/data/flows/*.diagram` contains production flow documents.
 - `src/styles.css` contains the visual system from the prototype.
 
 ELK is installed as a package and loads as a separate browser bundle. The local Manhattan router remains the fallback. The browser keeps the editable working graph in `localStorage`.
 
-The API parses selected `.flow` files directly. It does not maintain parallel JSON fixtures.
+The API parses selected `.diagram` files directly. It does not maintain parallel JSON fixtures.
 
-## Flow DSL
+## Diagram DSL
 
-See the normative [Flow DSL specification](docs/flow-dsl-spec.md). A complete example is in [checkout.flow](docs/examples/checkout.flow).
+See the normative [Diagram DSL specification](docs/diagram-dsl-spec.md). A complete flow example is in [checkout.diagram](docs/examples/checkout.diagram).
 
-Draft 0.4 uses `flow 3`, typed edge relations, required edge IDs, variant blocks, quoted strings, structural tags, and canonical formatting.
+The shared envelope uses `diagram 1` and one declared type. Flow bodies keep typed edge relations, required edge IDs, variant blocks, quoted strings, structural tags, and canonical formatting. Overview bodies contain ordered groups and capabilities, with optional purpose, status, and detail.
 
 The shortest useful graph has two node lines and one edge line:
 
 ```text
-flow 3
+diagram 1
+type flow
 
 graph signup "New user signup"
 node visitor actor "Visitor"

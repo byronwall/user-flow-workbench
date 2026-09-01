@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { graphToDsl, materializeVariant, parseGraphDsl, parseGraphDslWithDiagnostics } from "./graph-dsl.ts";
+import { diagramToDsl, parseDiagram } from "./diagram-dsl.ts";
 import { projectOperationalGraph, terminalDeliverableIds } from "./graph-semantics.ts";
 
 const COMPLETE_SOURCE = `flow 3
@@ -234,12 +235,14 @@ test("formats exponential positions as canonical decimals", () => {
 });
 
 test("the production resume flow stays valid and canonical", () => {
-  const source = readFileSync(new URL("../data/flows/resume-alignment.flow", import.meta.url), "utf8");
-  const document = parseGraphDsl(source);
-  assert.equal(document.graph.nodes.find((node) => node.id === "source-posting")?.type, "input");
-  assert.equal(document.graph.nodes.find((node) => node.id === "source-resume")?.type, "input");
-  assert.equal(document.variants[0]?.id, "per-job-resume");
-  assert.equal(materializeVariant(document, "per-job-resume").nodes.length, 21);
-  assert.equal(materializeVariant(document, "guided-evidence-interview").nodes.find((node) => node.id === "verified-answers")?.type, "input");
-  assert.equal(graphToDsl(document), source);
+  const source = readFileSync(new URL("../data/flows/resume-alignment.diagram", import.meta.url), "utf8");
+  const document = parseDiagram(source);
+  const flow = document.type === "flow" ? document.document : undefined;
+  assert.ok(flow);
+  assert.equal(flow.graph.nodes.find((node) => node.id === "source-posting")?.type, "input");
+  assert.equal(flow.graph.nodes.find((node) => node.id === "source-resume")?.type, "input");
+  assert.equal(flow.variants[0]?.id, "per-job-resume");
+  assert.equal(materializeVariant(flow, "per-job-resume").nodes.length, 21);
+  assert.equal(materializeVariant(flow, "guided-evidence-interview").nodes.find((node) => node.id === "verified-answers")?.type, "input");
+  assert.equal(parseDiagram(diagramToDsl(document)).type, "flow");
 });

@@ -6,8 +6,12 @@ import { access, lstat, mkdir, readdir, readFile, realpath, rename, stat, unlink
 import { constants } from "node:fs";
 import { basename, dirname, extname, relative, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { formatGraphDslDiagnostic, graphToDsl, parseGraphDslWithDiagnostics } from "../lib/graph-dsl.ts";
+import { diagramToDsl, formatDiagramDslDiagnostic, parseDiagramWithDiagnostics, type DiagramParseResult } from "../lib/diagram-dsl.ts";
 import { lintFlowDocument, type GraphLintDiagnostic } from "../lib/graph-lint.ts";
+import { materializeOverview } from "../lib/overview-dsl.ts";
+import type { DiagramType } from "../types/diagram.ts";
+import type { FlowDocument } from "../types/graph.ts";
+import type { OverviewDocument } from "../types/overview.ts";
 import { browserExecutableCandidates, browserExists, launchBrowser } from "./cdp.ts";
 import { contactSheetFormat, contactSheetOutputPaths, writeContactSheets, type ContactSheetItem } from "./contact-sheet.ts";
 import { startOwnedServer, startViewServer, type OwnedServer } from "./runtime.ts";
@@ -42,7 +46,7 @@ function usage(): string {
   flow check [path ...]
   flow format [--check] <path ...>
   flow view [directory] [--port <number>]
-  flow render <file.flow> --output <image.png> [options]
+  flow render <file.diagram> --output <image.png> [options]
   flow render <directory> --output-dir <directory> [options]
 
 Render options:
@@ -56,7 +60,7 @@ Render options:
   --contact-sheet [p]  Write a labeled PNG sheet with native-size tiles (default: output-dir/contact-sheet.png; .svg is also supported)
   --json               Print the result or batch report as JSON
 
-Paths can be .flow files or directories. Check uses src/data/flows and
+Paths can be .diagram files or directories. Check uses src/data and
 docs/examples when no path is given. View searches the current directory
 when no directory is given.`;
 }
@@ -95,7 +99,7 @@ async function viewOptions(args: string[]): Promise<FlowViewOptions> {
   return { root, host: "127.0.0.1", port };
 }
 
-async function flowFiles(paths: string[]): Promise<string[]> {
+async function diagramFiles(paths: string[]): Promise<string[]> {
   const files = new Set<string>();
 
   async function visit(path: string): Promise<void> {
@@ -108,13 +112,13 @@ async function flowFiles(paths: string[]): Promise<string[]> {
         if (entry.isSymbolicLink()) continue;
         if (entry.isDirectory() && !new Set([".git", ".output", ".vinxi", "build", "dist", "node_modules"]).has(entry.name)) {
           await visit(resolve(absolute, entry.name));
-        } else if (entry.isFile() && entry.name.endsWith(".flow")) {
+        } else if (entry.isFile() && entry.name.endsWith(".diagram")) {
           await visit(resolve(absolute, entry.name));
         }
       }
       return;
     }
-    if (!absolute.endsWith(".flow")) throw new Error(`Expected a .flow file: ${path}`);
+    if (!absolute.endsWith(".diagram")) throw new Error(`Expected a .diagram file: ${path}`);
     files.add(absolute);
   }
 
@@ -139,6 +143,7 @@ interface RenderOptions {
 
 interface RenderResult {
   source: string;
+  type: DiagramType | null;
   sourceHash: string;
   view: string;
   output: string;
@@ -187,7 +192,7 @@ async function renderOptions(args: string[]): Promise<RenderOptions> {
     else if (argument === "--json") options.json = true;
     else throw new Error(`Unknown render option "${argument}".`);
   }
-  if (positional.length !== 1) throw new Error("render requires one .flow file or directory.");
+  if (positional.length !== 1) throw new Error("render requires one .diagram file or directory.");
   if (options.output && options.outputDir) throw new Error("Use either --output or --output-dir, not both.");
   const source = resolve(positional[0]);
   const info = await stat(source);
@@ -195,7 +200,8 @@ async function renderOptions(args: string[]): Promise<RenderOptions> {
   if (info.isFile() && !options.output) throw new Error("File rendering requires --output.");
   if (!info.isDirectory() && !info.isFile()) throw new Error(`Render path is not a file or directory: ${positional[0]}`);
   if (options.outputDir && !info.isDirectory()) throw new Error("--output-dir requires a directory source.");
-  if (options.output && !info.isFile()) throw new Error("--output requires a .flow file source.");
+  if (options.output && !info.isFile()) throw new Error("--output requires a .diagram file source.");
+  if (info.isFile() && !source.endsWith(".diagram")) throw new Error(`Expected a .diagram file: ${positional[0]}`);
   if (options.output && extname(options.output).toLowerCase() !== ".png") throw new Error("--output must use a .png extension.");
   if (options.contactSheet) contactSheetFormat(options.contactSheet);
   if (options.width < 320) throw new Error("--width must be at least 320 pixels.");
@@ -222,15 +228,37 @@ async function chooseBrowser(requested?: string): Promise<string> {
   throw new Error("No compatible local Chromium browser was found. Install Chrome or pass --browser /path/to/chrome. Render does not download browsers.");
 }
 
-async function validateRenderFile(path: string): Promise<{ source: string; document?: ReturnType<typeof parseGraphDslWithDiagnostics>["document"]; error?: string }> {
+async function validateRenderFile(path: string): Promise<{ source: string; parsed?: DiagramParseResult; error?: string }> {
   let source: string;
   try { source = await readFile(path, "utf8"); }
   catch (error) { return { source: "", error: `Cannot read source: ${error instanceof Error ? error.message : String(error)}` }; }
-  const parsed = parseGraphDslWithDiagnostics(source);
-  if (parsed.diagnostics.length) return { source, error: parsed.diagnostics.map(d => `${d.line}:${d.column} ${formatGraphDslDiagnostic(d)}`).join("; ") };
-  const lint = lintFlowDocument(parsed.document).filter(d => d.severity === "error");
-  if (lint.length) return { source, error: lint.map(d => `[${d.code}] ${d.message}`).join("; ") };
-  return { source, document: parsed.document };
+  const parsed = parseDiagramWithDiagnostics(source);
+  if (parsed.diagnostics.length) return { source, error: parsed.diagnostics.map(d => `${d.line}:${d.column} ${formatDiagramDslDiagnostic(d)}`).join("; ") };
+  if (parsed.type === "flow") {
+    const lint = lintFlowDocument(parsed.document.document as FlowDocument).filter(d => d.severity === "error");
+    if (lint.length) return { source, error: lint.map(d => `[${d.code}] ${d.message}`).join("; ") };
+  }
+  return { source, parsed };
+}
+
+function requestedVariantError(parsed: DiagramParseResult, variant: string): string | undefined {
+  if (parsed.type === "flow") {
+    const document = parsed.document.document as FlowDocument;
+    return document.variants.some(candidate => candidate.id === variant)
+      ? undefined
+      : `Unknown variant "${variant}".`;
+  }
+
+  if (parsed.type === "overview") {
+    try {
+      materializeOverview(parsed.document.document as OverviewDocument, variant);
+      return undefined;
+    } catch (error) {
+      return error instanceof Error ? error.message : String(error);
+    }
+  }
+
+  return `Unknown variant "${variant}".`;
 }
 
 async function canonicalPath(path: string): Promise<string> {
@@ -255,20 +283,20 @@ async function pathKeys(path: string): Promise<string[]> {
 
 function outputFor(root: string, source: string, outputDir: string): string {
   const relativeSource = relative(root, source).split(sep).join("/");
-  return resolve(outputDir, relativeSource.replace(/\.flow$/i, ".png"));
+  return resolve(outputDir, relativeSource.replace(/\.diagram$/i, ".png"));
 }
 
 async function renderCommand(options: RenderOptions, io: FlowCliIO): Promise<number> {
   const sourceInfo = await lstat(options.source);
   if (sourceInfo.isSymbolicLink()) throw new Error("Render does not follow symbolic links. Choose a regular file or directory.");
-  const files = sourceInfo.isDirectory() ? await flowFiles([options.source]) : [options.source];
-  if (!files.length) throw new Error("No .flow files found.");
+  const files = sourceInfo.isDirectory() ? await diagramFiles([options.source]) : [options.source];
+  if (!files.length) throw new Error("No .diagram files found.");
   const root = sourceInfo.isDirectory() ? options.source : dirname(options.source);
   if (options.outputDir && (resolve(options.outputDir) === resolve(root) || resolve(options.outputDir).startsWith(`${resolve(root)}${sep}`))) {
     throw new Error("--output-dir must be outside the source directory so rendering cannot mutate source files.");
   }
   const prepared = await Promise.all(files.map(async file => ({ file, ...(await validateRenderFile(file)) })));
-  const valid = prepared.filter(item => item.document);
+  const valid = prepared.filter(item => item.parsed);
   const results: RenderResult[] = [];
   let contactSheetPaths: string[] | undefined;
   let contactSheetError: string | undefined;
@@ -309,16 +337,19 @@ async function renderCommand(options: RenderOptions, io: FlowCliIO): Promise<num
       for (const path of contactSheetOutputPaths(contactPath, files.length)) if (await fileExists(path)) throw new Error(`Contact sheet exists: ${path}. Pass --overwrite to replace it.`);
     }
   }
-  for (const item of prepared.filter(item => !item.document)) {
-    results.push({ source: relative(root, item.file), sourceHash: createHash("sha256").update(item.source).digest("hex"), view: options.variant || "base", output: options.output || outputFor(root, item.file, options.outputDir!), width: options.width, height: options.height, scale: options.scale, layoutEngine: null, warnings: [], status: "failed", error: item.error });
+  for (const item of prepared.filter(item => !item.parsed)) {
+    results.push({ source: relative(root, item.file), type: item.parsed?.type || null, sourceHash: createHash("sha256").update(item.source).digest("hex"), view: options.variant || "base", output: options.output || outputFor(root, item.file, options.outputDir!), width: options.width, height: options.height, scale: options.scale, layoutEngine: null, warnings: [], status: "failed", error: item.error });
   }
+  const renderable: typeof valid = [];
   for (const item of valid) {
-    if (options.variant && !item.document!.variants.some(variant => variant.id === options.variant)) {
+    const variantError = options.variant ? requestedVariantError(item.parsed!, options.variant) : undefined;
+    if (variantError) {
       const output = options.output || outputFor(root, item.file, options.outputDir!);
-      results.push({ source: relative(root, item.file), sourceHash: createHash("sha256").update(item.source).digest("hex"), view: options.variant, output, width: options.width, height: options.height, scale: options.scale, layoutEngine: null, warnings: [], status: "failed", error: `Unknown variant "${options.variant}".` });
+      results.push({ source: relative(root, item.file), type: item.parsed!.type, sourceHash: createHash("sha256").update(item.source).digest("hex"), view: options.variant, output, width: options.width, height: options.height, scale: options.scale, layoutEngine: null, warnings: [], status: "failed", error: variantError });
+      continue;
     }
+    renderable.push(item);
   }
-  const renderable = valid.filter(item => !options.variant || item.document!.variants.some(variant => variant.id === options.variant));
   let browser: Awaited<ReturnType<typeof launchBrowser>> | undefined;
   let server: OwnedServer | undefined;
   let interrupted = false;
@@ -339,11 +370,11 @@ async function renderCommand(options: RenderOptions, io: FlowCliIO): Promise<num
       browser = await launchBrowser(executable, 10_000, controller.signal);
       for (const item of renderable) {
         const output = options.output || outputFor(root, item.file, options.outputDir!);
-        const resultBase = { source: relative(root, item.file), sourceHash: createHash("sha256").update(item.source).digest("hex"), view: options.variant || "base", output, width: options.width, height: options.height, scale: options.scale, layoutEngine: null as string | null, warnings: [] as string[] };
+        const resultBase = { source: relative(root, item.file), type: item.parsed!.type, sourceHash: createHash("sha256").update(item.source).digest("hex"), view: options.variant || "base", output, width: options.width, height: options.height, scale: options.scale, layoutEngine: null as string | null, warnings: [] as string[] };
         try {
           if (await fileExists(output) && !options.overwrite) throw new Error(`Output exists: ${output}. Pass --overwrite to replace it.`);
           const path = relative(root, item.file).split(sep).join("/");
-          const url = `${server.url}/?flow=${encodeURIComponent(path)}&render=1${options.variant ? `&variant=${encodeURIComponent(options.variant)}` : ""}`;
+          const url = `${server.url}/?diagram=${encodeURIComponent(path)}&render=1${options.variant ? `&variant=${encodeURIComponent(options.variant)}` : ""}`;
           const capture = await browser.page.screenshot(options.width, options.height, options.scale, url);
           if (interrupted) throw new Error("Render interrupted.");
           await atomicWrite(output, capture.image);
@@ -382,7 +413,7 @@ async function renderCommand(options: RenderOptions, io: FlowCliIO): Promise<num
     for (const item of renderable) {
       const source = relative(root, item.file);
       if (done.has(source)) continue;
-      results.push({ source, sourceHash: createHash("sha256").update(item.source).digest("hex"), view: options.variant || "base", output: options.output || outputFor(root, item.file, options.outputDir!), width: options.width, height: options.height, scale: options.scale, layoutEngine: null, warnings: [], status: "failed", error: message });
+      results.push({ source, type: item.parsed?.type || null, sourceHash: createHash("sha256").update(item.source).digest("hex"), view: options.variant || "base", output: options.output || outputFor(root, item.file, options.outputDir!), width: options.width, height: options.height, scale: options.scale, layoutEngine: null, warnings: [], status: "failed", error: message });
     }
     if (options.outputDir && contactSheetRequest && contactSheetFormat(contactSheetRequest) === "svg" && !contactSheetPaths) {
       try {
@@ -421,7 +452,7 @@ async function renderCommand(options: RenderOptions, io: FlowCliIO): Promise<num
       if (!options.json && contactSheetPaths) io.out(`Contact sheet: ${contactSheetPaths.join(", ")}`);
     }
       if (options.json) io.out(JSON.stringify({ report: reportPath, contactSheet: contactSheetPaths, ...(cleanupError ? { cleanupError } : {}), ...(contactSheetError ? { contactSheetError } : {}), results }, null, 2));
-    else io.out(`Rendered ${results.filter(result => result.status === "success").length}/${results.length} flow files. Report: ${reportPath}${cleanupError ? ` (${cleanupError})` : ""}${contactSheetError ? ` (contact sheet: ${contactSheetError})` : ""}`);
+    else io.out(`Rendered ${results.filter(result => result.status === "success").length}/${results.length} diagram files. Report: ${reportPath}${cleanupError ? ` (${cleanupError})` : ""}${contactSheetError ? ` (contact sheet: ${contactSheetError})` : ""}`);
     return results.every(result => result.status === "success") && !cleanupError && !contactSheetError ? 0 : 1;
   }
   const result = results[0];
@@ -456,15 +487,15 @@ function locateNode(source: string, diagnostic: GraphLintDiagnostic): SourceLoca
 
 async function checkFile(path: string, io: FlowCliIO): Promise<boolean> {
   const source = await readFile(path, "utf8");
-  const parsed = parseGraphDslWithDiagnostics(source);
+  const parsed = parseDiagramWithDiagnostics(source);
   let valid = parsed.diagnostics.length === 0;
 
   for (const diagnostic of parsed.diagnostics) {
-    io.error(`${path}:${diagnostic.line}:${diagnostic.column}: error ${formatGraphDslDiagnostic(diagnostic)}`);
+    io.error(`${path}:${diagnostic.line}:${diagnostic.column}: error ${formatDiagramDslDiagnostic(diagnostic)}`);
   }
 
-  if (valid) {
-    for (const diagnostic of lintFlowDocument(parsed.document)) {
+  if (valid && parsed.type === "flow") {
+    for (const diagnostic of lintFlowDocument(parsed.document.document as FlowDocument)) {
       valid = false;
       const location = locateNode(source, diagnostic);
       const variant = diagnostic.variantId ? ` Variant "${diagnostic.variantId}".` : "";
@@ -487,11 +518,11 @@ export async function runFlowCli(
   }
 
   if (command === "check") {
-    const paths = rest.length ? rest : ["src/data/flows", "docs/examples"];
-    const files = await flowFiles(paths);
-    if (!files.length) throw new Error("No .flow files found.");
+    const paths = rest.length ? rest : ["src/data", "docs/examples"];
+    const files = await diagramFiles(paths);
+    if (!files.length) throw new Error("No .diagram files found.");
     const results = await Promise.all(files.map((file) => checkFile(file, io)));
-    if (results.every(Boolean)) io.out(`Checked ${files.length} flow file${files.length === 1 ? "" : "s"}.`);
+    if (results.every(Boolean)) io.out(`Checked ${files.length} diagram file${files.length === 1 ? "" : "s"}.`);
     return results.every(Boolean) ? 0 : 1;
   }
 
@@ -499,16 +530,16 @@ export async function runFlowCli(
     const checkOnly = rest.includes("--check");
     const paths = rest.filter((arg) => arg !== "--check");
     if (!paths.length) throw new Error("format requires at least one file or directory.");
-    const files = await flowFiles(paths);
+    const files = await diagramFiles(paths);
     let changed = false;
     for (const file of files) {
       const source = await readFile(file, "utf8");
-      const parsed = parseGraphDslWithDiagnostics(source);
+      const parsed = parseDiagramWithDiagnostics(source);
       if (parsed.diagnostics.length) {
         await checkFile(file, io);
         return 1;
       }
-      const formatted = graphToDsl(parsed.document, { includePositions: true });
+      const formatted = diagramToDsl(parsed.document);
       if (formatted === source) continue;
       changed = true;
       if (checkOnly) io.error(`${file}: is not canonically formatted.`);

@@ -1,30 +1,7 @@
-import type { FlowDocument } from "./graph";
+import type { FlowDocument } from "./graph.ts";
+import type { DiagramCatalogEntry, DiagramLoadError, DiagramDocumentResponse } from "./diagram.ts";
 
-export interface FlowCatalogEntry {
-  path: string;
-  title: string;
-  valid: boolean;
-  diagnosticCount: number;
-}
-
-export interface FlowCatalog {
-  rootName: string;
-  workspaceId: string;
-  flows: FlowCatalogEntry[];
-}
-
-export interface FlowDocumentResponse {
-  path: string;
-  workspaceId: string;
-  document: FlowDocument;
-}
-
-export interface FlowLoadError {
-  error: string;
-  path?: string;
-  diagnostics?: Array<{
-    line: number;
-    column: number;
-    message: string;
-  }>;
-}
+export type FlowCatalogEntry = DiagramCatalogEntry;
+export interface FlowCatalog { rootName: string; workspaceId: string; flows: FlowCatalogEntry[]; }
+export type FlowDocumentResponse = DiagramDocumentResponse & { type: "flow"; document: FlowDocument };
+export type FlowLoadError = DiagramLoadError;

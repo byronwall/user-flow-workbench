@@ -25,7 +25,8 @@ export function GraphJsonPanel(props: GraphJsonPanelProps) {
         </div>
         <div class="hint">
           <strong>Syntax</strong><br />
-          <code>flow 3</code><br />
+          <code>diagram 1</code><br />
+          <code>type flow</code><br />
           <code>node id type "Title" body="Detail" tags=["one","two"] layout=2,0</code><br />
           <code>edge edge-id first -&gt; second relation=addresses label="Optional"</code><br />
           <code>variant id "Title" {'{'} add | remove | set | unset | position | clear all {'}'}</code>

@@ -2,7 +2,7 @@ import { watch } from "node:fs";
 import { resolve } from "node:path";
 
 const FLOW_DIRECTORY = resolve("src/data/flows");
-const FLOW_FILENAME = "resume-alignment.flow";
+const FLOW_FILENAME = "resume-alignment.diagram";
 
 export function GET({ request }: { request: Request }) {
   if (!import.meta.env.DEV) return new Response(null, { status: 404 });

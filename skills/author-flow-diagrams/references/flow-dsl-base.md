@@ -1,11 +1,18 @@
-# Flow DSL base authoring reference
+# Diagram DSL compact authoring reference
 
-Use this short reference for an ordinary base graph. Read [the complete specification](flow-dsl-spec.md) for the normative grammar, variants, positions, diagnostics, and formatting rules. The complete specification is the only syntax authority.
+Use this short reference for an ordinary `.diagram` file. Every file starts
+with `diagram 1` and exactly one type line. Read the [complete specification](flow-dsl-spec.md)
+for parser diagnostics, variants, positions, or a deliberate canonical-format
+rewrite. The complete specification is the only syntax authority.
 
-## Small valid graph
+## Flow diagrams
+
+Use `type flow` for an operational graph. Keep needs and UX records out of the
+canvas and connect them with semantic relations.
 
 ```text
-flow 3
+diagram 1
+type flow
 
 graph signup "New user signup"
 description "The path from visitor intent to an account."
@@ -25,47 +32,86 @@ edge recovery-at-create recovery -> create-account relation=appears-at
 edge recovery-supports-confidence recovery -> confidence relation=supports
 ```
 
-Validate a file with:
+Allowed flow node types are `actor`, `need`, `input`, `process`, `handoff`,
+`deliverable`, and `ux`. Every process needs an outgoing operational `flow`
+edge. A terminal deliverable can be an outcome. Use a handoff for a transfer
+of state, control, responsibility, or information.
 
-```sh
-flow check path/to/signup.flow
-```
+Keep titles short because the canvas shows titles only. Put qualifications and
+evidence in `body`. Preserve stable graph, node, edge, and variant IDs. Use
+`layout=<column>,<row>` only when stage order or parallel grouping needs help.
+Leave exact `position` values out of new files.
 
-In a checkout, use `pnpm flow check path/to/signup.flow` when the global command is unavailable. The check parses the base graph and materializes every variant.
+## Overview diagrams
 
-## Base command shapes
-
-Use one command per physical line, in this order: `flow`, `graph`, optional `description`, nodes, edges, variants, then optional positions.
+Use `type overview` for a compact capability map. Keep the overview declaration,
+optional purpose and status, ordered groups, and short capabilities easy to scan.
 
 ```text
-flow 3
-graph <graph-id> "<title>"
-description "<scope>"
-node <node-id> <type> "<title>" [body="<detail>"] [tags=["<tag>"]] [layout=<column>,<row>]
-edge <edge-id> <from-id> -> <to-id> [relation=<relation>] [label="<label>"] [emphasis=true]
-position <node-id> <x>,<y>
+diagram 1
+type overview
+
+overview resume-app "Resume app"
+purpose "Prepare a relevant resume using truthful career evidence."
+status "Intended"
+
+group role-and-evidence "Role & evidence" {
+  capability understand-job-requirements "Understand job requirements" detail="Make the role legible before deciding which experience matters."
+}
+capability open-ended "An ungrouped idea"
 ```
 
-Allowed node types are `actor`, `need`, `input`, `process`, `handoff`, `deliverable`, and `ux`. Operational nodes are actors, inputs, processes, handoffs, and deliverables. Needs and UX records stay off the canvas.
+An empty draft is valid:
 
-The default edge relation is `flow`. Use `addresses` from an operational node to a need, `supports` from UX to a need, and `appears-at` from UX to an operational node. A process must have an outgoing `flow` edge. A deliverable with no outgoing `flow` edge is an outcome.
+```text
+diagram 1
+type overview
 
-## Writing rules
+overview draft "Untitled draft"
+```
 
-Use double quoted strings. Escape a quote as `\"`, a backslash as `\\`, and a line break as `\n`. IDs use letters or digits first, followed by letters, digits, `.`, `_`, or `-`. Tags must be non-empty and unique.
+Overview capabilities do not need flow links, goals, or detail. When a flow is
+useful, add one or more relative `.diagram` references after the capability:
 
-Keep titles short. Put acceptance detail and evidence in `body`. Use a handoff for a transfer of state, control, responsibility, or information. Use a deliverable for a durable artifact. Do not create duplicate nodes for a handoff and its unchanged result.
+```text
+capability tailor "Tailor a resume" detail="Draft focused changes."
+  flow "src/data/flows/resume-alignment.diagram"
+  flow "src/data/flows/resume-alignment.diagram" variant="per-job-resume"
+```
 
-Use one dominant left-to-right story. Add a branch only when it shows a meaningful alternative, dependency, recovery route, or UX requirement. Use `layout` hints for logical order or grouping. Leave exact `position` values out of new files until a manual layout is needed.
+The target must be a `type flow` document. Missing, unsafe, wrong-type, and
+unknown-variant targets produce warnings while the overview stays loadable.
+Ungrouped capabilities keep their order after groups. Preserve stable IDs and
+add detail only when it clarifies the idea.
 
-Preserve stable IDs when editing. Maintain `.flow` source as the source of truth. JSON is generated output.
+An overview variant applies ordered operations to a cloned base. It can add,
+remove, or set groups and capabilities, and unset capability `detail`, `group`,
+or `flows`. To adopt a selected view, materialize it, format it as the new
+base, remove rejected variants, check, and reload. The viewer has no adoption
+write action.
 
-## Review labels
+## Check and review
 
-Record three separate conclusions:
+Use the installed `flow` command with explicit paths. In a checkout, use
+`pnpm flow` when the global command is unavailable.
 
-- `STRUCTURAL`: parse, lint, and formatting checks passed.
-- `SOURCE`: requested scope and semantic meaning are preserved.
-- `VISUAL`: a rendered image or viewer was inspected for complete bounds, readable titles, and clear branches.
+```sh
+flow check path/to/changed.diagram
+flow format --check path/to/changed.diagram
+flow render path/to/changed.diagram --output path/to/preview.png
+```
 
-The check proves structure only. It does not prove that the source captures the requested product behavior or that the rendered diagram is readable.
+For a directory, add `--contact-sheet` and `--report PATH`. Contact sheets
+retain successful tiles at native size and split large directories into
+numbered pages. Inspect the sheet and representative images.
+
+Report three separate evidence labels:
+
+- `STRUCTURAL`: parser, lint, formatting, and repository checks passed.
+- `SOURCE`: the diagram preserves the requested scope, semantics, IDs, and source-only maintenance.
+- `VISUAL`: an image or viewer was inspected for complete bounds, readable titles, branch labels, and misleading sequences.
+
+Preserve source comments. Canonical formatting may remove them, so do not
+promise a lossless rewrite. Retry a plausible transient render startup failure
+once with the same source and settings. Do not retry an unchanged failure
+blindly.

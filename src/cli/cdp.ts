@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 export interface BrowserPage {
-  screenshot(width: number, height: number, scale: number, url: string, readyTimeoutMs?: number): Promise<{ image: Buffer; layoutEngine: "elk" | "fallback" | "authored" }>;
+  screenshot(width: number, height: number, scale: number, url: string, readyTimeoutMs?: number): Promise<{ image: Buffer; layoutEngine: "elk" | "fallback" | "authored" | "css-board" }>;
   screenshotDocument(width: number, height: number, scale: number, url: string): Promise<Buffer>;
   close(): Promise<void>;
 }
@@ -182,7 +182,7 @@ export async function launchBrowser(executable: string, timeoutMs = 10_000, sign
     connection = await CdpConnection.open(endpoint.pageUrl, signal);
     await connection.command("Page.enable");
     await connection.command("Runtime.enable");
-    const capturePage = async (width: number, height: number, scale: number, url: string, waitForWorkbench: boolean, readyTimeout: number, documentContent?: { html: string; marker: string }): Promise<{ image: Buffer; layoutEngine: "elk" | "fallback" | "authored" }> => {
+    const capturePage = async (width: number, height: number, scale: number, url: string, waitForWorkbench: boolean, readyTimeout: number, documentContent?: { html: string; marker: string }): Promise<{ image: Buffer; layoutEngine: "elk" | "fallback" | "authored" | "css-board" }> => {
         throwIfAborted(signal);
         await connection!.command("Emulation.setDeviceMetricsOverride", {
           width, height, deviceScaleFactor: scale, mobile: false,
@@ -196,7 +196,7 @@ export async function launchBrowser(executable: string, timeoutMs = 10_000, sign
           const navigation = await connection!.command<any>("Page.navigate", { url });
           if (navigation?.errorText) throw new Error(`Chrome could not navigate to the capture document: ${navigation.errorText}`);
         }
-        let layoutEngine: "elk" | "fallback" | "authored" = "fallback";
+        let layoutEngine: "elk" | "fallback" | "authored" | "css-board" = "fallback";
         if (waitForWorkbench) {
           const started = Date.now();
           let lastState: any;
@@ -228,7 +228,7 @@ export async function launchBrowser(executable: string, timeoutMs = 10_000, sign
           }
           const readyState = state?.result?.value?.ready;
           const detected = readyState?.layoutEngine;
-          layoutEngine = detected === "elk" || detected === "authored" ? detected : "fallback";
+          layoutEngine = detected === "elk" || detected === "authored" || detected === "css-board" ? detected : "fallback";
         } else {
           const started = Date.now();
           let documentReady = false;

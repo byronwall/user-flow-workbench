@@ -79,7 +79,7 @@ Do not model variants as a vertical lane of special nodes. Each variant applies 
 - Give each edge a separate connection lane and strongly avoid reused route segments.
 - Keep a no-library fallback.
 - Keep the graph schema and agent API visible.
-- Put the inspector and Flow DSL in tabs within a full-height right sidebar.
+- Put the inspector and Diagram DSL in tabs within a full-height right sidebar.
 - Show active-view descriptions in the sidebar and the variant-impact key in the canvas legend.
 - Do not show variant-operation totals in the interface.
 - Show the base graph and variants as tabs.
@@ -105,12 +105,12 @@ Do not model variants as a vertical lane of special nodes. Each variant applies 
 - Variant positions override base positions. They stay optional.
 - Semantic form controls are read-only in a materialized variant. Agents edit variant changes in the DSL.
 - The app is a TypeScript SolidStart SPA.
-- Production examples live as editable `.flow` files in `src/data/flows`.
+- Production diagrams live as editable `.diagram` files in `src/data/flows`.
 - `flow view` serves the packaged SolidStart application on the loopback interface.
 - `flow render` captures one file or a directory through the packaged viewer with a fresh local browser profile.
 - Render output uses a 1200 × 800 CSS pixel canvas by default, with a supported minimum of 320 × 240 pixels. The legend is hidden below 480 pixels to preserve diagram content. Directory output keeps source-relative paths and writes a JSON report.
 - Render startup uses an owned loopback server and launch identity. It waits for layout and final paint, reports ELK or fallback layout, and never downloads a browser.
-- The server discovers `.flow` files below its selected root.
+- The server discovers `.diagram` files below its selected root and dispatches by the declared type.
 - The index shows a picker before it loads a document.
 - `GET /api/flows` serves the discovered file catalog.
 - `GET /api/graph` parses one validated relative path.
@@ -140,7 +140,17 @@ The job posting and resume are explicit inputs. The process parses them, maps re
 
 Needs connect through `addresses`. UX records connect through `appears-at` and `supports`. The inspector exposes these relations without adding them to the operational canvas.
 
-## Near-term work
+## Capability overview
+
+Overview diagrams provide a compact, source-backed view of product capabilities. They use ordered groups and title-only controls. Selection shows detail in a fixed inspector. The source tab shows read-only Diagram DSL data. Flow and overview documents share the `.diagram` extension and declare their type in the source header.
+
+An overview can contain groups, ungrouped capabilities, optional purpose and status, and an empty draft. Overview records do not require flow links, goals, or detail. A capability can have optional ordered links to safe relative `.diagram` flow sources, including a selected flow view. Missing or invalid targets show a warning while the overview remains usable. Opening a linked flow carries a validated overview path, capability, and temporary view so the flow can return safely to the overview context.
+
+Each overview shows a compact project flow shelf below its board. The shelf lists the union of valid flow files in the overview's folder and valid flow files referenced by capabilities in the active view. It deduplicates by source path and keeps linked capability titles as navigation context. Folder membership discovers project flows; it does not create semantic links.
+
+The overview reloads source data while it is visible. A refresh keeps the last good view when a read fails and marks the source as stale until a later read succeeds. Overview variants are temporary, read-only views materialized from the shared base; agents can inspect a view and later adopt it by editing the source. Independent browser checks passed for navigation, selection, repaired links, and adoption recovery. See [implementation evidence](intent/visual-idea-overview/final-proof/README.md). The approved board layout remains unchanged.
+
+## Near-term flow work
 
 1. Improve handoff and deliverable grouping. Test compact visual pairs for a transformation and its artifact.
 2. Add graph validation, undo and redo, and safer schema migrations.

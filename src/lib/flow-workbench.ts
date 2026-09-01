@@ -1,8 +1,83 @@
-import { graphToDsl, materializeVariant, parseGraphDsl, parseGraphDslWithDiagnostics } from "./graph-dsl";
-import { edgeRelation, isFlowEdge, isOperationalNode, terminalDeliverableIds } from "./graph-semantics";
-import type { CanvasGraph, CanvasNode, FlowDocument, FlowGraph, NodePosition, NodeType } from "../types/graph";
+import { graphToDsl, materializeVariant } from "./graph-dsl.ts";
+import { parseDiagram, parseDiagramWithDiagnostics } from "./diagram-dsl.ts";
+import { edgeRelation, isFlowEdge, isOperationalNode, terminalDeliverableIds } from "./graph-semantics.ts";
+import type { CanvasGraph, CanvasNode, FlowDocument, FlowGraph, GraphEdge, GraphNode, NodePosition, NodeSetChanges, NodeType, VariantOperation } from "../types/graph.ts";
+import { DIAGRAM_FORMAT_VERSION } from "../types/diagram.ts";
 
-export function mountFlowWorkbench(initialGraph: unknown, options: { storageKey?: string; persist?: boolean } = {}) {
+export function formatFlowDiagramSource(document: FlowDocument, includePositions = true): string {
+  // graphToDsl is the private flow-body formatter. Remove only its header
+  // before adding the common envelope; the graph body remains unchanged.
+  const body = graphToDsl(document, { includePositions }).replace(/^flow 3\r?\n/, "");
+  return `diagram ${DIAGRAM_FORMAT_VERSION}\ntype flow\n\n${body}`;
+}
+
+export interface FlowWorkbenchState {
+  workingCopy: boolean;
+  restoredLocalCopy: boolean;
+  variantNotice?: string;
+}
+
+export interface FlowWorkbenchOptions {
+  storageKey?: string;
+  persist?: boolean;
+  onStateChange?: (state: FlowWorkbenchState) => void;
+}
+
+/**
+ * Compare the editable meaning of a flow while ignoring browser-owned view
+ * state. Positions and layout hints can be regenerated without changing the
+ * source-backed graph, including positions stored inside variant operations.
+ */
+export function semanticDocumentSignature(document: FlowDocument): string {
+  const graph = document.graph;
+  const semanticNode = (node: GraphNode): GraphNode => ({
+    id: node.id,
+    type: node.type,
+    title: node.title,
+    ...(node.body ? { body: node.body } : {}),
+    ...(node.tags?.length ? { tags: [...node.tags] } : {}),
+  });
+  const semanticEdge = (edge: GraphEdge): GraphEdge => ({
+    id: edge.id,
+    from: edge.from,
+    to: edge.to,
+    ...(edge.relation && edge.relation !== 'flow' ? { relation: edge.relation } : {}),
+    ...(edge.label ? { label: edge.label } : {}),
+    ...(edge.emphasis ? { emphasis: true } : {}),
+  });
+  const semanticOperation = (operation: VariantOperation): VariantOperation | null => {
+    if (operation.kind === 'set-position') return null;
+    if (operation.kind === 'add-node') return { kind: operation.kind, node: semanticNode(operation.node) };
+    if (operation.kind === 'set-node') {
+      const changes: NodeSetChanges = { ...operation.changes };
+      delete changes.layout;
+      return Object.keys(changes).length ? { kind: operation.kind, nodeId: operation.nodeId, changes } : null;
+    }
+    if (operation.kind === 'unset-node' && operation.property === 'layout') return null;
+    if (operation.kind === 'add-edge') return { kind: operation.kind, edge: semanticEdge(operation.edge) };
+    return operation;
+  };
+
+  return JSON.stringify({
+    graph: {
+      id: graph.id,
+      title: graph.title,
+      ...(graph.description ? { description: graph.description } : {}),
+      nodes: graph.nodes.map(semanticNode),
+      edges: graph.edges.map(semanticEdge),
+    },
+    variants: document.variants.map((variant) => ({
+      id: variant.id,
+      title: variant.title,
+      ...(variant.description ? { description: variant.description } : {}),
+      operations: variant.operations
+        .map(semanticOperation)
+        .filter((operation): operation is VariantOperation => Boolean(operation)),
+    })),
+  });
+}
+
+export function mountFlowWorkbench(initialGraph: unknown, options: FlowWorkbenchOptions = {}) {
 const TYPE_COLUMNS = {
       actor: 0,
       input: 1,
@@ -34,8 +109,25 @@ const TYPE_COLUMNS = {
     const SOURCE_STORAGE_KEY = `user-flow-workbench-v5-stage-rows-source:${storageNamespace}`;
     const INSPECTOR_TYPES_QUERY_PARAM = 'nodeTypes';
     const initialGraphSignature = JSON.stringify(initialGraph);
+    const initialDocument = normalizeDocument(initialGraph);
+    const initialSemanticSignature = semanticDocumentSignature(initialDocument);
+    let restoring = false;
+    let resetting = false;
+    let variantNotice: string | undefined;
+    let workingCopyState: FlowWorkbenchState = { workingCopy: false, restoredLocalCopy: false };
 
-    let flowDocument = normalizeDocument(initialGraph);
+    function reportWorkingCopy(next: Partial<FlowWorkbenchState>) {
+      const state: FlowWorkbenchState = { ...workingCopyState, ...next };
+      if (
+        state.workingCopy === workingCopyState.workingCopy
+        && state.restoredLocalCopy === workingCopyState.restoredLocalCopy
+        && state.variantNotice === workingCopyState.variantNotice
+      ) return;
+      workingCopyState = state;
+      options.onStateChange?.(state);
+    }
+
+    let flowDocument = clone(initialDocument);
     let activeVariantId: string | null = null;
     let graph: CanvasGraph = normalizeGraph(flowDocument.graph);
     let authoredLayoutHintIds = extractLayoutHintIds(flowDocument.graph);
@@ -202,12 +294,18 @@ const TYPE_COLUMNS = {
 
     function syncDslEditor() {
       const document = toFlowDocument();
-      dslEditor.value = graphToDsl(document, { includePositions: includeDslPositions });
+      dslEditor.value = formatFlowDiagramSource(document, includeDslPositions);
       if (!persist) return;
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(document));
         localStorage.setItem(SOURCE_STORAGE_KEY, initialGraphSignature);
       } catch {}
+      if (!restoring && !resetting) {
+        reportWorkingCopy({
+          workingCopy: semanticDocumentSignature(document) !== initialSemanticSignature,
+          restoredLocalCopy: false,
+        });
+      }
     }
 
     function updatePositionsDslButton() {
@@ -291,7 +389,19 @@ const TYPE_COLUMNS = {
 
     function variantIdFromUrl(): string | null {
       const variantId = new URL(window.location.href).searchParams.get('variant');
-      return flowDocument.variants.some(variant => variant.id === variantId) ? variantId : null;
+      if (!variantId) return null;
+      if (flowDocument.variants.some(variant => variant.id === variantId)) {
+        publishVariantNotice(undefined);
+        return variantId;
+      }
+      publishVariantNotice(`The flow view "${variantId}" is no longer available. Showing the base view.`);
+      updateVariantUrl(null);
+      return null;
+    }
+
+    function publishVariantNotice(nextNotice: string | undefined) {
+      variantNotice = nextNotice;
+      reportWorkingCopy({ variantNotice: nextNotice });
     }
 
     function updateVariantUrl(variantId: string | null) {
@@ -321,14 +431,18 @@ const TYPE_COLUMNS = {
     }
 
     function selectVariant(variantId: string | null, { updateUrl = true } = {}) {
-      if (variantId === activeVariantId) return;
+      if (variantId === activeVariantId) {
+        if (variantNotice) publishVariantNotice(undefined);
+        return;
+      }
       commitBaseGraph();
       activeVariantId = variantId;
+      publishVariantNotice(undefined);
       if (updateUrl) updateVariantUrl(variantId);
       const materialized = variantId ? materializeVariant(flowDocument, variantId) : flowDocument.graph;
       graph = normalizeGraph(materialized);
       authoredLayoutHintIds = extractLayoutHintIds(materialized);
-      selectedNodeId = null;
+      selectedNodeId = graph.nodes.some(node => node.id === selectedNodeId) ? selectedNodeId : null;
       elkRoutes.clear();
       elkLayoutActive = false;
       updateLayoutEngineLabel();
@@ -1712,15 +1826,17 @@ const TYPE_COLUMNS = {
     function applyDsl() {
       $('dslError').textContent = '';
       try {
-        const parsed = parseGraphDsl(dslEditor.value);
-        const hasPositions = Boolean(parsed.graph.layout?.positions && Object.keys(parsed.graph.layout.positions).length);
-        flowDocument = parsed;
+        const parsed = parseDiagram(dslEditor.value);
+        if (parsed.type !== 'flow') throw new Error('The Flow DSL panel accepts only diagrams with type flow.');
+        const flow = parsed.document;
+        const hasPositions = Boolean(flow.graph.layout?.positions && Object.keys(flow.graph.layout.positions).length);
+        flowDocument = flow;
         activeVariantId = null;
         updateVariantUrl(null);
         includeDslPositions = hasPositions;
-        authoredLayoutHintIds = extractLayoutHintIds(parsed.graph);
+        authoredLayoutHintIds = extractLayoutHintIds(flow.graph);
         updatePositionsDslButton();
-        graph = normalizeGraph(parsed.graph);
+        graph = normalizeGraph(flow.graph);
         elkRoutes.clear();
         elkLayoutActive = false;
         updateLayoutEngineLabel();
@@ -1818,10 +1934,11 @@ const TYPE_COLUMNS = {
     $('applyDslBtn').addEventListener('click', applyDsl);
     $('formatDslBtn').addEventListener('click', () => {
       try {
-        const parsed = parseGraphDsl(dslEditor.value);
-        includeDslPositions = Boolean(parsed.graph.layout?.positions && Object.keys(parsed.graph.layout.positions).length);
+        const parsed = parseDiagram(dslEditor.value);
+        if (parsed.type !== 'flow') throw new Error('The Flow DSL panel accepts only diagrams with type flow.');
+        includeDslPositions = Boolean(parsed.document.graph.layout?.positions && Object.keys(parsed.document.graph.layout.positions).length);
         updatePositionsDslButton();
-        dslEditor.value = graphToDsl(parsed, { includePositions: includeDslPositions });
+        dslEditor.value = formatFlowDiagramSource(parsed.document, includeDslPositions);
         $('dslError').textContent = '';
       } catch (error) {
         $('dslError').textContent = error instanceof Error ? error.message : String(error);
@@ -1843,9 +1960,11 @@ const TYPE_COLUMNS = {
       syncDslEditor();
     });
     $('exportBtn').addEventListener('click', exportJson);
-    $('resetBtn').addEventListener('click', () => {
+    $('resetBtn').addEventListener('click', async () => {
+      resetting = true;
       flowDocument = normalizeDocument(initialGraph);
       activeVariantId = null;
+      publishVariantNotice(undefined);
       updateVariantUrl(null);
       graph = normalizeGraph(flowDocument.graph);
       authoredLayoutHintIds = extractLayoutHintIds(flowDocument.graph);
@@ -1856,7 +1975,9 @@ const TYPE_COLUMNS = {
       updateLayoutEngineLabel();
       selectedNodeId = null;
       renderAll();
-      autoLayout();
+      await autoLayout();
+      resetting = false;
+      reportWorkingCopy({ workingCopy: false, restoredLocalCopy: false, variantNotice: undefined });
     });
 
     window.addEventListener('keydown', (event) => {
@@ -1884,6 +2005,7 @@ const TYPE_COLUMNS = {
 
     window.addEventListener('popstate', () => {
       selectVariant(variantIdFromUrl(), { updateUrl: false });
+      reportWorkingCopy({ variantNotice });
     });
 
     (window as any).flow = {
@@ -1910,14 +2032,17 @@ const TYPE_COLUMNS = {
       autoLayout,
       fitView,
       select: selectNode,
-      parse: (source) => clone(parseGraphDsl(source)),
-      validate: (source) => clone(parseGraphDslWithDiagnostics(source)),
+      parse: (source) => clone(parseDiagram(source)),
+      validate: (source) => clone(parseDiagramWithDiagnostics(source)),
       materialize: (variantId) => clone(materializeVariant(flowDocument, variantId)),
       selectVariant,
       activeVariant: () => activeVariantId,
-      toDSL: (options = {}) => graphToDsl(toFlowDocument(), options),
+      toDSL: (options: { includePositions?: boolean } = {}) => formatFlowDiagramSource(toFlowDocument(), options.includePositions !== false),
       exportJSON: () => JSON.stringify(toFlowDocument(), null, 2),
       schema: {
+        diagramFormatVersion: DIAGRAM_FORMAT_VERSION,
+        diagramTypes: ['flow', 'overview'],
+        sourceEnvelope: 'diagram 1\\ntype flow|overview',
         dslVersion: 3,
         schemaVersion: 5,
         nodeTypes: Object.keys(TYPE_COLUMNS),
@@ -1931,16 +2056,19 @@ const TYPE_COLUMNS = {
     function restore() {
       let hasSavedGraph = false;
       let restoredGraph: FlowGraph;
+      restoring = true;
       try {
         const saved = persist ? localStorage.getItem(STORAGE_KEY) : null;
         const savedSourceSignature = persist ? localStorage.getItem(SOURCE_STORAGE_KEY) : null;
-        hasSavedGraph = Boolean(saved) && savedSourceSignature === initialGraphSignature;
+        const sourceSignatureMatches = savedSourceSignature === initialGraphSignature;
+        hasSavedGraph = Boolean(saved) && sourceSignatureMatches;
         flowDocument = normalizeDocument(hasSavedGraph ? JSON.parse(saved!) : initialGraph);
         activeVariantId = variantIdFromUrl();
         restoredGraph = activeVariantId ? materializeVariant(flowDocument, activeVariantId) : flowDocument.graph;
         graph = normalizeGraph(restoredGraph);
         authoredLayoutHintIds = extractLayoutHintIds(restoredGraph);
       } catch {
+        hasSavedGraph = false;
         flowDocument = normalizeDocument(initialGraph);
         activeVariantId = variantIdFromUrl();
         restoredGraph = activeVariantId ? materializeVariant(flowDocument, activeVariantId) : flowDocument.graph;
@@ -1949,6 +2077,9 @@ const TYPE_COLUMNS = {
       }
       updateLayoutEngineLabel();
       renderAll();
+      restoring = false;
+      const hasSemanticSavedGraph = hasSavedGraph && semanticDocumentSignature(flowDocument) !== initialSemanticSignature;
+      reportWorkingCopy({ workingCopy: hasSemanticSavedGraph, restoredLocalCopy: hasSemanticSavedGraph, variantNotice });
       const hasAllPositions = canvasNodes().every(node => restoredGraph.layout?.positions?.[node.id]);
       requestAnimationFrame(async () => {
         if (hasAllPositions) fitView();

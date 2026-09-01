@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { EventEmitter } from "node:events";
 import { access, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -12,7 +13,8 @@ import { browserExists, launchBrowser } from "./cdp.ts";
 import { runFlowCli, type FlowViewOptions } from "./flow.ts";
 import { terminateChild } from "./runtime.ts";
 
-const validFlow = `flow 3\ngraph example "Example"\nnode start actor "Start"\nnode done deliverable "Done"\nedge finish start -> done\n`;
+const validFlow = `diagram 1\ntype flow\n\ngraph example "Example"\nnode start actor "Start"\nnode done deliverable "Done"\nedge finish start -> done\n`;
+const validOverview = `diagram 1\ntype overview\n\noverview resume "Resume app"\npurpose "Make applications clearer and more defensible."\nstatus "Intended"\ngroup evidence "Career evidence" {\n  capability collect "Collect evidence" detail="Capture"\n}\ncapability tailor "Tailor an application"\nvariant focused "Focused application" {\n  set capability tailor title="Focused application"\n}\n`;
 
 function pngFixture(width: number, height: number): Buffer {
   const crc32 = (content: Uint8Array): number => {
@@ -71,8 +73,10 @@ test("CLI runs through a global package symlink", async () => {
 
 test("check reports a variant-only process gap at its added node", async () => {
   const directory = await mkdtemp(join(tmpdir(), "flow-cli-"));
-  const path = join(directory, "broken.flow");
-  await writeFile(path, `flow 3
+  const path = join(directory, "broken.diagram");
+  await writeFile(path, `diagram 1
+type flow
+
 graph example "Example"
 node start actor "Start"
 node done deliverable "Done"
@@ -89,8 +93,125 @@ variant broken "Broken" {
   });
 
   assert.equal(code, 1);
-  assert.match(output.join("\n"), /broken\.flow:7:12: error \[FLOWLINT001\]/);
+  assert.match(output.join("\n"), /broken\.diagram:9:12: error \[FLOWLINT001\]/);
   assert.match(output.join("\n"), /Variant "broken"/);
+});
+
+test("check accepts a mixed directory and skips flow lint for overview documents", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "diagram-cli-check-"));
+  await writeFile(join(directory, "flow.diagram"), validFlow);
+  await writeFile(join(directory, "overview.diagram"), validOverview);
+  const output: string[] = [];
+  const code = await runFlowCli(["check", directory], {
+    out: message => output.push(message), error: message => output.push(message),
+  });
+  assert.equal(code, 0);
+  assert.match(output.join("\n"), /Checked 2 diagram files\./);
+  await rm(directory, { recursive: true, force: true });
+});
+
+test("check defaults include the shared data root and examples", async () => {
+  const previousDirectory = process.cwd();
+  const directory = await mkdtemp(join(tmpdir(), "diagram-cli-default-check-"));
+  try {
+    await mkdir(join(directory, "src/data/flows"), { recursive: true });
+    await mkdir(join(directory, "src/data/overviews"), { recursive: true });
+    await mkdir(join(directory, "docs/examples"), { recursive: true });
+    await writeFile(join(directory, "src/data/flows/example.diagram"), validFlow);
+    await writeFile(join(directory, "src/data/overviews/example.diagram"), validOverview);
+    await writeFile(join(directory, "docs/examples/example.diagram"), validFlow);
+    process.chdir(directory);
+    const output: string[] = [];
+    const code = await runFlowCli(["check"], {
+      out: message => output.push(message), error: message => output.push(message),
+    });
+    assert.equal(code, 0);
+    assert.match(output.join("\n"), /Checked 3 diagram files\./);
+  } finally {
+    process.chdir(previousDirectory);
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("check reports unknown diagram types instead of skipping them", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "diagram-cli-check-"));
+  const path = join(directory, "unknown.diagram");
+  await writeFile(path, "diagram 1\ntype prototype\n\nprototype sample\n");
+  const output: string[] = [];
+  const code = await runFlowCli(["check", path], {
+    out: message => output.push(message), error: message => output.push(message),
+  });
+  assert.equal(code, 1);
+  assert.match(output.join("\n"), /unknown\.diagram:2:1: error \[DIAGRAM103\]/);
+  await rm(directory, { recursive: true, force: true });
+});
+
+test("format canonicalizes overview diagrams through the shared formatter", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "diagram-cli-format-"));
+  const path = join(directory, "overview.diagram");
+  await writeFile(path, validOverview.replace("purpose", "# comment\npurpose"));
+  const code = await runFlowCli(["format", path]);
+  assert.equal(code, 0);
+  assert.equal(await readFile(path, "utf8"), validOverview.replace('status "Intended"\n', ""));
+  await rm(directory, { recursive: true, force: true });
+});
+
+test("render accepts a requested overview view and preserves its source hash", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "diagram-cli-render-"));
+  const path = join(directory, "overview.diagram");
+  await writeFile(path, validOverview);
+  const output: string[] = [];
+  const code = await runFlowCli(["render", path, "--output", join(directory, "overview.png"), "--variant", "focused", "--browser", directory, "--json"], {
+    out: message => output.push(message), error: message => output.push(message),
+  });
+  assert.equal(code, 1);
+  const result = JSON.parse(output.join("\n")) as { type: string; view: string; sourceHash: string; error?: string };
+  assert.equal(result.type, "overview");
+  assert.equal(result.view, "focused");
+  assert.equal(result.sourceHash, createHash("sha256").update(validOverview).digest("hex"));
+  assert.match(result.error || "", /No compatible local Chromium browser/);
+  assert.doesNotMatch(result.error || "", /Unknown overview variant/);
+  await assert.rejects(() => access(join(directory, "overview.png")));
+  await rm(directory, { recursive: true, force: true });
+});
+
+test("render rejects an unknown overview view without falling back to base", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "diagram-cli-render-"));
+  const path = join(directory, "overview.diagram");
+  await writeFile(path, validOverview);
+  const output: string[] = [];
+  const code = await runFlowCli(["render", path, "--output", join(directory, "overview.png"), "--variant", "missing", "--json"], {
+    out: message => output.push(message), error: message => output.push(message),
+  });
+  assert.equal(code, 1);
+  const result = JSON.parse(output.join("\n")) as { type: string; view: string; sourceHash: string; error?: string };
+  assert.equal(result.type, "overview");
+  assert.equal(result.view, "missing");
+  assert.equal(result.sourceHash, createHash("sha256").update(validOverview).digest("hex"));
+  assert.match(result.error || "", /Unknown overview variant "missing"/);
+  assert.doesNotMatch(result.error || "", /FLOW/);
+  await assert.rejects(() => access(join(directory, "overview.png")));
+  await rm(directory, { recursive: true, force: true });
+});
+
+test("directory rendering accepts the same requested view for flow and overview sources", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "diagram-cli-render-batch-"));
+  const outputDir = await mkdtemp(join(tmpdir(), "diagram-cli-render-batch-out-"));
+  await writeFile(join(directory, "flow.diagram"), `diagram 1\ntype flow\n\ngraph example "Example"\nnode start actor "Start"\nnode done deliverable "Done"\nedge finish start -> done\nvariant focused "Focused" {\n  set node done title="Focused done"\n}\n`);
+  await writeFile(join(directory, "overview.diagram"), validOverview);
+  const output: string[] = [];
+  const code = await runFlowCli(["render", directory, "--output-dir", outputDir, "--variant", "focused", "--browser", directory, "--json"], {
+    out: message => output.push(message), error: message => output.push(message),
+  });
+  assert.equal(code, 1);
+  const result = JSON.parse(output.join("\n")) as { results: Array<{ source: string; type: string; view: string; error?: string }> };
+  assert.deepEqual(result.results.map(item => [item.source, item.type, item.view]), [
+    ["flow.diagram", "flow", "focused"],
+    ["overview.diagram", "overview", "focused"],
+  ]);
+  assert.ok(result.results.every(item => /No compatible local Chromium browser/.test(item.error || "")));
+  await rm(directory, { recursive: true, force: true });
+  await rm(outputDir, { recursive: true, force: true });
 });
 
 test("view serves the selected directory on the requested port", async () => {
@@ -109,16 +230,16 @@ test("view serves the selected directory on the requested port", async () => {
 
 test("view rejects a file as its search root", async () => {
   const directory = await mkdtemp(join(tmpdir(), "flow-view-"));
-  const path = join(directory, "example.flow");
-  await writeFile(path, "flow 3\ngraph example \"Example\"\nnode start actor \"Start\"\n");
+  const path = join(directory, "example.diagram");
+  await writeFile(path, "diagram 1\ntype flow\n\ngraph example \"Example\"\nnode start actor \"Start\"\n");
 
   await assert.rejects(() => runFlowCli(["view", path]), /not a directory/);
 });
 
 test("render rejects an unknown variant before browser startup", async () => {
   const directory = await mkdtemp(join(tmpdir(), "flow-render-"));
-  const path = join(directory, "example.flow");
-  await writeFile(path, `flow 3\ngraph example "Example"\nnode start actor "Start"\nnode done deliverable "Done"\nedge finish start -> done\nvariant named "Named" {\n  set node done title="Named done"\n}\n`);
+  const path = join(directory, "example.diagram");
+  await writeFile(path, `diagram 1\ntype flow\n\ngraph example "Example"\nnode start actor "Start"\nnode done deliverable "Done"\nedge finish start -> done\nvariant named "Named" {\n  set node done title="Named done"\n}\n`);
   const output: string[] = [];
   const code = await runFlowCli(["render", path, "--output", join(directory, "example.png"), "--variant", "missing"], {
     out: message => output.push(message), error: message => output.push(message),
@@ -131,9 +252,9 @@ test("render rejects an unknown variant before browser startup", async () => {
 
 test("render refuses an existing output before starting services", async () => {
   const directory = await mkdtemp(join(tmpdir(), "flow-render-"));
-  const path = join(directory, "example.flow");
+  const path = join(directory, "example.diagram");
   const outputPath = join(directory, "example.png");
-  await writeFile(path, `flow 3\ngraph example "Example"\nnode start actor "Start"\nnode done deliverable "Done"\nedge finish start -> done\n`);
+  await writeFile(path, `diagram 1\ntype flow\n\ngraph example "Example"\nnode start actor "Start"\nnode done deliverable "Done"\nedge finish start -> done\n`);
   await writeFile(outputPath, "keep me");
   await assert.rejects(() => runFlowCli(["render", path, "--output", outputPath]), /Output exists/);
   assert.equal(await readFile(outputPath, "utf8"), "keep me");
@@ -142,7 +263,7 @@ test("render refuses an existing output before starting services", async () => {
 
 test("render enforces the supported minimum canvas size", async () => {
   const directory = await mkdtemp(join(tmpdir(), "flow-render-"));
-  const path = join(directory, "example.flow");
+  const path = join(directory, "example.diagram");
   await writeFile(path, validFlow);
   await assert.rejects(
     () => runFlowCli(["render", path, "--output", join(directory, "example.png"), "--width", "319"]),
@@ -153,7 +274,7 @@ test("render enforces the supported minimum canvas size", async () => {
 
 test("render rejects batch-only outputs in file mode", async () => {
   const directory = await mkdtemp(join(tmpdir(), "flow-render-"));
-  const path = join(directory, "example.flow");
+  const path = join(directory, "example.diagram");
   await writeFile(path, validFlow);
   await assert.rejects(
     () => runFlowCli(["render", path, "--output", join(directory, "example.png"), "--contact-sheet"]),
@@ -172,15 +293,15 @@ test("batch setup failures produce one stable JSON result per source", async () 
   const sourceDir = join(directory, "sources");
   await writeFile(join(directory, "placeholder"), "");
   await mkdir(sourceDir);
-  await writeFile(join(sourceDir, "a.flow"), validFlow);
-  await writeFile(join(sourceDir, "b.flow"), validFlow.replace("Example", "Second"));
+  await writeFile(join(sourceDir, "a.diagram"), validFlow);
+  await writeFile(join(sourceDir, "b.diagram"), validFlow.replace("Example", "Second"));
   const output: string[] = [];
   const code = await runFlowCli([
     "render", sourceDir, "--output-dir", outputDir, "--browser", sourceDir, "--json",
   ], { out: message => output.push(message), error: message => output.push(message) });
   assert.equal(code, 1);
-  const result = JSON.parse(output.join("\n")) as { results: Array<{ source: string; status: string }> };
-  assert.deepEqual(result.results.map(item => [item.source, item.status]), [["a.flow", "failed"], ["b.flow", "failed"]]);
+  const result = JSON.parse(output.join("\n")) as { results: Array<{ source: string; type: string | null; status: string }> };
+  assert.deepEqual(result.results.map(item => [item.source, item.type, item.status]), [["a.diagram", "flow", "failed"], ["b.diagram", "flow", "failed"]]);
   await rm(directory, { recursive: true, force: true });
 });
 
@@ -189,7 +310,7 @@ test("render protects source files and source directories through aliases", asyn
   const sourceDir = join(directory, "sources");
   const outputLink = join(directory, "output-link");
   await mkdir(sourceDir);
-  const sourcePath = join(sourceDir, "Case.flow");
+  const sourcePath = join(sourceDir, "Case.diagram");
   await writeFile(sourcePath, validFlow);
   await symlink(sourceDir, outputLink, "dir");
   await assert.rejects(
@@ -197,7 +318,7 @@ test("render protects source files and source directories through aliases", asyn
     /outside the source directory/,
   );
   await assert.rejects(
-    () => runFlowCli(["render", sourceDir, "--output-dir", join(directory, "out"), "--report", join(sourceDir, "case.FLOW")]),
+    () => runFlowCli(["render", sourceDir, "--output-dir", join(directory, "out"), "--report", join(sourceDir, "case.DIAGRAM")]),
     /collides with a source file|Auxiliary output must be outside/,
   );
   await rm(directory, { recursive: true, force: true });
@@ -208,7 +329,7 @@ test("contact sheets split large batches and keep links and failures visible", a
   const image = join(directory, "preview.png");
   await writeFile(image, Buffer.from("fake-png"));
   const items = Array.from({ length: 13 }, (_, index) => ({
-    label: `flow-${index + 1}.flow`,
+    label: `flow-${index + 1}.diagram`,
     path: image,
     status: index === 12 ? "failed" as const : "success" as const,
     ...(index === 12 ? { error: "Invalid source" } : {}),
@@ -226,7 +347,7 @@ test("PNG contact sheets rasterize each page and preserve page suffixes", async 
   const directory = await mkdtemp(join(tmpdir(), "flow-contact-sheet-png-"));
   const image = join(directory, "preview.png");
   await writeFile(image, Buffer.from("fake-png"));
-  const items = Array.from({ length: 13 }, (_, index) => ({ label: `flow-${index + 1}.flow`, path: image, status: "success" as const }));
+  const items = Array.from({ length: 13 }, (_, index) => ({ label: `flow-${index + 1}.diagram`, path: image, status: "success" as const }));
   const sizes: Array<[number, number]> = [];
   const paths = await writeContactSheets(items, join(directory, "contact-sheet.png"), {
     rasterize: async (svg, width, height) => {
@@ -248,7 +369,7 @@ test("PNG contact sheets retain native source pixels and scale with rendered inp
   const scaledImage = join(directory, "preview-2x.png");
   await writeFile(image, pngFixture(1200, 800));
   await writeFile(scaledImage, pngFixture(2400, 1600));
-  const items = Array.from({ length: 13 }, (_, index) => ({ label: `flow-${index + 1}.flow`, path: image, status: "success" as const }));
+  const items = Array.from({ length: 13 }, (_, index) => ({ label: `flow-${index + 1}.diagram`, path: image, status: "success" as const }));
   const sizes: Array<[number, number]> = [];
   await writeContactSheets(items, join(directory, "contact-sheet.png"), {
     rasterize: async (_svg, width, height) => {
@@ -270,7 +391,7 @@ test("render rejects unknown contact sheet extensions before browser startup", a
   const directory = await mkdtemp(join(tmpdir(), "flow-contact-sheet-format-"));
   const sourceDir = join(directory, "sources");
   await mkdir(sourceDir);
-  await writeFile(join(sourceDir, "example.flow"), validFlow);
+  await writeFile(join(sourceDir, "example.diagram"), validFlow);
   await assert.rejects(
     () => runFlowCli(["render", sourceDir, "--output-dir", join(directory, "out"), "--contact-sheet", join(directory, "sheet.jpg")]),
     /\.png or \.svg extension/,

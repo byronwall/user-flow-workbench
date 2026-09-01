@@ -137,7 +137,7 @@ export async function startViewServer(options: FlowViewOptions, io: FlowCliIO): 
   process.once("SIGTERM", interrupt);
   try {
     server = await startOwnedServer(options.root, options.port, io, controller.signal);
-    io.out(`Serving flows from ${options.root}`);
+    io.out(`Serving diagrams from ${options.root}`);
     io.out(`Flow Workbench: ${server.url}`);
     return await server.waitForExit();
   }

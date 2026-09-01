@@ -17,7 +17,7 @@ export function Toolbar(props: { documentPath: string }) {
       </div>
       <div class="spacer" />
       <div class="toolbar" aria-label="Graph actions">
-        <a class="btn flow-switcher" href="/" rel="external">All flows</a>
+        <a class="btn flow-switcher" href="/" rel="external">Project index</a>
         <button class="btn" id="exportBtn" type="button">Export JSON</button>
         <button class="btn" id="resetBtn" type="button">Reset file</button>
       </div>

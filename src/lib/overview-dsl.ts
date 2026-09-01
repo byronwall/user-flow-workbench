@@ -1,0 +1,173 @@
+import type {
+  OverviewCapability,
+  OverviewCapabilityChanges,
+  OverviewDocument,
+  OverviewFlowReference,
+  OverviewGroup,
+  OverviewVariant,
+  OverviewVariantOperation,
+} from "../types/overview.ts";
+
+const IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+
+export interface OverviewDslDiagnostic {
+  code: string;
+  category: "syntax" | "structure" | "identifier" | "reference" | "variant";
+  message: string;
+  line: number;
+  column: number;
+  length: number;
+  actual?: string;
+  expected?: string;
+  relatedId?: string;
+  variantId?: string;
+}
+export interface OverviewDslParseResult { document: OverviewDocument; diagnostics: OverviewDslDiagnostic[] }
+interface Token { raw: string; start: number; end: number; line: number }
+
+export class OverviewDslError extends Error {
+  readonly diagnostic: OverviewDslDiagnostic;
+  readonly line: number;
+  readonly column: number;
+  readonly code: string;
+  constructor(diagnostic: OverviewDslDiagnostic) { super(formatOverviewDslDiagnostic(diagnostic)); this.name = "OverviewDslError"; this.diagnostic = diagnostic; this.line = diagnostic.line; this.column = diagnostic.column; this.code = diagnostic.code; }
+}
+export class OverviewMaterializationError extends Error {
+  readonly code: string; readonly variantId: string; readonly operationIndex: number; readonly relatedIds: string[];
+  constructor(code: string, variantId: string, operationIndex: number, message: string, relatedIds: string[] = []) { super(message); this.name = "OverviewMaterializationError"; this.code = code; this.variantId = variantId; this.operationIndex = operationIndex; this.relatedIds = relatedIds; }
+}
+export function formatOverviewDslDiagnostic(diagnostic: OverviewDslDiagnostic): string { return `[${diagnostic.code}] line ${diagnostic.line}, column ${diagnostic.column}: ${diagnostic.message}${diagnostic.variantId ? ` Variant "${diagnostic.variantId}".` : ""}`; }
+export function parseOverviewDsl(source: string): OverviewDocument { const result = parseOverviewDslWithDiagnostics(source); if (result.diagnostics.length) throw new OverviewDslError(result.diagnostics[0]); return result.document; }
+
+export function parseOverviewDslWithDiagnostics(source: string, lineOffset = 0): OverviewDslParseResult {
+  let overview: { id: string; title: string } | undefined;
+  let purpose = ""; let statusLabel: string | undefined; let sawPurpose = false; let sawStatus = false; let activeGroup: OverviewGroup | undefined; let lastCapability: OverviewCapability | undefined;
+  let activeVariant: { value: OverviewVariant; token: Token; operationTokens: Token[] } | undefined;
+  const groups: OverviewGroup[] = []; const capabilities: OverviewCapability[] = []; const variants: OverviewVariant[] = [];
+  const ids = new Set<string>(); const variantIds = new Set<string>(); const variantOperationTokens = new Map<string, Token[]>(); const diagnostics: OverviewDslDiagnostic[] = [];
+  const fail = (code: string, category: OverviewDslDiagnostic["category"], token: Token, message: string, detail: Partial<OverviewDslDiagnostic> = {}): never => { throw new OverviewDslError({ code, category, message, line: token.line + lineOffset, column: token.start + 1, length: Math.max(1, token.end - token.start), ...detail }); };
+  const catchError = (error: unknown) => { if (error instanceof OverviewDslError) diagnostics.push(error.diagnostic); else throw error; };
+
+  source.split(/\r?\n/).forEach((rawLine, lineIndex) => {
+    const tokens = tokenize(rawLine, lineIndex + 1, lineOffset, diagnostics); if (!tokens.length) return; const command = tokens[0].raw;
+    try {
+      if (activeVariant) {
+        if (command === "}") { requireCount(tokens, 1, "}", lineOffset); variants.push(activeVariant.value); variantOperationTokens.set(activeVariant.value.id, activeVariant.operationTokens); activeVariant = undefined; return; }
+        if (command === "variant") fail("OVERVIEW310", "variant", tokens[0], "Nested overview variants are not supported.", { variantId: activeVariant.value.id });
+        if (command === "description") { if (activeVariant.value.description) fail("OVERVIEW311", "variant", tokens[0], "Variant description appears more than once.", { variantId: activeVariant.value.id }); requireCount(tokens, 2, 'description "<text>"', lineOffset); activeVariant.value = { ...activeVariant.value, description: quoted(tokens[1], fail) }; return; }
+        const operation = parseVariantOperation(tokens, activeVariant.value.id, lineOffset, fail); activeVariant.value = { ...activeVariant.value, operations: [...activeVariant.value.operations, operation] }; activeVariant.operationTokens.push(tokens[0]); return;
+      }
+      if (command === "overview") {
+        if (overview || activeGroup) fail("OVERVIEW107", "structure", tokens[0], "The overview declaration appears more than once or after groups."); requireCount(tokens, 3, 'overview <id> "<title>"', lineOffset); const id = identifier(tokens[1], fail); overview = { id, title: quoted(tokens[2], fail) }; registerId(id, tokens[1], "overview", ids, diagnostics, lineOffset); return;
+      }
+      if (command === "purpose" || command === "status") {
+        if (!overview || activeGroup) fail("OVERVIEW106", "structure", tokens[0], `${command} must follow overview and precede groups.`); requireCount(tokens, 2, `${command} "<text>"`, lineOffset);
+        if (command === "purpose") { if (sawPurpose) fail("OVERVIEW109", "structure", tokens[0], "Purpose appears more than once."); purpose = quoted(tokens[1], fail); sawPurpose = true; }
+        else { if (sawStatus) fail("OVERVIEW110", "structure", tokens[0], "Status appears more than once."); statusLabel = quoted(tokens[1], fail); sawStatus = true; if (statusLabel !== "Current" && statusLabel !== "Intended") fail("OVERVIEW114", "structure", tokens[1], 'Status must be either "Current" or "Intended".'); }
+        return;
+      }
+      if (command === "group") {
+        if (!overview || activeGroup) fail("OVERVIEW106", "structure", tokens[0], "Groups must follow overview metadata and cannot be nested."); requireCount(tokens, 4, 'group <id> "<title>" {', lineOffset); if (tokens[3].raw !== "{") fail("OVERVIEW111", "syntax", tokens[3], 'Group declaration must end with "{".'); const id = identifier(tokens[1], fail); registerId(id, tokens[1], "group", ids, diagnostics, lineOffset); activeGroup = { id, title: quoted(tokens[2], fail), capabilities: [] }; groups.push(activeGroup); lastCapability = undefined; return;
+      }
+      if (command === "capability") {
+        if (!overview) fail("OVERVIEW106", "structure", tokens[0], "Capabilities must follow the overview declaration."); const capability = parseCapability(tokens, activeGroup?.id, fail); registerId(capability.id, tokens[1], "capability", ids, diagnostics, lineOffset); if (activeGroup) activeGroup.capabilities = [...activeGroup.capabilities, capability]; else capabilities.push(capability); lastCapability = capability; return;
+      }
+      if (command === "flow") {
+        if (!lastCapability) fail("OVERVIEW130", "reference", tokens[0], "A flow reference must follow a capability."); const reference = parseFlowReference(tokens, fail); const next = { ...lastCapability, flowRefs: [...(lastCapability.flowRefs || []), reference] }; replaceCapability(next, activeGroup, groups, capabilities); lastCapability = next; return;
+      }
+      if (command === "}") {
+        requireCount(tokens, 1, "}", lineOffset);
+        if (!activeGroup) fail("OVERVIEW112", "structure", tokens[0], "Closing brace has no open group.");
+        activeGroup = undefined; lastCapability = undefined; return;
+      }
+      if (command === "variant") {
+        if (!overview || activeGroup) fail("OVERVIEW106", "structure", tokens[0], "Variants must follow all groups and capabilities."); requireCount(tokens, 4, 'variant <id> "<title>" {', lineOffset); if (tokens[3].raw !== "{") fail("OVERVIEW312", "variant", tokens[3], 'Variant header must end with "{".'); const id = identifier(tokens[1], fail); if (variantIds.has(id)) fail("OVERVIEW301", "variant", tokens[1], `Duplicate variant ID "${id}".`, { variantId: id }); variantIds.add(id); activeVariant = { value: { id, title: quoted(tokens[2], fail), operations: [] }, token: tokens[0], operationTokens: [] }; lastCapability = undefined; return;
+      }
+      if (command === "}") fail("OVERVIEW112", "structure", tokens[0], "Closing brace has no open group."); fail("OVERVIEW101", "syntax", tokens[0], `Unknown overview command "${command}".`, { actual: command, expected: "overview, purpose, status, group, capability, flow, variant, or }" });
+    } catch (error) { catchError(error); }
+  });
+  if (activeGroup) diagnostics.push({ code: "OVERVIEW113", category: "structure", message: `Group "${activeGroup.id}" is missing its closing brace.`, line: lineOffset + 1, column: 1, length: 1 });
+  if (activeVariant) { diagnostics.push({ code: "OVERVIEW314", category: "variant", message: "Variant block is missing its closing brace.", line: activeVariant.token.line + lineOffset, column: activeVariant.token.start + 1, length: 1, variantId: activeVariant.value.id }); variants.push(activeVariant.value); variantOperationTokens.set(activeVariant.value.id, activeVariant.operationTokens); }
+  if (!overview) diagnostics.push({ code: "OVERVIEW102", category: "structure", message: "Missing overview declaration.", line: lineOffset + 1, column: 1, length: 1 });
+  const document: OverviewDocument = { id: overview?.id || "untitled-overview", title: overview?.title || "Untitled overview", purpose, statusLabel: statusLabel || "Intended", groups, ...(capabilities.length ? { capabilities } : {}), ...(variants.length ? { variants } : {}) };
+  if (!diagnostics.length) { try { validateOverviewDocument(document); } catch (error) { catchError(error); } }
+  for (const variant of variants) {
+    try { materializeOverviewVariant(document, variant.id); }
+    catch (error) {
+      if (error instanceof OverviewMaterializationError) { const token = variantOperationTokens.get(variant.id)?.[error.operationIndex]; diagnostics.push({ code: error.code, category: "variant", message: error.message, line: token ? token.line + lineOffset : lineOffset + 1, column: token ? token.start + 1 : 1, length: token ? Math.max(1, token.end - token.start) : 1, variantId: variant.id, ...(error.relatedIds[0] ? { relatedId: error.relatedIds[0] } : {}) }); }
+      else if (error instanceof OverviewDslError) { const token = variantOperationTokens.get(variant.id)?.[0]; diagnostics.push({ ...error.diagnostic, category: "variant", variantId: variant.id, ...(token ? { line: token.line + lineOffset, column: token.start + 1, length: Math.max(1, token.end - token.start) } : {}) }); }
+      else throw error;
+    }
+  }
+  return { document, diagnostics: diagnostics.sort((a, b) => a.line - b.line || a.column - b.column || a.code.localeCompare(b.code)) };
+}
+
+export function overviewToDsl(document: OverviewDocument): string {
+  validateOverviewDocument(document); if (!IDENTIFIER.test(document.id)) throw new Error(`Invalid overview identifier "${document.id}".`);
+  const lines = [`overview ${document.id} ${quote(document.title)}`]; if (document.purpose) lines.push(`purpose ${quote(document.purpose)}`); if (document.statusLabel && document.statusLabel !== "Intended") lines.push(`status ${quote(document.statusLabel)}`);
+  for (const group of document.groups) { lines.push(`group ${formatIdentifier(group.id)} ${quote(group.title)} {`); for (const capability of group.capabilities) lines.push(...formatCapability(capability, "  ")); lines.push("}"); }
+  for (const capability of document.capabilities || []) lines.push(...formatCapability(capability, "")); for (const variant of document.variants || []) lines.push(...formatVariant(variant)); return `${lines.join("\n")}\n`;
+}
+
+export function materializeOverviewVariant(document: OverviewDocument, variantId: string): OverviewDocument {
+  const variant = (document.variants || []).find((candidate) => candidate.id === variantId); if (!variant) throw new OverviewMaterializationError("OVERVIEW302", variantId, -1, `Unknown overview variant "${variantId}".`);
+  const view = cloneDocument({ ...document, variants: undefined }); variant.operations.forEach((operation, index) => applyOperation(view, variant, operation, index)); validateOverviewDocument(view, variant.id); return view;
+}
+export function materializeOverview(document: OverviewDocument, variantId?: string): OverviewDocument { return variantId ? materializeOverviewVariant(document, variantId) : cloneDocument({ ...document, variants: undefined }); }
+
+export function validateOverviewDocument(document: OverviewDocument, _variantId?: string): void {
+  if (!IDENTIFIER.test(document.id)) throw new OverviewDslError(simpleDiagnostic("OVERVIEW202", `Invalid overview identifier "${document.id}".`)); const ids = new Set([document.id]); const groups = new Set<string>();
+  for (const group of document.groups) { if (!IDENTIFIER.test(group.id) || ids.has(group.id)) throw new OverviewDslError(simpleDiagnostic("OVERVIEW201", `Invalid or duplicate group ID "${group.id}".`, group.id)); ids.add(group.id); groups.add(group.id); for (const capability of group.capabilities) validateCapability(capability, group.id, ids); }
+  for (const capability of document.capabilities || []) validateCapability(capability, undefined, ids); if (document.statusLabel && document.statusLabel !== "Current" && document.statusLabel !== "Intended") throw new OverviewDslError(simpleDiagnostic("OVERVIEW114", "Status must be either \"Current\" or \"Intended\".")); void groups;
+}
+function validateCapability(capability: OverviewCapability, groupId: string | undefined, ids: Set<string>): void { if (!IDENTIFIER.test(capability.id) || ids.has(capability.id)) throw new OverviewDslError(simpleDiagnostic("OVERVIEW201", `Invalid or duplicate capability ID "${capability.id}".`, capability.id)); ids.add(capability.id); if (capability.groupId !== groupId) throw new OverviewDslError(simpleDiagnostic("OVERVIEW133", `Capability "${capability.id}" has an inconsistent group assignment.`)); for (const reference of capability.flowRefs || []) validateFlowReference(reference, capability.id); }
+function validateFlowReference(reference: OverviewFlowReference, capabilityId: string): void { const segments = reference.path.split("/"); if (!reference.path.endsWith(".diagram") || !reference.path || reference.path.startsWith("/") || reference.path.includes("\\") || segments.some((segment) => !segment || segment === "." || segment === "..")) throw new OverviewDslError(simpleDiagnostic("OVERVIEW131", `Capability "${capabilityId}" has an invalid relative .diagram flow path "${reference.path}".`)); if (reference.variant !== undefined && !IDENTIFIER.test(reference.variant)) throw new OverviewDslError(simpleDiagnostic("OVERVIEW132", `Flow reference variant "${reference.variant}" is not a valid identifier.`)); }
+
+function applyOperation(view: OverviewDocument, variant: OverviewVariant, operation: OverviewVariantOperation, index: number): void {
+  const fail = (code: string, message: string, relatedIds: string[] = []) => { throw new OverviewMaterializationError(code, variant.id, index, message, relatedIds); }; const mutableView = view as any; const groups = mutableView.groups as OverviewGroup[]; const all = () => [...groups.flatMap((group) => group.capabilities), ...((mutableView.capabilities || []) as OverviewCapability[])]; const findGroup = (id: string) => groups.find((group) => group.id === id); const findCapability = (id: string) => all().find((capability) => capability.id === id) as any;
+  const removeCapability = (id: string) => { for (const group of groups) group.capabilities = group.capabilities.filter((capability) => capability.id !== id); mutableView.capabilities = (mutableView.capabilities || []).filter((capability: OverviewCapability) => capability.id !== id); };
+  if (operation.kind === "add-group") { if (findGroup(operation.group.id) || findCapability(operation.group.id)) fail("OVERVIEW303", `Cannot add group "${operation.group.id}" because that ID already exists.`, [operation.group.id]); groups.push(cloneGroup(operation.group)); return; }
+  if (operation.kind === "remove-group") { const group = findGroup(operation.groupId); if (!group) fail("OVERVIEW304", `Cannot remove missing group "${operation.groupId}".`, [operation.groupId]); if (group!.capabilities.length) fail("OVERVIEW305", `Cannot remove group "${operation.groupId}" while it still contains capabilities. Remove or move them first.`, [operation.groupId]); mutableView.groups = groups.filter((candidate) => candidate.id !== operation.groupId); return; }
+  if (operation.kind === "set-group") { const group = findGroup(operation.groupId); if (!group) fail("OVERVIEW306", `Cannot set missing group "${operation.groupId}".`, [operation.groupId]); Object.assign(group, operation.changes); return; }
+  if (operation.kind === "add-capability") { if (findCapability(operation.capability.id) || findGroup(operation.capability.id)) fail("OVERVIEW307", `Cannot add capability "${operation.capability.id}" because that ID already exists.`, [operation.capability.id]); if (operation.capability.groupId) { const group = findGroup(operation.capability.groupId); if (!group) fail("OVERVIEW308", `Cannot add capability to missing group "${operation.capability.groupId}".`, [operation.capability.groupId]); group!.capabilities.push(cloneCapability(operation.capability)); } else mutableView.capabilities = [...(mutableView.capabilities || []), cloneCapability(operation.capability)]; return; }
+  if (operation.kind === "remove-capability") { if (!findCapability(operation.capabilityId)) fail("OVERVIEW309", `Cannot remove missing capability "${operation.capabilityId}".`, [operation.capabilityId]); removeCapability(operation.capabilityId); return; }
+  if (operation.kind === "set-capability") { const found = findCapability(operation.capabilityId); if (!found) fail("OVERVIEW310", `Cannot set missing capability "${operation.capabilityId}".`, [operation.capabilityId]); const next = cloneCapability({ ...found!, ...operation.changes }); if (operation.changes.groupId !== undefined) { const group = operation.changes.groupId ? findGroup(operation.changes.groupId) : undefined; if (operation.changes.groupId && !group) fail("OVERVIEW308", `Cannot move capability to missing group "${operation.changes.groupId}".`, [operation.changes.groupId]); removeCapability(operation.capabilityId); if (group) group.capabilities.push(next); else mutableView.capabilities = [...(mutableView.capabilities || []), next]; } else Object.assign(found!, next); return; }
+  const found = findCapability(operation.capabilityId); if (!found) fail("OVERVIEW311", `Cannot unset a property on missing capability "${operation.capabilityId}".`, [operation.capabilityId]); if (operation.property === "detail") { if (found!.detail === undefined) fail("OVERVIEW312", `Capability "${operation.capabilityId}" has no detail to unset.`, [operation.capabilityId]); delete found!.detail; } else if (operation.property === "flows") { if (!found!.flowRefs?.length) fail("OVERVIEW312", `Capability "${operation.capabilityId}" has no flow references to unset.`, [operation.capabilityId]); delete found!.flowRefs; } else { if (!found!.groupId) fail("OVERVIEW312", `Capability "${operation.capabilityId}" is already ungrouped.`, [operation.capabilityId]); const next = { ...found!, groupId: undefined }; removeCapability(operation.capabilityId); mutableView.capabilities = [...(mutableView.capabilities || []), next]; }
+}
+
+function parseCapability(tokens: Token[], groupId: string | undefined, fail: (...args: any[]) => never): OverviewCapability { if (tokens.length < 3) fail("OVERVIEW121", "syntax", tokens[0], 'capability <id> "<title>" [detail="<text>"] [flow="<path>"]'); const id = identifier(tokens[1], fail); const title = quoted(tokens[2], fail); let detail: string | undefined; const refs: OverviewFlowReference[] = []; for (const token of tokens.slice(3)) { if (token.raw.startsWith("detail=")) { if (detail !== undefined) fail("OVERVIEW122", "syntax", token, "Capability detail appears more than once."); detail = parseQuotedOption(token, "detail", fail); } else if (token.raw.startsWith("flow=")) refs.push({ path: parseQuotedOption(token, "flow", fail) }); else fail("OVERVIEW122", "syntax", token, "Capability options must use detail= or flow=."); } return { id, title, ...(detail !== undefined ? { detail } : {}), ...(groupId ? { groupId } : {}), ...(refs.length ? { flowRefs: refs } : {}) }; }
+function parseFlowReference(tokens: Token[], fail: (...args: any[]) => never): OverviewFlowReference { if (tokens.length < 2 || tokens.length > 3) fail("OVERVIEW123", "reference", tokens[0], 'flow "<path.diagram>" [variant="<id>"]'); const path = quoted(tokens[1], fail); let variant: string | undefined; if (tokens[2]) { if (!tokens[2].raw.startsWith("variant=")) fail("OVERVIEW124", "reference", tokens[2], 'Flow reference options must use variant="<id>".'); variant = parseQuotedOption(tokens[2], "variant", fail); } const reference = { path, ...(variant !== undefined ? { variant } : {}) }; validateFlowReference(reference, "unknown"); return reference; }
+function parseVariantOperation(tokens: Token[], variantId: string, lineOffset: number, fail: (...args: any[]) => never): OverviewVariantOperation {
+  const verb = tokens[0].raw;
+  if (verb === "add" && tokens[1]?.raw === "group") { requireCount(tokens, 4, 'add group <id> "<title>"', lineOffset); return { kind: "add-group", group: { id: identifier(tokens[2], fail), title: quoted(tokens[3], fail), capabilities: [] } }; }
+  if (verb === "remove" && tokens[1]?.raw === "group") { requireCount(tokens, 3, "remove group <id>", lineOffset); return { kind: "remove-group", groupId: identifier(tokens[2], fail) }; }
+  if (verb === "set" && tokens[1]?.raw === "group") { if (tokens.length < 4) fail("OVERVIEW321", "variant", tokens[0], "set group requires a property.", { variantId }); const options = readOptions(tokens.slice(3), ["title"], fail); return { kind: "set-group", groupId: identifier(tokens[2], fail), changes: { title: quotedOption(options.title!, fail) } }; }
+  if (verb === "add" && tokens[1]?.raw === "capability") { if (tokens.length < 4) fail("OVERVIEW322", "variant", tokens[0], 'add capability <id> "<title>"', { variantId }); const id = identifier(tokens[2], fail); const title = quoted(tokens[3], fail); const parsed = readFlowOptions(tokens.slice(4), fail); const options = readOptions(parsed.other, ["detail", "group"], fail); const capability: OverviewCapability = { id, title, ...(options.detail ? { detail: quotedOption(options.detail, fail) } : {}), ...(options.group ? { groupId: optionIdentifier(options.group, fail) } : {}), ...(parsed.flowRefs.length ? { flowRefs: parsed.flowRefs } : {}) }; return { kind: "add-capability", capability }; }
+  if (tokens[1]?.raw === "capability") {
+    if (verb === "remove") { requireCount(tokens, 3, "remove capability <id>", lineOffset); return { kind: "remove-capability", capabilityId: identifier(tokens[2], fail) }; }
+    if (verb === "unset") { requireCount(tokens, 4, "unset capability <id> <detail|group|flows>", lineOffset); const id = identifier(tokens[2], fail); const property = tokens[3].raw; if (!["detail", "group", "flows"].includes(property)) fail("OVERVIEW323", "variant", tokens[3], "Capability unset supports detail, group, or flows.", { variantId }); return { kind: "unset-capability", capabilityId: id, property: property as "detail" | "group" | "flows" }; }
+    if (verb === "set") { if (tokens.length < 4) fail("OVERVIEW324", "variant", tokens[0], "set capability requires a property.", { variantId }); const id = identifier(tokens[2], fail); const parsed = readFlowOptions(tokens.slice(3), fail); const options = readOptions(parsed.other, ["title", "detail", "group"], fail); const changes: OverviewCapabilityChanges = {}; if (options.title) changes.title = quotedOption(options.title, fail); if (options.detail) changes.detail = quotedOption(options.detail, fail); if (options.group) changes.groupId = optionIdentifier(options.group, fail); if (parsed.flowRefs.length) changes.flowRefs = parsed.flowRefs; return { kind: "set-capability", capabilityId: id, changes }; }
+  }
+  fail("OVERVIEW327", "variant", tokens[0], `Unknown overview variant operation "${verb}".`, { variantId });
+}
+
+function formatCapability(capability: OverviewCapability, indent: string): string[] { const lines = [`${indent}capability ${formatIdentifier(capability.id)} ${quote(capability.title)}${capability.detail !== undefined ? ` detail=${quote(capability.detail)}` : ""}`]; for (const reference of capability.flowRefs || []) lines.push(`${indent}  flow ${quote(reference.path)}${reference.variant ? ` variant=${quote(reference.variant)}` : ""}`); return lines; }
+function formatVariant(variant: OverviewVariant): string[] { const lines = [`variant ${formatIdentifier(variant.id)} ${quote(variant.title)} {`]; if (variant.description) lines.push(`  description ${quote(variant.description)}`); lines.push(...variant.operations.map((operation) => `  ${formatVariantOperation(operation)}`), "}"); return lines; }
+function formatVariantOperation(operation: OverviewVariantOperation): string { if (operation.kind === "add-group") return `add group ${formatIdentifier(operation.group.id)} ${quote(operation.group.title)}`; if (operation.kind === "remove-group") return `remove group ${formatIdentifier(operation.groupId)}`; if (operation.kind === "set-group") return `set group ${formatIdentifier(operation.groupId)} title=${quote(operation.changes.title || "")}`; if (operation.kind === "add-capability") return `add capability ${formatIdentifier(operation.capability.id)} ${quote(operation.capability.title)}${operation.capability.detail !== undefined ? ` detail=${quote(operation.capability.detail)}` : ""}${operation.capability.groupId ? ` group=${quote(operation.capability.groupId)}` : ""}${(operation.capability.flowRefs || []).map((reference) => ` flow=${quote(reference.path)}${reference.variant ? ` variant=${quote(reference.variant)}` : ""}`).join("")}`; if (operation.kind === "remove-capability") return `remove capability ${formatIdentifier(operation.capabilityId)}`; if (operation.kind === "unset-capability") return `unset capability ${formatIdentifier(operation.capabilityId)} ${operation.property}`; const parts = [`set capability ${formatIdentifier(operation.capabilityId)}`]; if (operation.changes.title !== undefined) parts.push(`title=${quote(operation.changes.title)}`); if (operation.changes.detail !== undefined) parts.push(`detail=${quote(operation.changes.detail)}`); if (operation.changes.groupId !== undefined) parts.push(`group=${quote(operation.changes.groupId || "")}`); for (const reference of operation.changes.flowRefs || []) parts.push(`flow=${quote(reference.path)}${reference.variant ? ` variant=${quote(reference.variant)}` : ""}`); return parts.join(" "); }
+function replaceCapability(next: OverviewCapability, activeGroup: OverviewGroup | undefined, groups: OverviewGroup[], ungrouped: OverviewCapability[]): void { const group = activeGroup || groups.find((candidate) => candidate.capabilities.some((item) => item.id === next.id)); if (group) group.capabilities = group.capabilities.map((item) => item.id === next.id ? next : item); else { const index = ungrouped.findIndex((item) => item.id === next.id); if (index >= 0) ungrouped[index] = next; } }
+function registerId(id: string, token: Token, kind: string, ids: Set<string>, diagnostics: OverviewDslDiagnostic[], lineOffset: number): void { if (ids.has(id)) diagnostics.push({ code: "OVERVIEW201", category: "identifier", message: `Duplicate ${kind} ID "${id}".`, line: token.line + lineOffset, column: token.start + 1, length: Math.max(1, token.end - token.start), relatedId: id }); else ids.add(id); }
+function identifier(token: Token, fail: (...args: any[]) => never): string { if (!IDENTIFIER.test(token.raw)) fail("OVERVIEW202", "identifier", token, `Invalid identifier "${token.raw}".`); return token.raw; }
+function quoted(token: Token, fail: (...args: any[]) => never): string { if (!token.raw.startsWith('"') || !token.raw.endsWith('"')) fail("OVERVIEW123", "syntax", token, "Expected a quoted string."); try { return JSON.parse(token.raw) as string; } catch { fail("OVERVIEW124", "syntax", token, "Invalid quoted string."); } }
+function parseQuotedOption(token: Token, name: string, fail: (...args: any[]) => never): string { return quoted({ ...token, raw: token.raw.slice(name.length + 1), start: token.start + name.length + 1 }, fail); }
+function quotedOption(token: Token, fail: (...args: any[]) => never): string { return quoted({ ...token, raw: token.raw.slice(token.raw.indexOf("=") + 1), start: token.start + token.raw.indexOf("=") + 1 }, fail); }
+function optionIdentifier(token: Token, fail: (...args: any[]) => never): string { const value = token.raw.slice(token.raw.indexOf("=") + 1); const candidate = value.startsWith('"') ? quotedOption(token, fail) : value; if (!IDENTIFIER.test(candidate)) fail("OVERVIEW202", "identifier", token, `Invalid identifier "${candidate}".`); return candidate; }
+function readFlowOptions(tokens: Token[], fail: (...args: any[]) => never): { other: Token[]; flowRefs: OverviewFlowReference[] } { const other: Token[] = []; const flowRefs: OverviewFlowReference[] = []; for (let index = 0; index < tokens.length; index += 1) { const token = tokens[index]; if (!token.raw.startsWith("flow=")) { if (token.raw.startsWith("variant=")) fail("OVERVIEW326", "variant", token, "A flow variant must follow a flow option."); other.push(token); continue; } const path = quotedOption(token, fail); const next = tokens[index + 1]; let variant: string | undefined; if (next?.raw.startsWith("variant=")) { variant = parseQuotedOption(next, "variant", fail); index += 1; } flowRefs.push({ path, ...(variant !== undefined ? { variant } : {}) }); } return { other, flowRefs }; }
+function readOptions(tokens: Token[], allowed: string[], fail: (...args: any[]) => never): Record<string, Token> { const options: Record<string, Token> = {}; for (const token of tokens) { const at = token.raw.indexOf("="); const key = at > 0 ? token.raw.slice(0, at) : ""; if (!allowed.includes(key) || options[key]) fail("OVERVIEW325", "variant", token, `Unknown or duplicate option "${key || token.raw}".`); options[key] = token; } return options; }
+function requireCount(tokens: Token[], count: number, syntax: string, lineOffset: number): void { if (tokens.length !== count) throw new OverviewDslError({ code: "OVERVIEW120", category: "syntax", message: `Expected ${syntax}.`, line: tokens[0].line + lineOffset, column: tokens[0].start + 1, length: Math.max(1, tokens[0].end - tokens[0].start), expected: syntax }); }
+function tokenize(raw: string, line: number, lineOffset: number, diagnostics: OverviewDslDiagnostic[]): Token[] { const tokens: Token[] = []; let index = 0; while (index < raw.length) { while (/\s/.test(raw[index] || "")) index += 1; if (index >= raw.length || raw[index] === "#") break; const start = index; let quoteOpen = false; let escaped = false; while (index < raw.length) { const character = raw[index]; if (escaped) escaped = false; else if (character === "\\" && quoteOpen) escaped = true; else if (character === '"') quoteOpen = !quoteOpen; else if (!quoteOpen && (/\s/.test(character) || character === "#")) break; index += 1; } if (quoteOpen) { diagnostics.push({ code: "OVERVIEW124", category: "syntax", message: "Unclosed quoted string.", line: line + lineOffset, column: start + 1, length: Math.max(1, raw.length - start) }); return tokens; } tokens.push({ raw: raw.slice(start, index), start, end: index, line }); } return tokens; }
+function formatIdentifier(value: string): string { if (!IDENTIFIER.test(value)) throw new Error(`Invalid identifier "${value}".`); return value; }
+function quote(value: string): string { return JSON.stringify(value); }
+function cloneCapability(capability: OverviewCapability): OverviewCapability { return { ...capability, ...(capability.flowRefs ? { flowRefs: capability.flowRefs.map((reference) => ({ ...reference })) } : {}) }; }
+function cloneGroup(group: OverviewGroup): OverviewGroup { return { ...group, capabilities: group.capabilities.map(cloneCapability) }; }
+function cloneDocument(document: OverviewDocument): OverviewDocument { return { ...document, groups: document.groups.map(cloneGroup), ...(document.capabilities ? { capabilities: document.capabilities.map(cloneCapability) } : {}) }; }
+function simpleDiagnostic(code: string, message: string, relatedId?: string): OverviewDslDiagnostic { return { code, category: code.startsWith("OVERVIEW3") ? "variant" : "structure", message, line: 1, column: 1, length: 1, ...(relatedId ? { relatedId } : {}) }; }

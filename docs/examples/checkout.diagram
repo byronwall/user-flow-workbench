@@ -1,4 +1,5 @@
-flow 3
+diagram 1
+type flow
 
 # Semantic graph
 graph checkout "Online checkout"

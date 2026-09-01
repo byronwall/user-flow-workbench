@@ -1,27 +1,33 @@
-# Flow authoring workflow
+# Diagram authoring workflow
 
-Use this runbook for a small or large `.flow` change. It keeps source discovery, semantic checks, and visual review separate.
+Use this runbook for a small or large `.diagram` change. It keeps source discovery, semantic checks, and visual review separate.
 
 ## 1. Scope the request
 
-Write down the requested output path, whether variants are allowed, the entry, action, outcome, and important branches. Read `docs/product-context.md` for a structural change. Search for the relevant handlers and labels before reading whole files. Record the source file that resolves each open question.
+Write down the requested output path and document type. For a flow, record the entry, action, outcome, and important branches. For an overview, record its purpose, status, groups, capabilities, and any ungrouped ideas. Read `docs/product-context.md` for a structural change. Search for relevant handlers and labels before reading whole files. Record the source file that resolves each open question.
 
-## 2. Author one representative flow
+## 2. Author one representative diagram
 
-Read `skills/author-flow-diagrams/references/flow-dsl-base.md`. Read `docs/flow-dsl-spec.md` for variants, positions, parser diagnostics, or a deliberate canonical-format rewrite. Keep the base graph reusable. Use a `handoff` for a transfer and a terminal `deliverable` for a durable outcome. Add a retry branch only when it changes the route, actor, state, or outcome.
+Start every file with `diagram 1` and exactly one type line: `type flow` or `type overview`. Read `skills/author-flow-diagrams/references/flow-dsl-base.md` for the compact branch guide. Read `docs/diagram-dsl-spec.md` for variants, positions, parser diagnostics, overview syntax, or a deliberate canonical-format rewrite.
 
-Keep titles short and details in `body`. Preserve stable IDs. Keep one dominant left-to-right story. Add layout hints only when semantic order or grouping needs help. Leave exact positions out of new files.
+For a flow, keep the base graph reusable. Use a `handoff` for a transfer and a terminal `deliverable` for a durable outcome. Add a retry branch only when it changes the route, actor, state, or outcome. A process still needs an outgoing operational `flow` edge.
+
+For an overview, keep groups ordered and capabilities short. Add `purpose`, `status`, and capability `detail` only when they help the idea. Ungrouped capabilities and an empty draft are valid. Add many safe relative `.diagram` flow references when a capability leads to a detailed flow. Overview capabilities do not need flow edges or goals.
+
+For an overview variant, apply ordered add, remove, set, and unset operations to a cloned base. Materialize and validate the selected view before adoption. Format the selected view as the new base, remove rejected variants, check, and reload. The viewer has no adoption write action.
+
+Keep titles short and details in `body` or `detail`. Preserve stable IDs. Keep one dominant left-to-right story in flows. Add layout hints only when semantic order or grouping needs help. Leave exact positions out of new files.
 
 ## 3. Run the narrow checks
 
 Use the globally installed command when available. Use the checkout fallback when needed:
 
 ```sh
-flow check path/to/flow.flow
-pnpm flow check path/to/flow.flow
+flow check path/to/diagram.diagram
+pnpm flow check path/to/diagram.diagram
 ```
 
-Run `flow check` first. Run `flow format --check` for a new uncommented flow. Preserve comments in an existing source file and report the known formatter limitation if the check fails because canonical formatting removes comments. Run the write form only when a full rewrite is intended.
+Run `flow check` first. Run `flow format --check` for a new uncommented diagram. Preserve comments in an existing source file and report the known formatter limitation if the check fails because canonical formatting removes comments. Run the write form only when a full rewrite is intended.
 
 For a production flow in this repository, also run:
 
@@ -38,7 +44,7 @@ Fix the narrowest failing source issue and rerun its check. Stop after an unchan
 The smallest render command is:
 
 ```sh
-flow render path/to/flow.flow --output path/to/preview.png
+flow render path/to/diagram.diagram --output path/to/preview.png
 ```
 
 For a directory:
@@ -49,7 +55,7 @@ flow render path/to/flows --output-dir path/to/previews
 
 Add `--variant ID`, `--width PIXELS`, `--height PIXELS`, `--scale RATIO`, `--overwrite`, or `--json` when needed. Add `--contact-sheet` and `--report PATH` for a directory. Contact sheets are PNG by default. Each successful tile keeps the native pixels of its source PNG. A larger `--scale` therefore increases both the source previews and the sheet pixels. Pass a `.svg` path to request SVG output. Large directories split into numbered page files. The renderer uses a local Chrome or Chromium executable. Pass `--browser PATH` for one invocation, or set `FLOW_WORKBENCH_BROWSER` for a local executable outside the standard paths. It never downloads a browser and uses a fresh profile for each capture.
 
-Retry a plausible transient startup failure once. Do not retry an unchanged failure blindly. Investigate its cause, use `flow view` when useful, and continue other bounded work. Keep the source unchanged during capture.
+Retry a plausible transient startup failure once. Do not retry an unchanged failure blindly. Investigate its cause, use `flow view` when useful, and continue other bounded work. Keep the source unchanged during capture. For a directory, use `--contact-sheet` and inspect both the sheet and representative images.
 
 ## 5. Report evidence
 
