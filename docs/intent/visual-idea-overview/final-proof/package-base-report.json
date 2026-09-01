@@ -1,0 +1,76 @@
+{
+  "source": "/private/tmp/diagram-m4-final.qBJcLb",
+  "view": "base",
+  "dimensions": {
+    "width": 1200,
+    "height": 800,
+    "scale": 1
+  },
+  "results": [
+    {
+      "source": "fixtures/broken-link.diagram",
+      "type": "overview",
+      "sourceHash": "006f38f3540da39de87d2ce5e7fbd5a966fab53821c50c365f4369d4371ac18d",
+      "view": "base",
+      "output": "/private/tmp/diagram-m4-final-captures.qBJcLb/base/fixtures/broken-link.png",
+      "width": 1200,
+      "height": 800,
+      "scale": 1,
+      "layoutEngine": "css-board",
+      "warnings": [],
+      "status": "success"
+    },
+    {
+      "source": "fixtures/wrong-type-link.diagram",
+      "type": "overview",
+      "sourceHash": "abc2d6074fcd0aa919d81ee3db0f55a7b072e91e196991440f450b0f777eea80",
+      "view": "base",
+      "output": "/private/tmp/diagram-m4-final-captures.qBJcLb/base/fixtures/wrong-type-link.png",
+      "width": 1200,
+      "height": 800,
+      "scale": 1,
+      "layoutEngine": "css-board",
+      "warnings": [],
+      "status": "success"
+    },
+    {
+      "source": "fixtures/wrong-type-target.diagram",
+      "type": "overview",
+      "sourceHash": "e5ce4e4072df9320d40ff722cbaff2f75bd92ad0f67a1798e3b7daff15df3139",
+      "view": "base",
+      "output": "/private/tmp/diagram-m4-final-captures.qBJcLb/base/fixtures/wrong-type-target.png",
+      "width": 1200,
+      "height": 800,
+      "scale": 1,
+      "layoutEngine": "css-board",
+      "warnings": [],
+      "status": "success"
+    },
+    {
+      "source": "flow.diagram",
+      "type": "flow",
+      "sourceHash": "26ed962d67e8bb32b181db99adda12a14d662765a1ec57c58fd1678adcdd51d2",
+      "view": "base",
+      "output": "/private/tmp/diagram-m4-final-captures.qBJcLb/base/flow.png",
+      "width": 1200,
+      "height": 800,
+      "scale": 1,
+      "layoutEngine": "elk",
+      "warnings": [],
+      "status": "success"
+    },
+    {
+      "source": "overview.diagram",
+      "type": "overview",
+      "sourceHash": "1dd8aa4b56b63be4b92668c40c525442620654f2543461bde7d05c127b927179",
+      "view": "base",
+      "output": "/private/tmp/diagram-m4-final-captures.qBJcLb/base/overview.png",
+      "width": 1200,
+      "height": 800,
+      "scale": 1,
+      "layoutEngine": "css-board",
+      "warnings": [],
+      "status": "success"
+    }
+  ]
+}

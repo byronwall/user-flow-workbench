@@ -1,0 +1,1097 @@
+{
+  "schema_version": "0.4.0",
+  "initiative": {
+    "title": "Visual idea overview",
+    "slug": "visual-idea-overview",
+    "scale": "capability",
+    "current_phase": "plan",
+    "last_updated": "2026-08-31",
+    "summary": "Help Byron reduce possible app capabilities to a clear working scope through agent conversation and a readable visual overview.",
+    "execution_status": "completed",
+    "authorization": "Byron approved implementation and accepted the running overview unchanged on 2026-08-30."
+  },
+  "artifacts": {
+    "intent_brief": {
+      "path": "intent-brief.md",
+      "status": "current",
+      "updated_at": "2026-08-30",
+      "approval": "Underlying intent confirmed by the user; this file records that agreement."
+    },
+    "brainstorm": {
+      "path": "brainstorm.md",
+      "status": "not-requested",
+      "updated_at": null
+    },
+    "shape_brief": {
+      "path": "shape-brief.md",
+      "status": "current",
+      "updated_at": "2026-08-30",
+      "approval": "Approved through the wireframes and running preview."
+    },
+    "implementation_plan": {
+      "path": "implementation-plan.md",
+      "status": "current",
+      "updated_at": "2026-08-31",
+      "approval": "Implementation authorized and completed. All four milestones verified; final browser recheck passed on 2026-08-31."
+    }
+  },
+  "sources": [
+    {
+      "id": "user-original",
+      "type": "conversation",
+      "location": "Current task: initial user request",
+      "anchor": "I am now wanting to expand it a bit to capture a bigger picture sense of goals/features.",
+      "authority": "direct-user"
+    },
+    {
+      "id": "user-primary",
+      "type": "conversation",
+      "location": "Current task: user message beginning Thoughts:, answer 1",
+      "anchor": "I am most likely to use this tool to make sense of ideas before building them.",
+      "authority": "direct-user"
+    },
+    {
+      "id": "user-problem",
+      "type": "conversation",
+      "location": "Current task: Thoughts:, answer 2",
+      "anchor": "Agents are too good at generating lots of \"high value looking\" text but it quickly overwhelms me.",
+      "authority": "direct-user"
+    },
+    {
+      "id": "user-compression",
+      "type": "conversation",
+      "location": "Current task: Thoughts:, answer 3",
+      "anchor": "Basically a clean diagram forces a compression of the idea.",
+      "authority": "direct-user"
+    },
+    {
+      "id": "user-clean-state",
+      "type": "conversation",
+      "location": "Current task: Thoughts:, answer 4",
+      "anchor": "I really want to move between \"clean states\" and avoid having a bunch of fallbacks and alternatives.",
+      "authority": "direct-user"
+    },
+    {
+      "id": "user-time-horizon",
+      "type": "conversation",
+      "location": "Current task: Thoughts:, answer 5",
+      "anchor": "I plan \"just in time\".",
+      "authority": "direct-user"
+    },
+    {
+      "id": "user-reality",
+      "type": "conversation",
+      "location": "Current task: Thoughts:, answer 5",
+      "anchor": "For things that are built, I want the flows and docs to represent reality, primarily.",
+      "authority": "direct-user"
+    },
+    {
+      "id": "user-agent",
+      "type": "conversation",
+      "location": "Current task: Thoughts:, answer 6",
+      "anchor": "I will basically never hand edit the DSL files.",
+      "authority": "direct-user"
+    },
+    {
+      "id": "user-navigation",
+      "type": "conversation",
+      "location": "Current task: Thoughts:, answer 7",
+      "anchor": "My guess is that I am more interested in general navigation than a full workflow viewer and manager.",
+      "authority": "direct-user-tentative"
+    },
+    {
+      "id": "user-comparison",
+      "type": "conversation",
+      "location": "Current task: Thoughts:, answer 8",
+      "anchor": "I am also interested in seeing variations where there are legit choices to consider. I do not need discarded ideas.",
+      "authority": "direct-user"
+    },
+    {
+      "id": "user-confirmation",
+      "type": "conversation",
+      "location": "Current task: request to proceed with sleuth artifacts",
+      "anchor": "That reads like a very good understanding of what I want.",
+      "authority": "direct-user-confirmation"
+    },
+    {
+      "id": "user-isolation",
+      "type": "conversation",
+      "location": "Current task: latest user correction",
+      "anchor": "output these artifacts into a new folder -- do not update other ongoing work",
+      "authority": "direct-user"
+    },
+    {
+      "id": "assistant-revised",
+      "type": "conversation",
+      "location": "Current task: assistant response immediately before user confirmation",
+      "anchor": "I would remove the proposed backlog, proposal lifecycle, discarded-idea archive, and detailed availability tracking from the initial scope.",
+      "authority": "assistant-proposal-confirmed-in-principle"
+    },
+    {
+      "id": "repo-model",
+      "type": "repository",
+      "location": "src/types/graph.ts; src/lib/graph-semantics.ts; src/lib/graph-lint.ts",
+      "anchor": "NODE_TYPES; FlowDocument; projectOperationalGraph; processNodesWithoutOutput",
+      "authority": "current-repository-reality"
+    },
+    {
+      "id": "repo-catalog",
+      "type": "repository",
+      "location": "src/server/flow-catalog.ts; src/types/flow-catalog.ts",
+      "anchor": "discoverFlowPaths; resolveCatalogPath; readFlowDocument; FlowCatalog",
+      "authority": "current-repository-reality"
+    },
+    {
+      "id": "repo-view",
+      "type": "repository",
+      "location": "src/routes/index.tsx; src/components/Workbench.tsx; src/lib/flow-workbench.ts",
+      "anchor": "Home; Workbench; mountFlowWorkbench; restore; SOURCE_STORAGE_KEY",
+      "authority": "current-repository-reality"
+    },
+    {
+      "id": "repo-refresh",
+      "type": "repository",
+      "location": "src/routes/api/graph-events.ts; src/flow-source-reload.ts",
+      "anchor": "FLOW_FILENAME = resume-alignment.flow; import.meta.env.DEV",
+      "authority": "current-repository-reality"
+    },
+    {
+      "id": "repo-cli",
+      "type": "repository",
+      "location": "package.json; src/cli/flow.ts; src/cli/runtime.ts; tsconfig.cli.json",
+      "anchor": "test:dsl; runFlowCli; startOwnedServer; includes src/cli/flow.ts",
+      "authority": "current-repository-reality"
+    },
+    {
+      "id": "repo-guidance",
+      "type": "repository",
+      "location": "AGENTS.md; docs/product-context.md",
+      "anchor": "Preserve user changes; Keep nodes semantic; Treat variants as views",
+      "authority": "project-guidance"
+    },
+    {
+      "id": "user-common-extension",
+      "type": "conversation",
+      "location": "Current task: correction after planning artifacts were produced",
+      "anchor": "I really want to have a single file extension for all these docs with some sort of type metadata inside the file.",
+      "authority": "direct-user"
+    },
+    {
+      "id": "user-manual-update",
+      "type": "conversation",
+      "location": "Current task: latest user correction",
+      "anchor": "The only files are in this repo and the soccer schedule repo. Let's just hand migrate and not add a dedicated migration path",
+      "authority": "direct-user"
+    },
+    {
+      "id": "user-reconcile",
+      "type": "conversation",
+      "location": "Current task: latest request",
+      "anchor": "Reconcile the current plan with the oustanding worktree or the most recent commit if it landed.",
+      "authority": "direct-user"
+    },
+    {
+      "id": "repo-release-020",
+      "type": "git-commit",
+      "location": "c1d47705f00db2167e1e4661043c641f1b743eec",
+      "anchor": "Release 0.2.0 with PNG flow rendering and contact sheets",
+      "authority": "current-repository-reality"
+    },
+    {
+      "id": "repo-verification-020",
+      "type": "repository",
+      "location": "docs/intent/flow-authoring-efficiency/verification-record.md",
+      "anchor": "Contact-sheet resolution follow-up: nine renders, 35 tests, typecheck, and package build passed.",
+      "authority": "prior-agent-verification-not-rerun"
+    },
+    {
+      "id": "repo-soccer-gate",
+      "type": "repository-working-tree",
+      "location": "/Users/byronwall/Projects/soccer-schedule/app/scripts/check-docs.ts; AGENTS.md; app/package.json",
+      "anchor": "isFlowFile accepts .flow; check:docs; installed flow command resolution; mixed changes require full verify.",
+      "authority": "direct-read-current-working-tree"
+    },
+    {
+      "id": "installed-skill-diff",
+      "type": "local-comparison",
+      "location": "skills/author-flow-diagrams and /Users/byronwall/.codex/skills/author-flow-diagrams",
+      "anchor": "Compact/full reference bytes match; installed SKILL.md lacks latest contact-sheet paragraph; agents/openai.yaml has local wording differences.",
+      "authority": "direct-read-current-files"
+    },
+    {
+      "id": "user-wireframes",
+      "type": "conversation",
+      "location": "Current task: latest request",
+      "anchor": "Review the plan and build some wireframes to show how the new content will integrate with existing UI.",
+      "authority": "direct-user"
+    },
+    {
+      "id": "live-ui-wireframe-baseline",
+      "type": "browser-observation",
+      "location": "wireframes/current-ui.png; local viewer at http://127.0.0.1:4187",
+      "anchor": "Live flow viewer has toolbar, view tabs, canvas, and fixed right inspector. All flows navigation produced Uncaught Client Exception.",
+      "authority": "direct-browser-observation"
+    }
+  ],
+  "intent": {
+    "claims": [
+      {
+        "id": "purpose",
+        "type": "outcome",
+        "statement": "Understand possible app capabilities before building detailed behavior.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "user-primary",
+          "user-confirmation"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "overload",
+        "type": "problem",
+        "statement": "Agent-generated detail overwhelms product judgment and can precede clear intent.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "proof",
+        "sources": [
+          "user-problem"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "visual",
+        "type": "desired experience",
+        "statement": "Use visual compression and brief glances to understand and reduce scope.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "proof",
+        "sources": [
+          "user-compression"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "simple-flows",
+        "type": "sequence",
+        "statement": "Pare ideas down, then develop simple MVP flows.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "user-primary"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "conversation",
+        "type": "required behavior",
+        "statement": "An agent edits source while Byron reviews the visual and discusses revisions.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "user-agent"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "clean-state",
+        "type": "preference",
+        "statement": "Keep a current working direction and remove rejected possibilities from the active representation.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "user-clean-state",
+          "user-comparison"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "alternatives",
+        "type": "required behavior",
+        "statement": "Support temporary variations for legitimate choices without a discarded-ideas archive.",
+        "commitment": "explicit",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "after source iteration",
+        "sources": [
+          "user-comparison"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "reality",
+        "type": "required behavior",
+        "statement": "Documents for built systems primarily describe reality; open plans describe the likely intended state.",
+        "commitment": "explicit",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "secondary use",
+        "sources": [
+          "user-reality"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "just-in-time",
+        "type": "preference",
+        "statement": "Plan close to implementation and avoid maintaining long-lived idea backlogs.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "user-time-horizon"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "links",
+        "type": "preference",
+        "statement": "Start with navigation between capabilities and relevant flows.",
+        "commitment": "tentative",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "after source iteration",
+        "sources": [
+          "user-navigation",
+          "user-confirmation"
+        ],
+        "confidence": "medium"
+      },
+      {
+        "id": "no-manual-dsl",
+        "type": "anti-goal",
+        "statement": "Do not require Byron to hand-edit the DSL.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "user-agent"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "no-manager",
+        "type": "anti-goal",
+        "statement": "Exclude proposal lifecycles, delivery tracking, and discarded-idea management.",
+        "commitment": "derived",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "user-time-horizon",
+          "user-clean-state",
+          "assistant-revised",
+          "user-confirmation"
+        ],
+        "confidence": "medium"
+      },
+      {
+        "id": "resume-example",
+        "type": "example",
+        "statement": "The resume project is a useful example of unclear intent before implementation.",
+        "commitment": "illustrative",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "proof",
+        "sources": [
+          "user-problem"
+        ],
+        "confidence": "medium"
+      },
+      {
+        "id": "source-authority",
+        "type": "derived implication",
+        "statement": "Overview semantic content should be source-authoritative so agent edits cannot be hidden by browser copies.",
+        "commitment": "derived",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "user-agent",
+          "repo-view"
+        ],
+        "confidence": "medium"
+      },
+      {
+        "id": "separate-model",
+        "type": "implementation hypothesis",
+        "statement": "Use a separate overview type and board, preserving operational flow semantics.",
+        "commitment": "derived",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "repo-model",
+          "repo-view"
+        ],
+        "confidence": "provisional"
+      },
+      {
+        "id": "source-format",
+        "type": "implementation hypothesis",
+        "statement": "Use a versioned sibling .overview format after the visual proof.",
+        "commitment": "tentative",
+        "importance": "supporting",
+        "status": "superseded",
+        "time_horizon": "after visual proof",
+        "sources": [
+          "user-agent",
+          "repo-catalog"
+        ],
+        "confidence": "provisional",
+        "superseded_by": "common-extension"
+      },
+      {
+        "id": "small-groups",
+        "type": "implementation hypothesis",
+        "statement": "Start with one group level and a few groups; impose no fixed capability-count limit.",
+        "commitment": "tentative",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "proof",
+        "sources": [
+          "user-compression"
+        ],
+        "confidence": "provisional"
+      },
+      {
+        "id": "flow-compatibility",
+        "type": "constraint",
+        "statement": "Preserve graph meaning and flow viewer behavior while hand-updating known files and references to .diagram in the two repositories.",
+        "commitment": "derived",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "all milestones",
+        "sources": [
+          "repo-guidance",
+          "repo-model",
+          "repo-cli",
+          "user-common-extension",
+          "user-manual-update"
+        ],
+        "confidence": "medium",
+        "notes": "Earlier assumption of keeping .flow source contracts unchanged is superseded by the explicit common-extension requirement."
+      },
+      {
+        "id": "docs-only",
+        "type": "constraint",
+        "statement": "Create intent, shape, implementation, and machine-state documentation; do not implement this initiative now.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "current task",
+        "sources": [
+          "user-confirmation",
+          "user-original"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "isolation",
+        "type": "constraint",
+        "statement": "Write all artifacts to the new initiative folder and leave other ongoing work unchanged.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "current task",
+        "sources": [
+          "user-isolation"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "common-extension",
+        "type": "decision",
+        "statement": "Use one .diagram extension for flows and overviews. Require diagram 1 and type flow or type overview metadata; select separate semantics by type.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first source-file release",
+        "sources": [
+          "user-common-extension"
+        ],
+        "confidence": "high",
+        "notes": "The user required a common extension and delegated its selection. The assistant selected .diagram. Payload details remain provisional."
+      },
+      {
+        "id": "manual-file-update",
+        "type": "decision",
+        "statement": "Hand-update existing files in this repository and the soccer schedule repository. Do not build migration tooling or a legacy compatibility path.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "common-format implementation",
+        "sources": [
+          "user-manual-update"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "ui-integration-scope",
+        "type": "implementation hypothesis",
+        "statement": "Keep existing UI regions and add an overview board with typed toolbar and inspector content, optional view tabs, and flow return context.",
+        "commitment": "tentative",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "wireframe review before running preview",
+        "sources": [
+          "user-wireframes",
+          "live-ui-wireframe-baseline"
+        ],
+        "confidence": "provisional",
+        "notes": "Wireframes are proposed integration, not accepted final layout or completed milestone 1."
+      }
+    ],
+    "themes": [
+      "Visual compression before detail",
+      "Conversation-driven source edits",
+      "Simple build scope",
+      "Clean current states",
+      "Secondary documentation of reality"
+    ],
+    "conflicts": [
+      {
+        "topic": "Capability inventory versus exploration",
+        "resolution": "Exploration is primary; inventory is secondary.",
+        "status": "resolved",
+        "sources": [
+          "user-primary",
+          "user-reality"
+        ]
+      },
+      {
+        "topic": "Preserving alternatives versus clean states",
+        "resolution": "Use temporary views for live choices, then adopt one direction and remove rejected alternatives.",
+        "status": "resolved",
+        "sources": [
+          "user-clean-state",
+          "user-comparison"
+        ]
+      },
+      {
+        "topic": "Keeping .flow unchanged versus a single extension",
+        "resolution": "Hand-update known files to .diagram. Preserve graph meaning; add no migration reader or permanent compatibility path.",
+        "status": "resolved",
+        "sources": [
+          "user-common-extension",
+          "user-manual-update"
+        ]
+      }
+    ],
+    "human_questions": []
+  },
+  "brainstorm": {
+    "status": "not-requested",
+    "requested_count": 7,
+    "options": [],
+    "selected_option": null,
+    "note": "Earlier alternatives were considered in conversation. Do not create a new brainstorming artifact or revive rejected directions."
+  },
+  "shape": {
+    "status": "current",
+    "appetite": "One bounded local overview surface. No elapsed-time budget supplied. First usable boundary is source-driven iteration.",
+    "problem": "Agent detail obscures scope before the user chooses what to build.",
+    "recommended_shape": "A grouped capability overview with source-authoritative edits. Share .diagram envelopes across types, keep semantics separate, and reuse release 0.2.0 capture, report, and authoring infrastructure. Add navigation and temporary base-derived alternatives after the core proof.",
+    "success_moves": [
+      "Prove subtraction before committing to the source syntax.",
+      "Keep the overview renderer separate from the operational flow canvas.",
+      "Use source-authoritative semantic content and explicit refresh recovery.",
+      "Prove one group level before adding hidden or nested content.",
+      "Check hand-edited files in both known repositories and keep the flow viewer usable without overview features."
+    ],
+    "first_proof": {
+      "question": "Can Byron reduce a real idea through visual review without returning to long prose for the essentials?",
+      "artifact": "A running SolidJS overview preview from a small typed fixture based on the resume example, with before and after captures.",
+      "decision_rule": "Proceed only when Byron can identify purpose and major areas, remove or clarify scope, and select a capability for flow work without hidden complexity or lost meaning.",
+      "product_judgment": "Byron approved the running overview unchanged: \"Honestly the mockup looks perfect. I don't think anything needs to change.\" No forced subtraction or fabricated before/after comparison.",
+      "status": "accepted",
+      "excludes": [
+        "new production parser",
+        "comparison engine",
+        "automatic generation",
+        "flow changes",
+        "export pipeline"
+      ],
+      "fallback": "Revise the board or use a static grouped diagram; do not proceed solely because the code renders.",
+      "capture_strategy": "Ordinary browser capture for the typed preview. Adapt existing CLI readiness for source-backed overview capture in M2; no fake flow or second capture system.",
+      "wireframe_status": "Planning wireframes produced and visually inspected. These do not complete the running-preview product proof.",
+      "implementation_evidence": "proof/README.md; isolated /overview-preview route; typed resume fixture; initial captures at 1440x900 and 1280x800."
+    },
+    "rabbit_holes": [
+      "Proposal and backlog management",
+      "A universal product graph",
+      "Nested variants",
+      "Automatic impact analysis",
+      "In-app agent service",
+      "Hidden feature inventories behind broad labels"
+    ],
+    "open_decisions": [],
+    "gate": {
+      "intent_ready": true,
+      "plan_ready": true,
+      "visual_proof_passed": false,
+      "note": "Plan-ready means the next proof is specified, not that its result is assumed."
+    },
+    "file_contract": {
+      "extension": ".diagram",
+      "header": "diagram 1",
+      "type_field": "type flow | type overview",
+      "normal_discovery": "Only .diagram after the known files are updated by hand",
+      "legacy_policy": "No migration command, converter, legacy reader, or old-path redirect",
+      "payload_status": "Provisional; retain existing flow body syntax where possible",
+      "existing_file_scope": [
+        "This repository",
+        "Soccer schedule repository; locate its actual checkout before implementation"
+      ]
+    },
+    "current_reuse": [
+      "Owned CLI runtime",
+      "CDP browser capture",
+      "Native-size PNG/SVG contact sheets",
+      "Storage-free render mode",
+      "Compact authoring reference and distributed specification",
+      "Soccer documentation gate"
+    ],
+    "ui_integration": {
+      "status": "proposed-for-review",
+      "new_main_surface": "Grouped capability board",
+      "adapted_surfaces": [
+        "Document picker",
+        "Type-specific toolbar",
+        "Right inspector/source tab",
+        "Conditional overview variant row",
+        "Conditional flow return row"
+      ],
+      "excluded": [
+        "Project navigation sidebar",
+        "Feature-edit forms",
+        "Backlog controls",
+        "Embedded chat",
+        "Adoption UI"
+      ],
+      "artifacts": [
+        "ui-scope-review.md",
+        "wireframes/index.html"
+      ]
+    }
+  },
+  "implementation": {
+    "status": "current",
+    "repository_snapshot": {
+      "root": "/Users/byronwall/Projects/user-flow-workbench",
+      "revision": "c1d47705f00db2167e1e4661043c641f1b743eec",
+      "branch": "main",
+      "package_version": "0.2.0",
+      "worktree_status": "CLI and skill work committed during this review; only this planning folder remains untracked.",
+      "observed_status": [
+        "## main...origin/main [ahead 1]",
+        "?? docs/intent/visual-idea-overview/"
+      ],
+      "subsystems": [
+        {
+          "path": "src/cli/runtime.ts",
+          "finding": "Owned local server startup uses /api/flows?launch=... and confirmed child cleanup."
+        },
+        {
+          "path": "src/cli/cdp.ts",
+          "finding": "Existing local browser capture checks exact requested URL and __flowWorkbenchReady; layoutEngine currently elk/fallback/authored."
+        },
+        {
+          "path": "src/cli/contact-sheet.ts",
+          "finding": "PNG default, native tile dimensions, SVG optional, pages of twelve."
+        },
+        {
+          "path": "src/cli/flow.ts",
+          "finding": "File and batch rendering, variant selection, source protection, hashes, pure JSON, and cleanup are reusable. Discovery remains .flow-specific."
+        },
+        {
+          "path": "src/components/Workbench.tsx; src/lib/flow-workbench.ts",
+          "finding": "render=1 sets capture styles and persist:false; interactive flow storage remains source-signature checked."
+        },
+        {
+          "path": "src/server/flow-catalog.ts; src/routes/index.tsx; src/routes/api/flows.ts",
+          "finding": "Flow-only discovery and picker; source-level token mismatch between startup-protected catalog endpoint and ordinary picker request needs integration verification."
+        },
+        {
+          "path": "skills/author-flow-diagrams; docs/flow-authoring-workflow.md",
+          "finding": "Compact staged reading, distributed syntax authority/example, comments caveat, evidence labels, narrow checks, and bounded retries already exist."
+        },
+        {
+          "path": "src/routes/api/graph-events.ts",
+          "finding": "Still watches only resume-alignment.flow in development; arbitrary overview refresh remains new work."
+        }
+      ],
+      "test_commands": [
+        "pnpm test:dsl",
+        "pnpm typecheck",
+        "pnpm check:flows",
+        "pnpm build",
+        "pnpm prepack"
+      ],
+      "planned_test_command": "pnpm test:overview",
+      "deployment_surfaces": [
+        "Existing packaged local server and package CLI; no publishing authorized."
+      ],
+      "soccer": {
+        "root": "/Users/byronwall/Projects/soccer-schedule",
+        "revision": "78547b6",
+        "state": "Documentation gate, formatter, instructions, and nine flow sources remain uncommitted.",
+        "gate": "pnpm -C app check:docs",
+        "mixed_change_gate": "pnpm -C app verify",
+        "constraint": "Preserve existing work; update .flow classification to .diagram during implementation."
+      }
+    },
+    "dependencies": [
+      {
+        "id": "local-files",
+        "name": "Workspace document filesystem",
+        "material": true,
+        "application_seam": "Common diagram envelope and secure typed reader integrated with existing CLI discovery, capture dispatch, and catalog contracts.",
+        "first_proof_role": {
+          "mode": "local-substitute",
+          "rationale": "The first visual consumes a typed fixture. Real arbitrary-root loading enters only after that proof."
+        },
+        "failure_modes": [
+          "Malformed edit",
+          "Missing file",
+          "Traversal or symlink path",
+          "Unsupported version",
+          "Late response after newer source",
+          "Missing or unknown type",
+          "Type/body mismatch",
+          "Stale installed skill or CLI does not recognize .diagram",
+          "Soccer gate misclassifies .diagram as application source"
+        ],
+        "proof_rungs": [
+          "local-fixture",
+          "temporary-filesystem-tests",
+          "controlled-response-tests",
+          "local-packaged-server-smoke"
+        ],
+        "local_proof": "Temporary-root tests cover type dispatch, secure loading, export round trips, and refresh ordering. Existing validation and capture inspect manually updated files in both repositories.",
+        "live_proof": "Actual local packaged server, ordinary picker, package CLI entry, and both-type render/report smoke. Reuse existing capture infrastructure.",
+        "rollout": "Update the reader and known files together. Remove the overview UI independently. If verification fails, restore only this initiative's code and file edits together."
+      },
+      {
+        "id": "flow-viewer",
+        "name": "Existing flow viewer",
+        "material": true,
+        "application_seam": "Validated .diagram references requiring type flow, with safe return context and existing flow method names.",
+        "first_proof_role": {
+          "mode": "absent",
+          "rationale": "The overview compression proof requires no operational flow navigation."
+        },
+        "failure_modes": [
+          "Missing target flow",
+          "Unknown target variant",
+          "Invalid return path",
+          "Browser-local working copy differs from source",
+          "Removed selected capability on return",
+          "A flow reference resolves to an overview document"
+        ],
+        "proof_rungs": [
+          "reference-resolution-tests",
+          "local-browser-navigation",
+          "flow-interaction-regression"
+        ],
+        "local_proof": "Exercise secure reference resolution with fixtures; check existing reset-to-source behavior before linking.",
+        "live_proof": "Actual local browser verifies navigation, Back, refresh, return context, and unchanged flow pointer behavior. No hosted environment required.",
+        "rollout": "Keep the flow renderer and standalone flow-type documents usable independently of overview links. Report migrated paths explicitly."
+      },
+      {
+        "id": "existing-capture",
+        "name": "Release 0.2.0 local browser capture",
+        "material": true,
+        "application_seam": "Existing runtime.ts, cdp.ts BrowserPage, and contact-sheet.ts with a small document-type readiness adapter.",
+        "first_proof_role": {
+          "mode": "absent",
+          "rationale": "The typed-preview proof uses ordinary browser inspection. The existing CLI is adapted after source integration, not forced to accept a fake flow."
+        },
+        "failure_modes": [
+          "Wrong page reports stale readiness",
+          "Board reports a false ELK layout identifier",
+          "Capture writes browser storage",
+          "Mixed batch silently drops a document",
+          "Source alias overwritten",
+          "Child process cleanup not confirmed",
+          "Contact sheet loses native image pixels"
+        ],
+        "proof_rungs": [
+          "existing-cli-regression-tests",
+          "type-dispatch-tests",
+          "local-packaged-browser-smoke",
+          "image-inspection"
+        ],
+        "local_proof": "Retain current deterministic CLI tests. Add both-type readiness, report, variant, and source-protection coverage.",
+        "live_proof": "Use the existing local executable for file and mixed-directory captures. Inspect PNG/SVG sheets and individual images. No cloud or new browser distribution.",
+        "rollout": "Preserve flow capture while adding board readiness and layout metadata. Remove overview capture dispatch independently; keep the existing renderer."
+      }
+    ],
+    "fast_local_loop": {
+      "command": "pnpm dev",
+      "network_required": false,
+      "shared_infrastructure_required": false,
+      "prerequisite": "Project dependencies already installed.",
+      "focused_checks": [
+        "pnpm typecheck",
+        "pnpm test:dsl",
+        "pnpm test:overview (to be added)"
+      ],
+      "failure_injection": [
+        "Malformed fixture source",
+        "Missing file",
+        "Out-of-order responses",
+        "Removed selected capability",
+        "Missing flow variant"
+      ],
+      "slower_confirmation": "pnpm build and pnpm prepack; package CLI symlink smoke; file and mixed-type render; native-size PNG/SVG contact sheet inspection.",
+      "environment_note": "Fresh pnpm test:dsl and pnpm typecheck attempts stopped before project execution with ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY during dependency refresh. Do not force an install in this documentation task."
+    },
+    "milestones": [
+      {
+        "id": "M1",
+        "title": "A visual discussion produces smaller, clearer scope",
+        "outcome": "Byron can inspect and reduce a real idea from a readable overview.",
+        "dependencies_introduced": [],
+        "proof": "Byron reviews before/after visuals from ordinary browser capture. Report STRUCTURAL, SOURCE, and VISUAL evidence separately; no new screenshot pipeline.",
+        "valid_intermediate_state": "An isolated preview works while the flow viewer remains unchanged.",
+        "rollback": "Remove the preview; use a static grouped diagram if the interactive proof fails.",
+        "status": "completed"
+      },
+      {
+        "id": "M2",
+        "title": "Agent source edits reliably change the overview",
+        "outcome": "Both types use .diagram with explicit metadata; agent editing, checking, and refresh form a usable source loop.",
+        "dependencies_introduced": [
+          "local-files"
+        ],
+        "proof": "Common-format and refresh tests; known-file checks; existing render/cleanup regressions; both-type packaged capture; native-size PNG/SVG sheets; skill distribution parity; soccer gate update under its mixed-change policy.",
+        "valid_intermediate_state": "Both types use .diagram with source-driven viewing and existing CLI capture. Known files and authoring/verification consumers are updated without migration tooling.",
+        "rollback": "Removing the overview UI leaves flows usable. If the format change fails verification, restore only this initiative's code and file edits together.",
+        "status": "completed",
+        "reuses_existing_dependencies": [
+          "existing-capture"
+        ]
+      },
+      {
+        "id": "M3",
+        "title": "A capability opens relevant flows and returns to context",
+        "outcome": "Optional references provide navigation without an impact-management layer.",
+        "dependencies_introduced": [
+          "flow-viewer"
+        ],
+        "proof": "Browser navigation, safe return, missing and wrong-type targets, migrated file paths, local working-copy visibility, and flow interaction regression.",
+        "valid_intermediate_state": "Both the overview and standalone flows remain independently usable.",
+        "rollback": "Remove overview flow links and return controls; preserve standalone flow URLs.",
+        "status": "completed"
+      },
+      {
+        "id": "M4",
+        "title": "A real alternative becomes the single current direction",
+        "outcome": "Temporary base-derived views support a choice and are removed after adoption.",
+        "dependencies_introduced": [],
+        "proof": "Materialization/adoption tests; browser isolation; requested overview variant in existing CLI capture and report; removed-variant recovery.",
+        "valid_intermediate_state": "A selected base overview survives without rejected alternatives or a lifecycle system.",
+        "rollback": "Remove optional variants; keep the chosen base and all standalone flows.",
+        "status": "completed"
+      }
+    ],
+    "cut_line": [
+      "Proposal lifecycle and backlog",
+      "History and discarded ideas",
+      "Automatic reality verification",
+      "Cross-flow impact analysis",
+      "Automatic flow generation",
+      "In-app agents and credentials",
+      "New database or cloud services",
+      "Universal graph engine",
+      "Deep grouping",
+      "Manual overview positions",
+      "Migration tooling, legacy readers, old-path redirects, and browser-storage migration",
+      "Second image capture or contact-sheet pipeline; reuse the existing implementation instead"
+    ],
+    "open_decisions": [
+      {
+        "id": "visual-gate",
+        "kind": "product-proof",
+        "question": "Does the first visual actually support scope reduction?",
+        "evidence": "User approved the running preview unchanged and did not request scope edits.",
+        "decision_output": "Continue to source integration, revise the board, or retain a static diagram.",
+        "fallback": "Do not build the parser when visual compression fails.",
+        "blocks": "M2, not M1",
+        "status": "accepted"
+      }
+    ],
+    "execution_status": "completed",
+    "prior_repository_snapshots": [
+      {
+        "root": "/Users/byronwall/Projects/user-flow-workbench",
+        "revision": "8382e4a136b8cf5a25fc458b17383d3b29ddee69",
+        "branch": "main",
+        "worktree_status": "Dirty before this initiative; concurrent authoring/render work remains in progress. Do not treat HEAD alone as the inspected source.",
+        "observed_status": [
+          " M README.md",
+          " M docs/flow-dsl-spec.md",
+          " M docs/product-context.md",
+          " M skills/author-flow-diagrams/SKILL.md",
+          " M src/cli/flow.test.ts",
+          " M src/cli/flow.ts",
+          " M src/components/Workbench.tsx",
+          " M src/lib/flow-workbench.ts",
+          " M src/routes/api/flows.ts",
+          " M src/styles.css",
+          "?? docs/flow-authoring-workflow.md",
+          "?? docs/intent/",
+          "?? skills/author-flow-diagrams/references/",
+          "?? src/cli/cdp.ts",
+          "?? src/cli/contact-sheet.ts",
+          "?? src/cli/runtime.ts"
+        ],
+        "subsystems": [
+          {
+            "path": "src/types/graph.ts",
+            "finding": "FlowDocument fixes DSL 3 and schema 5; operational graph types are unsuitable for standalone capabilities."
+          },
+          {
+            "path": "src/lib/flow-workbench.ts",
+            "finding": "Imperative flow renderer owns semantic columns, pointer behavior, variants, and source-signature-checked browser storage."
+          },
+          {
+            "path": "src/server/flow-catalog.ts",
+            "finding": "Discovery and loading accept .flow only; share security boundaries without changing the flow response contract."
+          },
+          {
+            "path": "src/routes/index.tsx",
+            "finding": "Picker and selected-document loading use ?flow= and current flow APIs."
+          },
+          {
+            "path": "src/routes/api/graph-events.ts",
+            "finding": "Development-only watcher targets one resume file, not arbitrary workspace documents."
+          },
+          {
+            "path": "src/cli/flow.ts; src/cli/runtime.ts",
+            "finding": "In-flight render/runtime additions exist. Preserve current contracts and recheck before sharing code."
+          }
+        ],
+        "test_commands": [
+          "pnpm typecheck",
+          "pnpm test:dsl",
+          "pnpm build",
+          "pnpm flow view <fixture-root>"
+        ],
+        "planned_test_command": "pnpm test:overview",
+        "deployment_surfaces": [
+          "Existing local packaged SolidStart server; no deployment planned."
+        ]
+      }
+    ]
+  },
+  "history": [
+    {
+      "date": "2026-08-30",
+      "event": "Recovered confirmed intent from the user's eight answers.",
+      "effect": "Prioritized visual scope reduction and agent conversation over catalog management."
+    },
+    {
+      "date": "2026-08-30",
+      "event": "Retired earlier proposal-lifecycle and persistent-alternative suggestions.",
+      "effect": "No separate brainstorm artifact or implementation backlog for rejected ideas."
+    },
+    {
+      "date": "2026-08-30",
+      "event": "Created intent, shape, and proof-first implementation documents.",
+      "effect": "Plan is current; all implementation milestones remain unstarted."
+    },
+    {
+      "date": "2026-08-30",
+      "event": "User required a new artifact folder and no changes to other ongoing work.",
+      "effect": "All outputs are confined to docs/intent/visual-idea-overview; no edits to product-context or other initiatives."
+    },
+    {
+      "date": "2026-08-30",
+      "event": "User rejected separate .flow and .overview extensions and delegated the common extension choice.",
+      "effect": "Selected .diagram with required type metadata. Superseded the separate-format assumption; revised intent, shape, and plan together. Added migration and type-dispatch checks. All edits remain in the new artifact folder."
+    },
+    {
+      "date": "2026-08-30",
+      "event": "User limited existing files to two repositories and requested manual updates.",
+      "effect": "Removed the migration tool, dry run, legacy reader, and separate migration gate from the current plan. Retained file/reference edits and ordinary verification. No source files changed."
+    },
+    {
+      "date": "2026-08-30",
+      "event": "Reconciled against release 0.2.0, which committed during the review.",
+      "effect": "Replaced stale unfinished-tooling assumptions. Reused runtime/capture/contact sheets and staged authoring guidance. Added installed-skill and soccer gate integration. Preserved product intent, .diagram, and manual updates."
+    },
+    {
+      "date": "2026-08-30",
+      "event": "Reviewed UI scope against live flow viewer and built low-fidelity integration wireframes.",
+      "effect": "Added isolated wireframes and UI scope review; linked them from shape and plan. No application files changed; first implementation proof remains unstarted."
+    },
+    {
+      "date": "2026-08-31",
+      "event": "Completed all four milestones after independent browser review and repairs.",
+      "effect": "Preserved approved layout. Shipped shared .diagram sources, source refresh, optional flow navigation, and temporary views. Known sources and skills were hand-updated; no migration tooling, commits, or dependency changes."
+    }
+  ],
+  "validation": {
+    "date": "2026-08-31",
+    "structural_validator": "Passed after reconciliation; zero warnings.",
+    "heuristic_audit": "Completed with no actionable improvements.",
+    "document_links": "Passed",
+    "source_references": "Passed",
+    "scope": "Shared .diagram sources, overview model/viewer, secure loading, CLI capture, navigation, variants, current docs, installed skill, and known soccer sources updated. Unrelated planning preserved.",
+    "application_tests": "Final package build, application and CLI typechecks passed. DSL/catalog/CLI suite: 49 tests. Overview/envelope/navigation/refresh suite: 19 tests. Package-symlink default check: 3 diagrams; temporary mixed-root check: 10 diagrams.",
+    "prior_evidence": "Release 0.2.0 verification record reports 35 tests, typecheck, package build, and nine soccer renders; those results were not rerun here.",
+    "product_proof": "Accepted by Byron unchanged; proceed to M2. No before/after scope reduction was needed or claimed.",
+    "wireframes": "All eight SVG files parse. Independent browser review checked all seven gallery scenes and links. Byron accepted the running overview unchanged.",
+    "running_preview": "Independent browser checks passed at 1440x900 and 1280x800: selection, source parity, reload, picker, flow interaction smoke, and native Chrome CUA keyboard progression. Runtime HMR port collision repaired; fresh browser logs clear. Tool-specific key injection failures did not reproduce with CUA-only input.",
+    "source_integration": "M2 verified: prepack, 42 DSL tests, 13 overview tests, mixed native PNG/SVG capture and pagination, source hashes unchanged, separate browser source edit/recovery/focus tests. Download delivery could not be observed through browser provider; source contents verified.",
+    "adoption": "Installed CLI and maintained/distributed/installed skill verified. All nine soccer graph bodies unchanged; soccer full verify passed 164 tests. See adoption-verification.md.",
+    "final_browser": "Navigation, return, Back, direct URLs, flow and overview selection, wrong-type/missing links, local edits/reset, and adoption recovery passed. Final recheck resolved the earlier false selection report and confirmed Retry and removed-view recovery. See final-proof/final-recheck.md and follow-up-report.md.",
+    "download_limit": "Browser provider did not expose source/JSON download artifacts. Source contents verified; file download delivery remains unconfirmed."
+  },
+  "supporting_artifacts": [
+    {
+      "path": "reconciliation.md",
+      "status": "current",
+      "purpose": "Current commit and soccer working-tree evidence, reusable CLI/skill boundaries, installed drift, and verification limits."
+    },
+    {
+      "path": "ui-scope-review.md",
+      "status": "current",
+      "purpose": "Plan review and per-surface UI scope. Proposed, not implemented."
+    },
+    {
+      "path": "wireframes/index.html",
+      "status": "current",
+      "purpose": "Six low-fidelity scenes, one local-state sheet, and actual current screenshot. Gallery interactions only."
+    },
+    {
+      "path": "wireframes/contact-sheet.svg",
+      "status": "current",
+      "purpose": "At-a-glance comparison of current and proposed screens."
+    },
+    {
+      "path": "proof/README.md",
+      "status": "current",
+      "purpose": "Accepted M1 preview and independent browser evidence."
+    },
+    {
+      "path": "final-proof/README.md",
+      "status": "current",
+      "purpose": "Completed implementation checks, package captures, browser repairs and final passing recheck."
+    }
+  ]
+}

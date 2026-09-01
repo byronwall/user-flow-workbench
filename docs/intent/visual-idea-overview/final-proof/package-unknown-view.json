@@ -1,0 +1,14 @@
+{
+  "source": "overview.diagram",
+  "type": "overview",
+  "sourceHash": "1dd8aa4b56b63be4b92668c40c525442620654f2543461bde7d05c127b927179",
+  "view": "missing-view",
+  "output": "/private/tmp/diagram-m4-final-captures.qBJcLb/unknown.png",
+  "width": 1200,
+  "height": 800,
+  "scale": 1,
+  "layoutEngine": null,
+  "warnings": [],
+  "status": "failed",
+  "error": "Unknown overview variant \"missing-view\"."
+}

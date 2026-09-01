@@ -1,0 +1,37 @@
+{
+  "source": "/private/tmp/diagram-m2.N7IOVb/final-root",
+  "view": "base",
+  "dimensions": {
+    "width": 1200,
+    "height": 800,
+    "scale": 1
+  },
+  "results": [
+    {
+      "source": "flow.diagram",
+      "type": "flow",
+      "sourceHash": "26ed962d67e8bb32b181db99adda12a14d662765a1ec57c58fd1678adcdd51d2",
+      "view": "base",
+      "output": "/private/tmp/diagram-m2.N7IOVb/final-render/flow.png",
+      "width": 1200,
+      "height": 800,
+      "scale": 1,
+      "layoutEngine": "elk",
+      "warnings": [],
+      "status": "success"
+    },
+    {
+      "source": "nested/overview.diagram",
+      "type": "overview",
+      "sourceHash": "c37914f5950f4c667e5595d010cbc45f6d738c5b621abe664f991a371dcfb62c",
+      "view": "base",
+      "output": "/private/tmp/diagram-m2.N7IOVb/final-render/nested/overview.png",
+      "width": 1200,
+      "height": 800,
+      "scale": 1,
+      "layoutEngine": "css-board",
+      "warnings": [],
+      "status": "success"
+    }
+  ]
+}

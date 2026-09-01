@@ -1,0 +1,62 @@
+[
+  {
+    "id": "01-current",
+    "title": "01 / Current flow viewer",
+    "description": "Low-fidelity trace of the inspected flow viewer. Gray marks existing UI; the graph is simplified, not a new design.",
+    "notes": [
+      "Existing: action toolbar, view tabs, flow canvas, and fixed inspector.",
+      "This baseline is traced from the live viewer; graph geometry is simplified.",
+      "Current picker failed to open during inspection; its code supplies the next frame\u2019s starting structure."
+    ]
+  },
+  {
+    "id": "02-picker",
+    "title": "02 / One picker for both types",
+    "description": "Adapt the existing file picker. Document kind is a label, not a new navigation hierarchy.",
+    "notes": [
+      "Change: \u201cAll flows\u201d and \u201cChoose a flow\u201d become \u201cAll diagrams\u201d and \u201cChoose a diagram.\u201d",
+      "Add a type label from metadata; keep the current file-list pattern.",
+      "No project sidebar, folder manager, or global Overview / Flow mode switch."
+    ]
+  },
+  {
+    "id": "03-overview",
+    "title": "03 / New overview, familiar shell",
+    "description": "The new board replaces the flow canvas. Keep the inspector and source tab positions.",
+    "notes": [
+      "New: a grouped board with readable capability titles and one-line purpose.",
+      "Change: source reload replaces node-edit actions; hide flow legend and movement hints.",
+      "Keep the right sidebar width. No duplicate inventory there. Hide view tabs when there are no alternatives."
+    ]
+  },
+  {
+    "id": "04-capability",
+    "title": "04 / Capability detail and a flow link",
+    "description": "Selection changes only the inspector. The board does not reflow.",
+    "notes": [
+      "New inspector content: capability purpose and optional related flow links.",
+      "No Add feature, edit form, status workflow, or embedded chat. Edits stay with the agent.",
+      "A capability without a flow remains valid; show a quiet no-link state."
+    ]
+  },
+  {
+    "id": "05-return",
+    "title": "05 / Existing flow with return context",
+    "description": "Keep the existing flow editor. Add a return row only when entered from an overview.",
+    "notes": [
+      "Change: a small return row preserves overview and capability context.",
+      "Flow canvas, node inspector, editing controls, pan, zoom, and routing stay intact.",
+      "Standalone flows show no return row. An overview is not a required parent."
+    ]
+  },
+  {
+    "id": "06-alternative",
+    "title": "06 / A temporary alternative",
+    "description": "Use the existing view-tab pattern to show one complete idea at a time.",
+    "notes": [
+      "Reuse the existing view-tab location, only when a legitimate choice exists.",
+      "The selected view is complete: no ghost cards, split lanes, or merged alternatives.",
+      "Choosing the final direction remains an agent source edit; no adoption button or archive UI."
+    ]
+  }
+]
