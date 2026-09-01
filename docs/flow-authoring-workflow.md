@@ -12,9 +12,13 @@ Start every file with `diagram 1` and exactly one type line: `type flow` or `typ
 
 For a flow, keep the base graph reusable. Use a `handoff` for a transfer and a terminal `deliverable` for a durable outcome. Add a retry branch only when it changes the route, actor, state, or outcome. A process still needs an outgoing operational `flow` edge.
 
-For an overview, keep groups ordered and capabilities short. Add `purpose`, `status`, and capability `detail` only when they help the idea. Ungrouped capabilities and an empty draft are valid. Add many safe relative `.diagram` flow references when a capability leads to a detailed flow. Overview capabilities do not need flow edges or goals.
+For an overview, keep groups ordered and capabilities short. Add `purpose`, `status`, and capability `detail` only when they help the idea. Ungrouped capabilities and an empty draft are valid. Add many safe relative `.diagram` flow references when a capability leads to a detailed flow. Unsafe references are parse errors and prevent loading. Missing, wrong-type, and unknown-variant safe targets warn while the overview stays usable. Overview capabilities do not need flow edges or goals.
 
-For an overview variant, apply ordered add, remove, set, and unset operations to a cloned base. Materialize and validate the selected view before adoption. Format the selected view as the new base, remove rejected variants, check, and reload. The viewer has no adoption write action.
+The overview flow shelf shows the union of valid flow files in the overview's folder and valid flow references in the active view. It deduplicates by source path and keeps linked capability titles as context. Same-folder discovery is only project inventory; it does not create semantic links. Linked flows carry a validated overview, capability, and view context for their return link.
+
+For an overview variant, apply ordered add, remove, set, and unset operations to a cloned base. Materialize and validate the selected view before adoption. The viewer shows variants read-only. Format the selected view as the new base, remove rejected variants, check, and reload. The viewer has no adoption write action.
+
+The source tab shows read-only canonical source. `Reload source` refreshes a visible or focused overview. If a refresh fails after a valid load, keep the last valid board and mark it stale until a later load succeeds. Browser exports download JSON for flows or `.diagram` source for overviews; source files remain authoritative and browser working copies stay local. Automated browser checks do not verify the browser's download destination.
 
 Keep titles short and details in `body` or `detail`. Preserve stable IDs. Keep one dominant left-to-right story in flows. Add layout hints only when semantic order or grouping needs help. Leave exact positions out of new files.
 
@@ -27,7 +31,7 @@ flow check path/to/diagram.diagram
 pnpm flow check path/to/diagram.diagram
 ```
 
-Run `flow check` first. Run `flow format --check` for a new uncommented diagram. Preserve comments in an existing source file and report the known formatter limitation if the check fails because canonical formatting removes comments. Run the write form only when a full rewrite is intended.
+Run `flow check` first. Check, format, view, and render support directories containing mixed flow and overview `.diagram` files. Pass `--variant ID` to render a named flow or overview view. Run `flow format --check` for a new uncommented diagram. Preserve comments in an existing source file and report the known formatter limitation if the check fails because canonical formatting removes comments. Run the write form only when a full rewrite is intended.
 
 For a production flow in this repository, also run:
 

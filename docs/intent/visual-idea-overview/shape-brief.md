@@ -53,7 +53,7 @@ type overview
 
 A flow uses `type flow` under the same header. The type selects the content parser and viewer. One extension does not require one node model. Retain separate flow and overview semantics behind the shared file envelope.
 
-Hand-edit the existing `.flow` sources in this repository and the soccer schedule repository. Rename them to `.diagram`, update headers and references, and verify their behavior. Preserve graph meaning, stable IDs, variants, and layout. Do not build a migration command, converter, or legacy reader. Normal discovery accepts `.diagram` only. Keep payload details provisional; the shared extension and explicit type are settled.
+The former `.flow` sources in this repository and the soccer schedule repository were renamed to `.diagram`, with headers and references updated by hand. Graph meaning, stable IDs, variants, and layout remain intact. There is no migration command, converter, or legacy reader. Normal discovery accepts `.diagram` only. The shared extension and explicit type are settled.
 
 The overview browser stores view preferences only, never a competing editable content copy. Existing flow browser behavior remains available after migration.
 
@@ -61,16 +61,16 @@ The overview browser stores view preferences only, never a competing editable co
 
 - **Reuse:** The SolidStart application, visual conventions, local server, workspace identity, path checks, and flow navigation URLs.
 - **Preserve:** `FlowDocument` semantics, validation, layout, manual movement, and existing `window.flow` method names.
-- **Add:** A shared diagram envelope, type dispatch, and a small overview board. Update the known files by hand. Later add flow references and base-derived alternatives.
+- **Add:** A shared diagram envelope, type dispatch, a small overview board, secure flow references, and base-derived alternatives. The known files were updated by hand.
 - **Avoid:** Extending the large imperative `mountFlowWorkbench` function to handle another semantic model.
 
-The baseline is release 0.2.0, commit `c1d4770`. Server ownership, browser capture, JSON reports, and native-size PNG/SVG contact sheets now exist. Reuse them after the fixture proof. Add overview type dispatch and capture readiness, not another rendering system. Keep the existing capture mode free of browser-storage writes.
+The baseline is release 0.2.0, commit `c1d4770`. Server ownership, browser capture, JSON reports, and native-size PNG/SVG contact sheets now exist. The completed overview release reuses that path and keeps capture free of browser-storage writes.
 
 The authoring skill now uses a compact reference, optional full specification, and separate structure, source, and visual evidence. Preserve that workflow. Update its maintained and distributed sources when the common format lands. Soccer's new documentation gate must recognize `.diagram`; do not replace it with a new verification system. Details are in the [baseline reconciliation](reconciliation.md).
 
 `src/types/graph.ts` defines operational types. `src/lib/graph-lint.ts` requires an outgoing edge from each process. These rules would distort independent capabilities. The flow canvas also places nodes in semantic columns. A board needs neither those columns nor edge routing.
 
-The current catalog still discovers only `.flow` files. Interactive flow edits use source-signature-checked local storage; CLI capture disables persistence. The development reload endpoint still watches one specific resume file. The CLI improvements do not provide automatic source refresh for arbitrary overview documents.
+The current catalog discovers `.diagram` files and dispatches by their declared type. Interactive flow edits use source-signature-checked local storage; CLI capture disables persistence. Overview refresh is source-backed and visible-page polling keeps a last valid board marked stale after a failed read. Same-folder shelf membership is inventory only; recursive folder-project grouping remains future work.
 
 ## How to make this go better
 

@@ -51,8 +51,8 @@ Run a small documentation request with the available CLI. Record the source read
 ```text
 Date: YYYY-MM-DD
 Request: Validate one representative example without changing source.
-Source read: docs/flow-dsl-spec.md; docs/examples/checkout.flow.
-Commands: pnpm flow check docs/examples/checkout.flow; pnpm flow format --check docs/examples/checkout.flow.
+Source read: docs/diagram-dsl-spec.md; docs/examples/checkout.diagram.
+Commands: pnpm flow check docs/examples/checkout.diagram; pnpm flow format --check docs/examples/checkout.diagram.
 STRUCTURAL: pass/fail and concise output.
 SOURCE: pass/fail and the semantic scope reviewed.
 VISUAL: name the rendered image or viewer image inspected.
@@ -62,7 +62,7 @@ Limit: one known example; no token-saving claim.
 
 ### 2026-08-30 run
 
-The existing checkout example was read with the complete specification and checked with the current CLI. `pnpm flow check docs/examples/checkout.flow` passed in 0.61 seconds. The example contains comments, so `pnpm flow format --check docs/examples/checkout.flow` reported that it is not canonical; the formatter removes comments by design. The production flow passed the canonical check with `pnpm flow format --check src/data/flows/resume-alignment.flow`.
+The existing checkout example was read with the complete specification and checked with the current CLI. `pnpm flow check docs/examples/checkout.diagram` passed in 0.61 seconds. The example contains comments, so `pnpm flow format --check docs/examples/checkout.diagram` reported that it is not canonical; the formatter removes comments by design. The production flow passed the canonical check with `pnpm flow format --check src/data/flows/resume-alignment.diagram`.
 
 `STRUCTURAL`: the checkout parser and linter passed; the canonical formatter behavior was observed and recorded. `SOURCE`: the checkout example keeps separate input, process, handoff, deliverable, need, and UX meaning, with a recovery relation. `VISUAL`: the standard soccer captures passed visual review. Compact renders fit the graph and omit the legend below 480 pixels; compact text can be small, so 1200 × 800 is recommended. Dense existing edge labels can still overlap cards. The rendered report and contact sheet are at `/tmp/flow-render-verify/soccer/report.json` and `/tmp/flow-render-verify/soccer/contact-sheet.svg`. This was one bounded existing-CLI exercise. It provides no comparative token-savings claim.
 

@@ -6,11 +6,11 @@ Homes: `skills/author-flow-diagrams` in User Flow Workbench and the installed co
 
 ## Outcome
 
-An agent loads only the guidance needed for the requested diagram. It produces durable `.flow` source and checks meaning, structure, and presentation separately.
+An agent loads only the guidance needed for the requested diagram. It produces durable `.diagram` source and checks meaning, structure, and presentation separately.
 
 ## Maintained shape
 
-The repository skill is the maintained source. Its compact base reference at `skills/author-flow-diagrams/references/flow-dsl-base.md` gives the short contract and a valid example. The complete DSL specification at `docs/flow-dsl-spec.md` remains the only syntax authority. The copy at `skills/author-flow-diagrams/references/flow-dsl-spec.md` is distributed with the skill for work outside this repository and must stay byte-identical to the maintained specification. The checkout example is copied to `skills/author-flow-diagrams/references/examples/checkout.flow` for the same reason.
+The repository skill is the maintained source. Its compact base reference at `skills/author-flow-diagrams/references/flow-dsl-base.md` gives the short contract and valid examples. The complete DSL specification at `docs/diagram-dsl-spec.md` remains the only syntax authority. The copy at `skills/author-flow-diagrams/references/flow-dsl-spec.md` is distributed with the skill for work outside this repository and must stay byte-identical to the maintained specification. The checkout example is copied to `skills/author-flow-diagrams/references/examples/checkout.diagram` for the same reason.
 
 The skill starts with scoped discovery, then asks for the full specification only for variants, positions, parser diagnostics, or a deliberate canonical-format rewrite. Use the [reusable authoring runbook](../../flow-authoring-workflow.md) for the complete discovery, evidence, measurement, and handoff loop. Preserve the installed skill's cross-project placement and global CLI guidance. Keep user requested output paths and no-variant instructions authoritative.
 
@@ -27,9 +27,11 @@ The skill preserves stable IDs, title and body separation, semantic relations, o
 The runbook is `check → format check → source review → render → inspect → revise`. For new uncommented flows, `format --check` must pass. Preserve comments in existing flows and report the known formatter limitation when canonical formatting rejects them, because the formatter removes comments.
 
 ```sh
-flow render file.flow --output file.png
-flow render flows/ --output-dir previews/
+flow render file.diagram --output file.png
+flow render diagrams/ --output-dir previews/
 ```
+
+The CLI checks, formats, views, and renders mixed directories of flow and overview `.diagram` files. Use `--variant ID` for either document type. Overview shelves discover valid same-folder flows and active-view references; same-folder membership does not create a semantic link. Overview views and source tabs are read-only, while flow edits remain browser-local. Browser export downloads are supported, but automated browser checks do not verify the download destination.
 
 Add `--variant ID`, `--width PIXELS`, `--height PIXELS`, `--scale RATIO`, `--overwrite`, or `--json` when needed. Add `--contact-sheet` and `--report PATH` for a directory. Contact sheets are PNG by default. Successful tiles retain their source PNG pixel dimensions. A larger `--scale` increases both source previews and contact-sheet pixels. Pass a `.svg` path to request SVG output. The renderer uses a local Chrome or Chromium executable. Pass `--browser PATH` for one invocation, or set `FLOW_WORKBENCH_BROWSER` for a local executable outside the standard paths. It never downloads a browser and uses a fresh profile for each capture. Inspect a set overview plus representative branched flows. Use individual images when a contact sheet makes titles too small. Record which views were inspected.
 

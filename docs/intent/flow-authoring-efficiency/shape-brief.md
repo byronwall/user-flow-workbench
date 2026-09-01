@@ -28,7 +28,7 @@ The installed authoring skill differs from the repository copy. Reconcile these 
 
 ## First proof
 
-Render one branched `.flow` file to PNG with the installed CLI from another directory. Use a fresh browser context. Confirm readable titles, complete graph bounds, visible branch labels, and source preservation. Repeat at the same viewport. Reject an implementation that needs manual browser clicks or screenshots incomplete layout.
+Render one branched `.diagram` file to PNG with the installed CLI from another directory. Use a fresh browser context. Confirm readable titles, complete graph bounds, visible branch labels, and source preservation. Repeat at the same viewport. Reject an implementation that needs manual browser clicks or screenshots incomplete layout.
 
 ## Rabbit holes and no-gos
 

@@ -13,7 +13,7 @@ Reuse `src/cli/flow.ts`, `src/server/flow-catalog.ts`, `src/components/FlowCanva
 Proposed interface:
 
 ```sh
-flow render diagram.flow --output diagram.png
+flow render diagram.diagram --output diagram.png
 ```
 
 The settled option names are `--variant ID`, `--width PIXELS`, `--height PIXELS`, `--scale RATIO`, `--browser PATH`, `--overwrite`, and `--json`. Directory rendering adds `--output-dir DIRECTORY`, `--contact-sheet`, and `--report PATH`. The renderer uses a local Chrome or Chromium executable. `--browser PATH` selects one invocation; `FLOW_WORKBENCH_BROWSER` selects a local executable outside the standard paths. The renderer never downloads a browser.
@@ -68,4 +68,4 @@ Run focused CLI checks, `pnpm test:dsl`, and `pnpm typecheck`. Run a package bui
 
 ## Rollback and cut line
 
-Keep existing commands and browser screenshots as fallbacks. Remove or disable rendering without changing `.flow` files. Defer SVG/PDF, automatic port retries for interactive view, pixel-perfect cross-platform guarantees, and a large visual regression suite.
+Keep existing commands and browser screenshots as fallbacks. Remove or disable rendering without changing `.diagram` files. Defer SVG/PDF, automatic port retries for interactive view, pixel-perfect cross-platform guarantees, and a large visual regression suite.

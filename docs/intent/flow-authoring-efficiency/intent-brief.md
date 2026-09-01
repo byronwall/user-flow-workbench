@@ -10,7 +10,7 @@ The missing capability is direct visual feedback. An agent can check graph struc
 
 ## What matters most
 
-- Produce a diagram image directly from a `.flow` file.
+- Produce a diagram image directly from a `.diagram` file.
 - Keep exported images consistent with the interactive viewer.
 - Report startup and rendering failures accurately.
 - Reduce unnecessary source reads and application checks.

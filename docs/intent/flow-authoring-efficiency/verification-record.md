@@ -38,7 +38,7 @@ This record separates completed owner evidence from the limits that remain. The 
 
 ## Bounded exercise
 
-The exercise used `/tmp/flow-workflow-exercise.flow` and `/tmp/flow-workflow-exercise.png`. The first check and format run required one repair. The final check, format, and 1200 × 800 render passed. This shows that the workflow can guide one fresh authoring task. It is not a matched benchmark and supports no token-savings claim.
+The exercise used `/tmp/flow-workflow-exercise.diagram` and `/tmp/flow-workflow-exercise.png`. The first check and format run required one repair. The final check, format, and 1200 × 800 render passed. This shows that the workflow can guide one fresh authoring task. It is not a matched benchmark and supports no token-savings claim.
 
 The preserved baseline is one prior task: 470.925 seconds, 87,947 uncached input tokens, 1,632,640 cached input tokens, and 11,281 output tokens. The new exercise is not matched to that task.
 

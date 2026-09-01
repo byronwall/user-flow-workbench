@@ -41,7 +41,9 @@ Keep titles short because the canvas shows titles only. Put qualifications, evid
 
 ## Author an overview
 
-Keep the overview declaration, optional purpose and status, ordered groups, and capabilities easy to scan. Use short capability titles and add `detail` only when it clarifies the idea. Ungrouped capabilities keep their order after groups. An empty draft is valid. Overview capabilities do not need flow links, goals, or detail, but each can have many safe relative `.diagram` flow references with optional target variants. Missing or invalid targets produce warnings while the overview remains loadable.
+Keep the overview declaration, optional purpose and status, ordered groups, and capabilities easy to scan. Use short capability titles and add `detail` only when it clarifies the idea. Ungrouped capabilities keep their order after groups. An empty draft is valid. Overview capabilities do not need flow links, goals, or detail, but each can have many safe relative `.diagram` flow references with optional target variants. Unsafe references are parse errors and prevent loading. Missing, wrong-type, or unknown-variant safe targets produce warnings while the overview remains loadable.
+
+The overview flow shelf is a source inventory, not a relationship model. It shows the union of valid flow files in the overview's folder and valid flow references in the active view, deduplicated by source path. Same-folder discovery does not create a semantic capability link. A linked flow can return through a validated overview path, capability ID, and view ID.
 
 ## Keep flow layout useful
 
@@ -50,6 +52,8 @@ Do not add exact positions to a new flow. Add `layout=<column>,<row>` only when 
 ## Make flow variants explicit
 
 Each flow variant starts from the shared base graph. It does not inherit from another variant. Give it one premise or outcome and a description that explains why it exists. Overview variants also start from the shared base and apply ordered add, remove, set, and unset operations to a cloned view. Materialize and validate the selected view before adoption. Adoption is an agent workflow: format the selected view as the new base, remove rejected variants, check, and reload. There is no adoption write API or viewer control.
+
+Overview views are read-only in the viewer. The source tab shows the canonical source, and `Reload source` re-reads it when the page is visible or focused. If a refresh fails after a valid source was loaded, keep that board and mark it stale until a later refresh succeeds.
 
 - Use `set` or `unset` when an existing identity remains.
 - Add nodes before edges that reference them.
@@ -66,7 +70,7 @@ flow check path/to/changed.diagram
 flow format --check path/to/changed.diagram
 ```
 
-Run both checks for a new uncommented diagram. If an existing diagram contains comments, preserve the comments and report that `format --check` can fail because canonical formatting removes comments. Run the write form of `flow format` only when rewriting the full source is intended. In this repository, a production-flow change also uses `pnpm test:dsl`, `pnpm typecheck`, and `pnpm check:flows`.
+Run both checks for a new uncommented diagram. Check, format, view, and render accept directories containing both flow and overview `.diagram` files. `--variant ID` selects a flow or overview view during render. If an existing diagram contains comments, preserve the comments and report that `format --check` can fail because canonical formatting removes comments. Run the write form of `flow format` only when rewriting the full source is intended. In this repository, a production-flow change also uses `pnpm test:dsl`, `pnpm typecheck`, and `pnpm check:flows`.
 
 Use the shipped render command for visual review:
 
@@ -78,6 +82,8 @@ flow render path/to/changed.diagram --output path/to/preview.png
 For a directory, use `flow render path/to/diagrams --output-dir path/to/previews`. Add `--variant ID`, `--width PIXELS`, `--height PIXELS`, `--scale RATIO`, `--overwrite`, or `--json` when needed. Add `--contact-sheet` and `--report PATH` for a directory. Contact sheets are PNG by default; pass a `.svg` path when an SVG is needed. Successful tiles keep native size and large directories split into numbered page files. Inspect the sheet and representative images.
 
 The renderer uses a local Chrome or Chromium executable. Pass `--browser PATH` for one invocation, or set `FLOW_WORKBENCH_BROWSER` for a local executable outside the standard paths. It never downloads a browser and uses a fresh browser profile for each capture.
+
+Flow JSON export and overview source export are browser downloads. Source files remain authoritative: flow edits use a browser-local working copy, overview views are source-backed, and neither viewer writes source files. Automated browser checks did not verify the browser's download destination.
 
 Report three separate evidence labels:
 

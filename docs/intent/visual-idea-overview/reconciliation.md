@@ -16,17 +16,17 @@ The soccer repository is `/Users/byronwall/Projects/soccer-schedule`, at `78547b
 - `src/cli/flow.ts`: source protection, file/batch capture, source hashes, pure JSON, variant selection, and overwrite protection.
 - The compact authoring reference and runbook: narrow source reads, explicit evidence labels, image inspection, and bounded retries.
 
-The overview still needs its own semantic model, board, source refresh, and file-type dispatch. The committed CLI does not provide those features. The first fixture proof can use ordinary browser capture. Source-backed overview rendering then uses the existing CLI infrastructure.
+The overview now has its own semantic model, board, source refresh, and file-type dispatch. The committed CLI handles both flow and overview `.diagram` documents, including overview variants. Source-backed overview rendering reuses the existing CLI infrastructure.
 
 ## Integration points that cannot be skipped
 
 The `.diagram` change affects more than file names. Update CLI discovery, input checks, output-name derivation, catalog loading, source exports, and references. Preserve the launch-identity handshake used by server startup. Extend capture readiness and report layout identifiers for the board without weakening existing flow checks.
 
-The catalog handler currently requires the launch token when the server sets one. The browser picker fetches `/api/flows` without that token. This is a source-level mismatch, not a browser reproduction from this turn. Add separate picker and startup checks when adapting the endpoints; successful direct-file renders do not cover it.
+The runtime keeps `/api/flows?launch=...` as a launch-identity adapter, while the browser picker uses `/api/diagrams` and selected documents use `/api/diagram`. Direct-file render success does not replace a separate picker check.
 
 The maintained full specification and its distributed copy currently match byte-for-byte. The checkout example and distributed example also match. The installed compact and full references match the repository. The installed `SKILL.md` lacks the latest contact-sheet paragraph. Its `agents/openai.yaml` has local wording differences. Update the installed skill deliberately after validation; preserve unrelated customization.
 
-Soccer's `app/scripts/check-docs.ts` classifies `.flow` as documentation and invokes the installed `flow` executable. Update that classification, tests, instructions, and source index for `.diagram`. Verify the executable supports the new header before using the gate. Gate-code edits require soccer's mixed-change checks. Keep its targeted formatter and full-verification fallback.
+Soccer's `app/scripts/check-docs.ts` classifies `.diagram` as documentation and invokes the installed `flow` executable. Keep that classification, its tests, instructions, and source index aligned. Gate-code edits require soccer's mixed-change checks. Keep its targeted formatter and full-verification fallback.
 
 ## Verification evidence and limits
 

@@ -12,7 +12,7 @@ Documentation-only changes receive checks that can find documentation defects. C
 
 ## First slice: an explicit documentation gate
 
-Add a documented documentation-only path to `AGENTS.md`. Use it only when all changed content is Markdown or `.flow`, with no application, build, dependency, or runtime configuration changes. Treat executable examples and workflow instructions as requiring targeted review. Mixed or uncertain changes use the full gate.
+Add a documented documentation-only path to `AGENTS.md`. Use it only when all changed content is Markdown or `.diagram`, with no application, build, dependency, or runtime configuration changes. Treat executable examples and workflow instructions as requiring targeted review. Mixed or uncertain changes use the full gate.
 
 The gate checks changed Flow files, canonical formatting, affected Markdown, local source links, and the behavior claims changed in the diagrams. Include relevant untracked files without staging user work. Preserve the existing source map in `docs/flows/README.md` as the first navigation aid.
 

@@ -41,7 +41,7 @@ pnpm flow view
 pnpm flow view path/to/project --port 4317
 ```
 
-Open the printed local URL. The index lists nested diagrams, shows each declared type, and reports syntax errors.
+Open the printed local URL. The `Project index` keeps declared overviews in `Overviews`, including invalid ones. It lists valid flows in `Flows`. Invalid flows and unknown or missing types appear in `Other diagram files`. Syntax errors appear on their row.
 
 Render a diagram with the packaged viewer and a local Chrome or Chromium browser:
 
@@ -55,7 +55,7 @@ Rendering uses a fresh browser profile and never writes to `.diagram` files or b
 
 Directory renders preserve each source path below the output directory. They write `report.json` with one result for every source file and return a nonzero code if any file fails. `--report <path>` changes the report location. `--json` prints the result as JSON. `--contact-sheet` writes a PNG contact sheet by default with each successful preview retained at its native pixel size; pass a `.svg` path to keep an SVG sheet instead. Large directories split into `-01`, `-02`, and later pages. Existing sheets are preserved unless `--overwrite` is set.
 
-The workbench reads source files from disk. Browser edits remain in local storage and do not change source files.
+The workbench reads source files from disk. Flow edits use a browser-local working copy keyed by workspace and source path; reset returns to the source. Overview views and the Diagram DSL tab are read-only. Browser edits and view changes do not write source files.
 
 Install the published CLI globally or run it without installation:
 
@@ -102,6 +102,10 @@ npx skills add byronwall/user-flow-workbench --skill author-flow-diagrams
 - Discover nested `.diagram` files through the local `flow view` server.
 - Keep browser edits separate for each source path and workspace.
 
+Overview diagrams show ordered capability groups and ungrouped capabilities. Select a capability to read its detail and safe relative flow links in the inspector. Overview variants are read-only views derived from the shared base; an agent adopts one by editing the source, formatting the chosen view as the base, removing rejected variants, checking, and reloading.
+
+The overview flow shelf lists the union of valid flow files in the overview's folder and valid flow references in the active view. It deduplicates by source path. Same-folder discovery is project inventory only and does not imply a semantic link. Linked flows can return to the overview with the originating capability and view when those values remain valid.
+
 ## Project direction
 
 The tool should make complex flows easy to read and easy to revise. The canvas shows the operational path. The inspector shows the needs and UX attached to that path.
@@ -112,19 +116,20 @@ See [docs/product-context.md](docs/product-context.md) for the original intent, 
 
 ## Architecture
 
-- `src/routes/index.tsx` lists discovered files and loads the selected flow.
-- `src/routes/api/flows.ts` serves the file catalog.
-- `src/routes/api/graph.ts` safely loads one catalog document as JSON.
+- `src/routes/index.tsx` lists discovered files and dispatches the selected flow or overview.
+- `src/routes/api/diagrams.ts` serves the mixed-type file catalog.
+- `src/routes/api/diagram.ts` safely loads one catalog document as JSON.
 - `src/server/flow-catalog.ts` owns discovery, path checks, parsing, and workspace identities.
 - `src/components/` contains the page shell, toolbar, DSL panel, canvas, and inspector.
-- `src/lib/graph-dsl.ts` parses and writes the agent-facing flow DSL.
+- `src/lib/diagram-dsl.ts` dispatches the shared envelope to the flow or overview parser.
+- `src/lib/graph-dsl.ts` parses and writes the flow body DSL.
 - `src/lib/flow-workbench.ts` contains direct manipulation, routing, layout, and the agent API.
 - `src/data/flows/*.diagram` contains production flow documents.
 - `src/styles.css` contains the visual system from the prototype.
 
 ELK is installed as a package and loads as a separate browser bundle. The local Manhattan router remains the fallback. The browser keeps the editable working graph in `localStorage`.
 
-The API parses selected `.diagram` files directly. It does not maintain parallel JSON fixtures.
+The API parses selected `.diagram` files directly. It validates safe flow references and optional variants for overviews. It does not maintain parallel JSON fixtures.
 
 ## Diagram DSL
 
@@ -176,6 +181,8 @@ position account 1152,72
 Use **Add positions** after moving nodes to write all current coordinates back to the DSL. JSON export puts hints and positions in the top-level `layout` object. Nodes stay semantic and do not own canvas state.
 
 The preserved single-file prototype is in `docs/prototype/index.html`.
+
+The flow toolbar exports graph JSON. The overview toolbar exports the canonical `.diagram` source. These are browser downloads; automated browser checks do not verify the browser's download destination.
 
 ## Source
 

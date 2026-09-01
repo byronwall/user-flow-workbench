@@ -56,8 +56,8 @@ All full frames use the same 1280 × 720 document size for comparison. Narrow ga
 
 Independent browser review checked all seven gallery scenes and their full-size links. It found no material clipping or overlap. The review prompted a visible Read only label on the overview source tab. Final screenshots include that change. Gallery controls work; controls drawn inside each wireframe are illustrations.
 
-These artifacts do not complete implementation milestone 1. They define its UI boundary. The running preview must still prove that a real discussion can reduce scope.
+These artifacts defined the UI boundary for implementation milestone 1. The running preview and later source-backed release now provide the implementation evidence.
 
 ## Implementation follow-up
 
-Byron approved these wireframes and authorized implementation. The isolated overview proof is now implemented and checked. See [running proof evidence](proof/README.md). The scope-reduction discussion remains open. The picker, common format, flow links, and alternatives remain later milestones.
+Byron approved these wireframes and authorized implementation. The overview proof, picker, common format, flow links, and alternatives are implemented and checked. See [running proof evidence](proof/README.md) and [final proof evidence](final-proof/README.md). The wireframes remain historical scope references.

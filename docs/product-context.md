@@ -91,7 +91,8 @@ Do not model variants as a vertical lane of special nodes. Each variant applies 
 - The graph document schema version is `5`.
 - The Flow DSL version is `3`.
 - Earlier DSL and schema versions are not supported.
-- The agent-facing source is a line-based flow DSL.
+- The agent-facing source uses a shared `diagram 1` envelope with exactly one `type flow` or `type overview` line. Flow and overview bodies keep separate semantics.
+- The flow body remains a line-based DSL. The overview body stores ordered groups, capabilities, optional purpose and status, and safe relative flow references.
 - Node and edge identities are required and stable.
 - Canonical formatting makes repeated agent edits converge.
 - Recoverable parsing returns stable diagnostics for repair loops.
@@ -105,19 +106,21 @@ Do not model variants as a vertical lane of special nodes. Each variant applies 
 - Variant positions override base positions. They stay optional.
 - Semantic form controls are read-only in a materialized variant. Agents edit variant changes in the DSL.
 - The app is a TypeScript SolidStart SPA.
-- Production diagrams live as editable `.diagram` files in `src/data/flows`.
+- Production flow diagrams live as editable `.diagram` files in `src/data/flows`, and production overview diagrams live in `src/data/overviews`.
 - `flow view` serves the packaged SolidStart application on the loopback interface.
 - `flow render` captures one file or a directory through the packaged viewer with a fresh local browser profile.
 - Render output uses a 1200 × 800 CSS pixel canvas by default, with a supported minimum of 320 × 240 pixels. The legend is hidden below 480 pixels to preserve diagram content. Directory output keeps source-relative paths and writes a JSON report.
 - Render startup uses an owned loopback server and launch identity. It waits for layout and final paint, reports ELK or fallback layout, and never downloads a browser.
 - The server discovers `.diagram` files below its selected root and dispatches by the declared type.
-- The index shows a picker before it loads a document.
-- `GET /api/flows` serves the discovered file catalog.
-- `GET /api/graph` parses one validated relative path.
+- The index shows a picker before it loads a document. `Overviews` includes invalid overview files. `Flows` includes valid flows. `Other diagram files` includes invalid flows and unknown or missing types.
+- `GET /api/diagrams` serves the mixed-type file catalog.
+- `GET /api/diagram` parses one validated relative path and materializes an optional overview variant.
 - The server rejects traversal paths, symbolic links, and ignored build directories.
 - The browser stores the editable working graph in `localStorage`.
 - Browser storage uses the workspace identity and relative source path.
 - Browser edits do not write back to source files.
+- Overview source is read-only in the viewer. `Reload source` refreshes visible or focused pages, and a failed refresh keeps the last valid board marked stale until a later success.
+- Flow JSON and overview source exports are browser downloads. Automated browser checks do not verify the browser's download destination.
 - The `variant` URL parameter stores the active tab across refreshes.
 - ELK loads from the installed `elkjs@0.12.0` package as a separate browser bundle.
 - ELK uses a rightward layered graph with semantic column partitions.
@@ -144,7 +147,7 @@ Needs connect through `addresses`. UX records connect through `appears-at` and `
 
 Overview diagrams provide a compact, source-backed view of product capabilities. They use ordered groups and title-only controls. Selection shows detail in a fixed inspector. The source tab shows read-only Diagram DSL data. Flow and overview documents share the `.diagram` extension and declare their type in the source header.
 
-An overview can contain groups, ungrouped capabilities, optional purpose and status, and an empty draft. Overview records do not require flow links, goals, or detail. A capability can have optional ordered links to safe relative `.diagram` flow sources, including a selected flow view. Missing or invalid targets show a warning while the overview remains usable. Opening a linked flow carries a validated overview path, capability, and temporary view so the flow can return safely to the overview context.
+An overview can contain groups, ungrouped capabilities, optional purpose and status, and an empty draft. Overview records do not require flow links, goals, or detail. A capability can have optional ordered links to safe relative `.diagram` flow sources, including a selected flow view. Unsafe references are parse errors that prevent loading. Missing, wrong-type, or unknown-variant safe targets show a warning while the overview remains usable. Opening a linked flow carries a validated overview path, capability, and temporary view so the flow can return safely to the overview context.
 
 Each overview shows a compact project flow shelf below its board. The shelf lists the union of valid flow files in the overview's folder and valid flow files referenced by capabilities in the active view. It deduplicates by source path and keeps linked capability titles as navigation context. Folder membership discovers project flows; it does not create semantic links.
 

@@ -10,11 +10,11 @@ last_updated: "2026-08-31"
 
 ## Plan at a glance
 
-Build a separate overview surface in the existing application. First show one real idea from a typed fixture. Use that visual in a scope-reduction discussion before committing to a new parser. This tests the main product assumption while the change remains small.
+Build a separate overview surface in the existing application. The shipped release shows a real idea from a typed source and keeps the visual scope small.
 
-Next, make the source-file conversation loop dependable. An agent writes an overview, checks it, and sees its current contents in the viewer. This is the first usable release boundary. Add navigation to existing flows after that loop works. Add temporary alternatives last, without a proposal lifecycle or discarded-ideas interface.
+The shipped source-file loop lets an agent write an overview, check it, and see current contents in the viewer. It includes navigation to existing flows and temporary alternatives, without a proposal lifecycle or discarded-ideas interface.
 
-Use `.diagram` for both flows and overviews, with required type metadata inside each file. Update existing `.flow` sources by hand in this repository and the soccer schedule repository. Preserve their graph meaning. Do not add migration tooling or a general graph framework. Source content remains authoritative; browser preferences cannot restore obsolete capabilities.
+Use `.diagram` for both flows and overviews, with required type metadata inside each file. The former `.flow` sources were renamed by hand in this repository and the soccer schedule repository, with graph meaning preserved. Do not add migration tooling or a general graph framework. Source content remains authoritative; browser preferences cannot restore obsolete capabilities.
 
 This plan uses commit `c1d4770`, release 0.2.0, as its implementation baseline. CLI rendering and authoring improvements are committed locally. Soccer's documentation-gate changes remain in its working tree. Reuse those improvements and preserve ongoing work. Byron approved the wireframes and authorized implementation on 2026-08-30. Byron accepted the running preview unchanged. All four milestones are complete. Final browser rechecks passed on 2026-08-31. See [implementation evidence](final-proof/README.md). See [baseline reconciliation](reconciliation.md) for evidence and limits.
 
@@ -22,13 +22,13 @@ This plan uses commit `c1d4770`, release 0.2.0, as its implementation baseline. 
 
 **UI boundary.** Follow the proposed [UI scope review](ui-scope-review.md) and [wireframes](wireframes/index.html). Add the overview board while retaining the existing desktop toolbar and right-sidebar positions. Adapt their content by type. Do not add a navigation system or refactor the flow controller into a generic workbench. Wireframes establish scope; they do not complete the running-preview proof.
 
-**Boundaries.** Proposed additions are a shared diagram envelope, `OverviewDocument`, and `OverviewWorkbench`. Names below identify intended files, not existing code. Dispatch by the required file type to separate flow and overview parsers and viewers. Keep parser output separate from presentation state. Reuse path-security helpers through a narrow extraction with regression tests.
+**Boundaries.** The shipped additions are a shared diagram envelope, `OverviewDocument`, and `OverviewWorkbench`. Dispatch by the required file type to separate flow and overview parsers and viewers. Keep parser output separate from presentation state. Reuse path-security helpers through a narrow extraction with regression tests.
 
 **Reuse the completed tools.** `src/cli/runtime.ts` owns local server startup and cleanup. `src/cli/cdp.ts` owns browser capture. `src/cli/contact-sheet.ts` writes PNG or SVG sheets with native-size tiles and pagination. Extend document dispatch and readiness only; do not build another launcher, screenshot pipeline, or sheet generator. Preserve source-alias protection, overwrite checks, pure JSON reports, source hashes, and confirmed child-process cleanup.
 
 **Source format.** Specify `.diagram` with a `diagram 1` header and exactly one `type flow` or `type overview` line. The header replaces the legacy `flow 3` file header. Keep existing flow body syntax and normalized graph semantics where possible. Reuse flow parsing through a small adapter with correct source-line offsets. The common file version is distinct from the internal graph schema version.
 
-The overview payload contains stable IDs, title, purpose, ordered groups, capabilities, and optional detail. Permit empty drafts and ungrouped capabilities. Canonical formatting must be repeatable. Missing or unknown types, unsupported versions, duplicate IDs, and invalid references produce located diagnostics. Do not infer a type from the filename or silently accept mixed bodies. Flow references and alternatives enter with their respective milestones.
+The overview payload contains stable IDs, title, purpose, ordered groups, capabilities, optional detail, and optional flow references. Empty drafts and ungrouped capabilities are valid. Canonical formatting is repeatable. Missing or unknown types, unsupported versions, duplicate IDs, and invalid references produce located diagnostics. Do not infer a type from the filename or silently accept mixed bodies. Flow references and overview alternatives are shipped.
 
 **Local loop.** Run `pnpm dev` for the fixture proof. Run `pnpm typecheck` and `pnpm test:dsl` for shared-code changes. Add `pnpm test:overview` when overview logic exists. After source integration, use `pnpm build`, `pnpm flow view <fixture-root>`, and `pnpm flow render <file.diagram> --output <preview.png>`. Use the checkout CLI until an installed package is confirmed to support the new header. Package verification must exercise `prepack`, the packaged server, and the CLI entry through a package symlink. No network service is required after dependencies are installed.
 
@@ -48,7 +48,7 @@ Update known file references by hand and report replacement paths. Do not add ol
 
 **Execution status:** Complete. Byron accepted the running preview unchanged and requested no scope edits. See [running proof and evidence](proof/README.md). Do not force subtraction or invent before/after evidence. Milestone 2 is complete.
 
-Add a proposed `OverviewWorkbench.tsx` and a small typed fixture at an isolated overview preview route. Use `src/data/flows/resume-alignment.flow` as illustrative input, not proof of implemented resume functionality. Do not import all historical variants into the initial idea.
+The shipped `OverviewWorkbench.tsx` uses a typed overview source. The resume source is illustrative product data, not proof of implemented resume functionality. Do not import historical variants into the active overview without an explicit source edit.
 
 Render ordered groups and title-only capability controls. Selection opens concise detail. Start with CSS layout rather than the flow router. Use readable text, visible focus, and no required pointer drag. Scope styles to the new surface. Keep the fixture contract small enough to replace without migration.
 
@@ -72,7 +72,7 @@ Add the common diagram envelope and typed parser/formatter dispatch under `src/t
 
 Locate the known diagram files in this repository and the soccer schedule repository. Rename them to `.diagram` and update their headers by hand. Update file references, examples, affected tests, and authoring instructions in the same change. Leave unrelated ongoing work untouched. The earlier documentation-only restriction ended when Byron authorized implementation.
 
-The soccer checkout is `/Users/byronwall/Projects/soccer-schedule`. Its new `app/scripts/check-docs.ts`, associated tests, and `AGENTS.md` recognize `.flow`. Update that classification to `.diagram`; keep the existing targeted formatter and full-verification fallback. Include `docs/flows/README.md` and all nine flow sources. Because the gate code changes, this change is not documentation-only. Follow soccer's mixed-change verification policy without overwriting its current uncommitted work.
+The soccer checkout is `/Users/byronwall/Projects/soccer-schedule`. Its `app/scripts/check-docs.ts`, associated tests, and `AGENTS.md` recognize `.diagram`; keep the existing targeted formatter and full-verification fallback. Include `docs/flows/README.md` and all nine flow sources. Because the gate code changes, this change is not documentation-only. Follow soccer's mixed-change verification policy without overwriting its current uncommitted work.
 
 Review the edits to confirm that graph bodies, IDs, variants, and layout remain intact. Check and open the updated diagrams from both repositories. Use ordinary source review and existing validation; do not create a converter, migration command, dry-run mode, or compatibility layer.
 
@@ -140,7 +140,7 @@ Byron can compare a legitimate choice, select a direction through conversation, 
 
 ## Open decisions and spikes
 
-The product gate is the visual proof. The common `.diagram` extension, required type metadata, and manual file updates are settled. Typography, group packing, and payload details remain reversible until the proof passes. If deeper grouping appears necessary, first test whether scope or labels are too broad. Add nesting only when meaningful scope cannot otherwise be shown. No further discovery questionnaire is needed before milestone 1.
+The visual proof and four implementation milestones are complete. The common `.diagram` extension, required type metadata, manual file updates, source refresh, secure links, and read-only overview views are settled. If deeper grouping appears necessary, first test whether scope or labels are too broad. Add nesting only when meaningful scope cannot otherwise be shown. Recursive folder-project grouping remains a considered next direction, not shipped behavior.
 
 ## Below the cut line
 
