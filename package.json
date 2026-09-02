@@ -39,7 +39,7 @@
     "prepack": "vinxi build && tsc -p tsconfig.cli.json && node scripts/prepare-package.mjs",
     "check:flows": "pnpm flow check",
     "test:dsl": "node --experimental-strip-types --test src/lib/graph-dsl.test.ts src/lib/graph-lint.test.ts src/lib/flow-workbench-export.test.ts src/cli/flow.test.ts src/server/flow-catalog.test.ts",
-    "test:overview": "node --experimental-strip-types --test src/lib/overview-dsl.test.ts src/lib/diagram-dsl.test.ts src/lib/overview-navigation.test.ts src/lib/overview-flow-inventory.test.ts src/source-refresh.test.ts",
+    "test:overview": "node --experimental-strip-types --test src/lib/overview-dsl.test.ts src/lib/diagram-dsl.test.ts src/lib/wireframe-dsl.test.ts src/lib/overview-navigation.test.ts src/lib/overview-flow-inventory.test.ts src/source-refresh.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "packageManager": "pnpm@11.9.0",

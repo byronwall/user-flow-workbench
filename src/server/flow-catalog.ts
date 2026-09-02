@@ -6,6 +6,7 @@ import type { DiagramCatalog, DiagramCatalogEntry, DiagramDocumentResponse, Diag
 import type { FlowCatalog, FlowCatalogEntry, FlowDocumentResponse } from "../types/flow-catalog.ts";
 import type { FlowDocument } from "../types/graph.ts";
 import type { OverviewDocument, OverviewReferenceWarning } from "../types/overview.ts";
+import type { WireframeDocument } from "../types/wireframe.ts";
 import { materializeOverview } from "../lib/overview-dsl.ts";
 
 export const IGNORED_DIRECTORIES = new Set([".git", ".output", ".vinxi", "build", "dist", "node_modules"]);
@@ -52,10 +53,18 @@ export async function readDiagramCatalog(rootInput?: string): Promise<DiagramCat
 }
 
 export async function resolveDiagramPath(root: string, requestedPath: string): Promise<string> {
-  if (!requestedPath || requestedPath.includes("\0") || isAbsolute(requestedPath)) throw new FlowCatalogError("Select a relative .diagram path.", 400);
+  return resolveWorkspaceFile(root, requestedPath, [".diagram"], "Select a relative .diagram path.");
+}
+
+export async function resolveReferenceImagePath(root: string, requestedPath: string): Promise<string> {
+  return resolveWorkspaceFile(root, requestedPath, [".png", ".jpg", ".jpeg", ".webp"], "Select a relative PNG, JPEG, or WebP image path.");
+}
+
+async function resolveWorkspaceFile(root: string, requestedPath: string, extensions: string[], invalidMessage: string): Promise<string> {
+  if (!requestedPath || requestedPath.includes("\0") || isAbsolute(requestedPath)) throw new FlowCatalogError(invalidMessage, 400);
   const segments = requestedPath.split("/");
   if (segments.some(segment => !segment || segment === "." || segment === ".." || IGNORED_DIRECTORIES.has(segment))) throw new FlowCatalogError("The selected diagram path is not available.", 404);
-  if (!requestedPath.endsWith(".diagram")) throw new FlowCatalogError("Select a .diagram file.", 400);
+  if (!extensions.some(extension => requestedPath.toLowerCase().endsWith(extension))) throw new FlowCatalogError(invalidMessage, 400);
   let current = root;
   for (let index = 0; index < segments.length; index += 1) {
     current = join(current, segments[index]);
@@ -76,6 +85,7 @@ export async function readDiagramDocument(requestedPath: string, rootInput?: str
   if (!parsed.type || parsed.diagnostics.length) throw new FlowCatalogError(`Cannot load ${requestedPath}.`, 422, { error: "The diagram has syntax errors.", path: requestedPath, diagnostics: parsed.diagnostics.map(diagnostic => ({ code: diagnostic.code, line: diagnostic.line, column: diagnostic.column, message: formatDiagramDslDiagnostic(diagnostic) })) });
   const common = { path: portablePath(root, path), workspaceId: workspaceId(root), sourceHash: createHash("sha256").update(source).digest("hex"), sourceText: source };
   if (parsed.type === "flow") return { ...common, type: "flow", document: parsed.document.document as FlowDocument, canonicalSource: diagramToDsl(parsed.document) };
+  if (parsed.type === "wireframe") return { ...common, type: "wireframe", document: parsed.document.document as WireframeDocument, canonicalSource: diagramToDsl(parsed.document) };
   const document = parsed.document.document as OverviewDocument;
   let view = document;
   let activeVariant: string | null = null;

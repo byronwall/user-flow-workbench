@@ -5,6 +5,7 @@ import { createSourceRefresh, type SourceRefreshState } from "../source-refresh"
 import { composeFlowUrl } from "../lib/overview-navigation";
 import { overviewFlowInventory, type OverviewFlowInventoryItem } from "../lib/overview-flow-inventory";
 import { materializeOverview } from "../lib/overview-dsl";
+import { captureTextLines, svgEscape, textLinesToSvg } from "../lib/dom-vector-scene";
 
 type OverviewSidebarTab = "inspector" | "source";
 const UNGROUPED_PROJECTION_ID = "~ungrouped";
@@ -76,7 +77,7 @@ export interface OverviewWorkbenchProps {
 
 interface FlowWorkbenchWindow extends Window {
   __flowWorkbenchReady?: { status: "loading" | "ready" | "error"; layoutEngine?: "css-board" };
-  flowOverview?: { refresh: () => Promise<void> };
+  flowOverview?: { refresh: () => Promise<void>; select: (id: string | null) => void; captureScene: () => { type: "overview"; width: number; height: number; svg: string; minimumTextSize: number } };
 }
 
 function downloadSource(document: OverviewDocument, sourceText: string) {
@@ -92,7 +93,7 @@ function downloadSource(document: OverviewDocument, sourceText: string) {
 
 function CapabilityButton(props: { capability: OverviewCapability; selected: boolean; onSelect: () => void }) {
   return (
-    <button class="overview-capability" classList={{ selected: props.selected }} type="button" aria-pressed={props.selected} onClick={props.onSelect}>
+    <button class="overview-capability" classList={{ selected: props.selected }} type="button" aria-pressed={props.selected} data-capability-id={props.capability.id} onClick={props.onSelect}>
       <span>{props.capability.title}</span>
     </button>
   );
@@ -194,6 +195,7 @@ function OverviewInspector(props: { document: OverviewDocument; selected?: Overv
 }
 
 export function OverviewWorkbench(props: OverviewWorkbenchProps) {
+  let boardElement!: HTMLElement;
   const [currentDocument, setCurrentDocument] = createSignal(props.document);
   const [sourceText, setSourceText] = createSignal(props.sourceText || "");
   const [acceptedSourceHash, setAcceptedSourceHash] = createSignal(props.sourceHash || "");
@@ -287,6 +289,25 @@ export function OverviewWorkbench(props: OverviewWorkbenchProps) {
     window.document.getElementById(`overview-${nextTab}-tab`)?.focus();
   };
 
+  const captureScene = () => {
+    const boardRect = boardElement.getBoundingClientRect();
+    const groupSvg = [...boardElement.querySelectorAll<HTMLElement>(".overview-group")].map((group) => {
+      const rect = group.getBoundingClientRect();
+      return `<rect x="${(rect.left - boardRect.left).toFixed(1)}" y="${(rect.top - boardRect.top).toFixed(1)}" width="${rect.width.toFixed(1)}" height="${rect.height.toFixed(1)}" rx="8" fill="#f8fafc" stroke="#b9c2cc"/>`;
+    }).join("");
+    const capabilitySvg = [...boardElement.querySelectorAll<HTMLElement>(".overview-capability")].map((capability) => {
+      const rect = capability.getBoundingClientRect();
+      const selected = capability.classList.contains("selected");
+      const lines = captureTextLines(capability, boardRect).map((line) => ({ ...line, color: "#26303b" }));
+      return `<g data-capability-id="${svgEscape(capability.dataset.capabilityId)}"><rect x="${(rect.left - boardRect.left).toFixed(1)}" y="${(rect.top - boardRect.top).toFixed(1)}" width="${rect.width.toFixed(1)}" height="${rect.height.toFixed(1)}" rx="6" fill="${selected ? "#e7efff" : "#fff"}" stroke="${selected ? "#285da8" : "#9da8b3"}" stroke-width="${selected ? 2 : 1}"/>${textLinesToSvg(lines)}</g>`;
+    }).join("");
+    const headingSvg = [...boardElement.querySelectorAll<HTMLElement>(".overview-group h3")].map((heading) => textLinesToSvg(captureTextLines(heading, boardRect))).join("");
+    const width = Math.max(1, Math.ceil(boardElement.scrollWidth));
+    const height = Math.max(1, Math.ceil(boardElement.scrollHeight));
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" data-semantic-scene="overview"><rect width="100%" height="100%" fill="#f1f3f6"/>${groupSvg}${headingSvg}${capabilitySvg}</svg>`;
+    return { type: "overview" as const, width, height, svg, minimumTextSize: 13 };
+  };
+
   onMount(() => {
     const query = new URLSearchParams(window.location.search);
     const requestedVariant = query.get("variant");
@@ -337,7 +358,7 @@ export function OverviewWorkbench(props: OverviewWorkbenchProps) {
       window.document.removeEventListener("visibilitychange", updateVisibility);
       controller.dispose();
     });
-    (window as FlowWorkbenchWindow).flowOverview = { refresh: controller.refresh };
+    (window as FlowWorkbenchWindow).flowOverview = { refresh: controller.refresh, select: setSelectedId, captureScene };
   });
 
   const error = createMemo(() => refreshState().error);
@@ -368,7 +389,7 @@ export function OverviewWorkbench(props: OverviewWorkbenchProps) {
         <Show when={error()}><div class="overview-source-alert" classList={{ stale: stale() }} role="alert"><strong>{stale() ? "Source changed with errors" : "Could not load source"}</strong><span>{error()?.message}</span><button class="btn" type="button" onClick={() => void (window as FlowWorkbenchWindow).flowOverview?.refresh?.()}>Retry</button><Show when={((error() as Error & { status?: number } | undefined)?.status === 404) || ((error() as Error & { status?: number } | undefined)?.status === 409)}><a class="btn" href="/" rel="external">Choose another diagram</a></Show></div></Show>
         <Show when={variantNotice()}><div class="overview-variant-notice" role="status">{variantNotice()}</div></Show>
         <div class="overview-heading"><div><div class="overview-title-row"><h1>{viewDocument().title || "Untitled overview"}</h1><Show when={viewDocument().statusLabel}><span class="overview-status-pill">{viewDocument().statusLabel}</span></Show></div><p>{viewDocument().purpose || "No purpose provided yet."}</p></div><span class="overview-board-note">Grouped capabilities · no sequence implied</span></div>
-        <section class="overview-board" aria-labelledby="overview-board-title"><h2 id="overview-board-title" class="sr-only">Capabilities in this overview</h2><For each={groups()}>{(group) => <section class="overview-group" aria-labelledby={`overview-group-${group.id}`}><h3 id={`overview-group-${group.id}`}>{group.title}</h3><div class="overview-capability-list"><For each={group.capabilities}>{(capability) => <CapabilityButton capability={capability} selected={selectedId() === capability.id} onSelect={() => setSelectedId(capability.id)} />}</For></div></section>}</For><Show when={groups().length === 0}><div class="overview-empty"><strong>No capabilities yet</strong><span>Add a capability to the source file, then reload.</span></div></Show></section>
+        <section ref={boardElement} class="overview-board" aria-labelledby="overview-board-title"><h2 id="overview-board-title" class="sr-only">Capabilities in this overview</h2><For each={groups()}>{(group) => <section class="overview-group" aria-labelledby={`overview-group-${group.id}`}><h3 id={`overview-group-${group.id}`}>{group.title}</h3><div class="overview-capability-list"><For each={group.capabilities}>{(capability) => <CapabilityButton capability={capability} selected={selectedId() === capability.id} onSelect={() => setSelectedId(capability.id)} />}</For></div></section>}</For><Show when={groups().length === 0}><div class="overview-empty"><strong>No capabilities yet</strong><span>Add a capability to the source file, then reload.</span></div></Show></section>
         <OverviewFlowShelf items={overviewFlowInventory(props.catalog?.diagrams || [], props.documentPath, viewDocument())} overviewPath={props.documentPath} viewId={activeVariant() || undefined} />
         <p class="overview-footnote">Select a capability to inspect its detail. The overview stays in place while you review scope.</p>
       </div></div></main>

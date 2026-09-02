@@ -1,0 +1,20 @@
+Hi, the design review is complete.
+
+Verdict: build a smaller custom layer. The current proposal has the right product boundaries, but its layout contract is too likely to become an incomplete CSS engine hidden inside the renderer. The revised design uses two fixed frames, three arrangements, browser-native layout, exact shared parts, element-local state, one semantic diagram viewport per screen, and a narrow capture hook around the existing flow renderer.
+
+The review treats the attached snapshot as authoritative: the exact baseline may be absent from GitHub, the wireframe runtime remains unimplemented, and the predecessor SVG gallery is evidence of the desired output—not proof of the proposed DSL.
+
+review-packet
+
+ The original generator and SVGs were also treated as hand-positioned review artifacts rather than application behavior or a reusable interpreter.
+
+wireframe-sources
+
+Download wireframe-dsl-review.md
+
+wireframe-dsl-review.md
+Document
+Sources
+ChatGPT can make mistakes. Check important info.
+
+Pro

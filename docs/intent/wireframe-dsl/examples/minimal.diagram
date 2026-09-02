@@ -1,0 +1,35 @@
+diagram 1
+type wireframe
+wireframe resume-review "Resume review screen"
+viewport 1280 720
+
+reference current image="docs/intent/wireframe-dsl/reference/current-ui.jpg" width=1280 height=720 captured="2026-08-30" state="Historical workbench capture; base resume flow and node inspector"
+
+part appbar {
+  bar {
+    start {
+      text "User Flow Workbench" role=heading
+    }
+    end {
+      button fit "Fit"
+      button export "Export JSON"
+    }
+  }
+}
+
+screen review "Flow with review guidance" basis=proposed reference=current {
+  mark aside "Explain what to check before building."
+  frame workbench inspector=346 {
+    header {
+      use toolbar appbar
+    }
+    main {
+      diagram workflow source="docs/intent/wireframe-dsl/examples/resume-flow.diagram" view=base
+    }
+    aside {
+      text "Review this flow" role=heading
+      text "Can we remove a step without losing the user's outcome?"
+      card check "Keep human approval" detail="Check claims before exporting the resume."
+    }
+  }
+}

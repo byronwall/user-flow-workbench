@@ -1,13 +1,15 @@
 import { createResource, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import { OverviewWorkbench, type OverviewSourceResult } from "../components/OverviewWorkbench";
 import { Workbench, type FlowReturnContext } from "../components/Workbench";
+import { WireframeWorkbench } from "../components/WireframeWorkbench";
 import type { DiagramCatalog, DiagramDocumentResponse, DiagramLoadError } from "../types/diagram";
 import { diagramToDsl } from "../lib/diagram-dsl";
 import { parseOverviewOrigin } from "../lib/overview-navigation";
 import type { FlowDocument } from "../types/graph";
 import type { OverviewDocument } from "../types/overview";
+import type { WireframeDocument } from "../types/wireframe";
 
-type LoadedDiagramResponse = (Extract<DiagramDocumentResponse, { type: "flow" }> | Extract<DiagramDocumentResponse, { type: "overview" }>) & {
+type LoadedDiagramResponse = DiagramDocumentResponse & {
   source?: string;
   canonicalSource?: string;
   sourceText?: string;
@@ -116,8 +118,9 @@ function StartupState(props: { message: string; showBack?: boolean; onRetry?: ()
 
 function DiagramPicker(props: { catalog?: DiagramCatalog; error?: Error; loading: boolean; onRetry?: () => void }) {
   const overviews = () => props.catalog?.diagrams.filter((diagram) => diagram.type === "overview") || [];
+  const wireframes = () => props.catalog?.diagrams.filter((diagram) => diagram.type === "wireframe" && diagram.valid) || [];
   const flows = () => props.catalog?.diagrams.filter((diagram) => diagram.type === "flow" && diagram.valid) || [];
-  const other = () => props.catalog?.diagrams.filter((diagram) => diagram.type !== "overview" && !(diagram.type === "flow" && diagram.valid)) || [];
+  const other = () => props.catalog?.diagrams.filter((diagram) => diagram.type !== "overview" && !((diagram.type === "flow" || diagram.type === "wireframe") && diagram.valid)) || [];
   const list = (diagrams: readonly DiagramCatalog["diagrams"][number][]) => (
     <div class="flow-list">
       <For each={diagrams}>
@@ -142,7 +145,7 @@ function DiagramPicker(props: { catalog?: DiagramCatalog; error?: Error; loading
             <h1 id="flow-picker-title">Project index</h1>
             <p>
               <Show when={props.catalog} fallback="Searching this folder and its subfolders…">
-                {(catalog) => <>Choose an overview or flow from {catalog().rootName}.</>}
+                {(catalog) => <>Choose a wireframe, overview, or flow from {catalog().rootName}.</>}
               </Show>
             </p>
           </div>
@@ -156,6 +159,7 @@ function DiagramPicker(props: { catalog?: DiagramCatalog; error?: Error; loading
         <Show when={props.catalog?.diagrams.length}>
           <div class="flow-picker-sections" aria-label="Project diagrams">
             <Show when={overviews().length}><section class="flow-picker-section" aria-labelledby="flow-picker-overviews"><h2 id="flow-picker-overviews">Overviews</h2>{list(overviews())}</section></Show>
+            <Show when={wireframes().length}><section class="flow-picker-section" aria-labelledby="flow-picker-wireframes"><h2 id="flow-picker-wireframes">Wireframes</h2>{list(wireframes())}</section></Show>
             <Show when={flows().length}><section class="flow-picker-section" aria-labelledby="flow-picker-flows"><h2 id="flow-picker-flows">Flows</h2>{list(flows())}</section></Show>
             <Show when={other().length}><section class="flow-picker-section" aria-labelledby="flow-picker-other"><h2 id="flow-picker-other">Other diagram files</h2>{list(other())}</section></Show>
           </div>
@@ -196,6 +200,7 @@ export default function Home() {
       <Show when={selectedPath()} fallback={<DiagramPicker catalog={catalog.error ? undefined : catalog()} error={catalog.error} loading={catalog.loading} onRetry={() => void refetchCatalog()} />}>
         <Show when={diagram.error ? undefined : diagram()} fallback={<StartupState message={diagram.error?.message || "Loading the selected diagram…"} showBack={Boolean(diagram.error)} onRetry={() => void refetchDiagram()} />}>
           {(loaded) => (
+            <Show when={loaded().type !== "wireframe"} fallback={<WireframeWorkbench document={loaded().document as WireframeDocument} documentPath={loaded().path} sourceText={loaded().canonicalSource || loaded().sourceText} />}>
             <Show when={loaded().type === "overview"} fallback={<Workbench initialGraph={loaded().document as FlowDocument} documentKey={`${loaded().workspaceId}:${loaded().path}`} documentPath={loaded().path} returnContext={flowReturnContext()} />}>
               <OverviewWorkbench
                 document={loaded().document as OverviewDocument}
@@ -208,6 +213,7 @@ export default function Home() {
                 referenceWarnings={overviewWarnings(loaded())}
                 loadSource={(signal) => loadDiagram(loaded().path, signal).then((response) => overviewSourceResult(response, loaded().path))}
               />
+            </Show>
             </Show>
           )}
         </Show>

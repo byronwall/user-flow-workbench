@@ -3,7 +3,7 @@ import { mkdtemp, mkdir, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { FlowCatalogError, readDiagramCatalog, readFlowCatalog, readFlowDocument, readDiagramDocument, resolveOverviewReferences } from "./flow-catalog.ts";
+import { FlowCatalogError, readDiagramCatalog, readFlowCatalog, readFlowDocument, readDiagramDocument, resolveFlowRoot, resolveOverviewReferences, resolveReferenceImagePath } from "./flow-catalog.ts";
 
 const VALID_FLOW = `diagram 1
 type flow
@@ -49,6 +49,16 @@ test("document loading rejects traversal and symbolic links", async () => {
     () => readFlowDocument("linked.diagram", root),
     (error: unknown) => error instanceof FlowCatalogError && error.status === 404,
   );
+});
+
+test("reference images stay inside the workspace and use supported formats", async () => {
+  const root = await mkdtemp(join(tmpdir(), "wireframe-reference-"));
+  await writeFile(join(root, "actual.png"), "png");
+  await writeFile(join(root, "notes.txt"), "no");
+  const canonicalRoot = await resolveFlowRoot(root);
+  assert.equal(await resolveReferenceImagePath(canonicalRoot, "actual.png"), join(canonicalRoot, "actual.png"));
+  await assert.rejects(() => resolveReferenceImagePath(canonicalRoot, "../actual.png"));
+  await assert.rejects(() => resolveReferenceImagePath(canonicalRoot, "notes.txt"));
 });
 
 test("document loading returns its stable workspace and relative path", async () => {

@@ -3,6 +3,7 @@ import { formatOverviewDslDiagnostic, overviewToDsl, parseOverviewDslWithDiagnos
 import { DIAGRAM_FORMAT_VERSION, DIAGRAM_TYPES, type DiagramDocument, type DiagramType } from "../types/diagram.ts";
 import type { GraphDslDiagnostic } from "./graph-dsl.ts";
 import type { FlowDocument } from "../types/graph.ts";
+import { parseWireframeDslWithDiagnostics, wireframeToDsl } from "./wireframe-dsl.ts";
 
 export type DiagramDslDiagnostic = {
   code: string;
@@ -43,6 +44,7 @@ export class DiagramDslError extends Error {
 export function formatDiagramDslDiagnostic(diagnostic: DiagramDslDiagnostic): string {
   if (diagnostic.code.startsWith("FLOW")) return formatGraphDslDiagnostic(diagnostic as GraphDslDiagnostic);
   if (diagnostic.code.startsWith("OVERVIEW")) return formatOverviewDslDiagnostic(diagnostic as OverviewDslDiagnostic);
+  if (diagnostic.code.startsWith("WIREFRAME")) return `[${diagnostic.code}] line ${diagnostic.line}, column ${diagnostic.column}: ${diagnostic.message}`;
   return `[${diagnostic.code}] line ${diagnostic.line}, column ${diagnostic.column}: ${diagnostic.message}`;
 }
 
@@ -66,7 +68,7 @@ export function parseDiagramWithDiagnostics(source: string): DiagramParseResult 
   } else {
     typeLine = firstContentLine(lines, diagramLine + 1);
     if (typeLine < 0) {
-      diagnostics.push(documentDiagnostic("DIAGRAM102", "structure", "Missing diagram type. Add exactly one type flow or type overview line.", lines.length));
+      diagnostics.push(documentDiagnostic("DIAGRAM102", "structure", `Missing diagram type. Add exactly one type ${DIAGRAM_TYPES.join(" or type ")} line.`, lines.length));
       bodyStart = lines.length;
     } else {
       const typeMatch = lines[typeLine].trim().match(/^type\s+(\S+)(?:\s+#.*)?$/);
@@ -88,13 +90,17 @@ export function parseDiagramWithDiagnostics(source: string): DiagramParseResult 
   const bodySource = lines.slice(bodyStart).join("\n");
   const firstBody = firstContentLine(lines, bodyStart);
   const firstCommand = firstBody >= 0 ? lines[firstBody].trim().split(/\s+/)[0] : undefined;
-  if (type && firstCommand && ((type === "flow" && firstCommand === "flow") || (type === "overview" && firstCommand !== "overview"))) {
-    diagnostics.push(lineDiagnostic("DIAGRAM105", "structure", firstBody + 1, lines[firstBody], `The ${type} document body must begin with ${type === "flow" ? "graph <id> \"<title>\"" : "overview <id> \"<title>\""}.`));
+  if (type && firstCommand && ((type === "flow" && firstCommand === "flow") || (type !== "flow" && firstCommand !== type))) {
+    diagnostics.push(lineDiagnostic("DIAGRAM105", "structure", firstBody + 1, lines[firstBody], `The ${type} document body must begin with ${type === "flow" ? "graph" : type} <id> \"<title>\".`));
   }
 
   let document: DiagramDocument;
   if (type === "overview") {
     const parsed = parseOverviewDslWithDiagnostics(bodySource, bodyStart);
+    diagnostics.push(...parsed.diagnostics);
+    document = { type, document: parsed.document };
+  } else if (type === "wireframe") {
+    const parsed = parseWireframeDslWithDiagnostics(bodySource, bodyStart);
     diagnostics.push(...parsed.diagnostics);
     document = { type, document: parsed.document };
   } else if (type === "flow") {
@@ -122,7 +128,7 @@ export function parseDiagramWithDiagnostics(source: string): DiagramParseResult 
 export function diagramToDsl(document: DiagramDocument): string {
   const body = document.type === "flow"
     ? graphToDsl(document.document, { includePositions: true }).replace(/^flow 3\r?\n/, "").replace(/^\r?\n+/, "")
-    : overviewToDsl(document.document);
+    : document.type === "overview" ? overviewToDsl(document.document) : wireframeToDsl(document.document).replace(/^\r?\n+/, "");
   return `diagram ${DIAGRAM_FORMAT_VERSION}\ntype ${document.type}\n\n${body}`;
 }
 

@@ -1,0 +1,44 @@
+diagram 1
+type wireframe
+wireframe sharing-disclosure "Evidence sharing disclosure"
+viewport 1280 720
+
+screen sharing "Share evidence with a reviewer" basis=proposed {
+  shot rest
+  shot trigger-hover hover=why-trigger
+  shot popover-open open=why-popover
+
+  frame page content=720 {
+    body {
+      text "Share evidence with a reviewer" role=title
+      text "Keep the main decision simple. Explain supporting detail only when it is requested."
+      field reviewer "Reviewer" value="Morgan Lee"
+      text "Evidence access" role=heading
+      text "The reviewer can read the evidence attached to this draft."
+      button why-trigger "Why can they see this?"
+      popover why-popover trigger=why-trigger {
+        text "Evidence access" role=heading
+        text "This reviewer was added to the current draft. They can read attached evidence but cannot change the source records."
+        button sharing-settings "Review sharing settings" goto=settings
+      }
+      bar actions {
+        start {
+          button cancel "Cancel" goto=settings
+        }
+        end {
+          button send "Send review request"
+        }
+      }
+    }
+  }
+}
+
+screen settings "Sharing settings" basis=proposed {
+  frame page content=720 {
+    body {
+      text "Sharing settings" role=title
+      text "This destination exists so the popover can demonstrate real gallery navigation."
+      link back "Back to review request" goto=sharing
+    }
+  }
+}

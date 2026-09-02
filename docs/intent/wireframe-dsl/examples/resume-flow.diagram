@@ -1,0 +1,18 @@
+diagram 1
+type flow
+
+# Proposed shared envelope with the existing flow graph vocabulary.
+# A small illustrative graph, not the complete existing resume workflow.
+graph resume-tailoring "Tailor a resume to a job posting"
+description "Use the posting and truthful evidence to draft and review a resume."
+
+node posting input "Target job posting"
+node evidence input "Career evidence"
+node draft process "Draft targeted changes"
+node review handoff "Human approval"
+node resume deliverable "Tailored resume"
+
+edge posting-draft posting -> draft
+edge evidence-draft evidence -> draft
+edge draft-review draft -> review
+edge review-resume review -> resume

@@ -3,6 +3,7 @@ import { parseDiagram, parseDiagramWithDiagnostics } from "./diagram-dsl.ts";
 import { edgeRelation, isFlowEdge, isOperationalNode, terminalDeliverableIds } from "./graph-semantics.ts";
 import type { CanvasGraph, CanvasNode, FlowDocument, FlowGraph, GraphEdge, GraphNode, NodePosition, NodeSetChanges, NodeType, VariantOperation } from "../types/graph.ts";
 import { DIAGRAM_FORMAT_VERSION } from "../types/diagram.ts";
+import { captureTextLines, svgEscape, textLinesToSvg } from "./dom-vector-scene.ts";
 
 export function formatFlowDiagramSource(document: FlowDocument, includePositions = true): string {
   // graphToDsl is the private flow-body formatter. Remove only its header
@@ -2008,6 +2009,31 @@ const TYPE_COLUMNS = {
       reportWorkingCopy({ variantNotice });
     });
 
+    function captureScene() {
+      const nodes = canvasNodes();
+      if (!nodes.length) return { type: 'flow', width: 1, height: 1, svg: '<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"/>', minimumTextSize: 13 };
+      const rects = getNodeRects();
+      const padding = 32;
+      const bounds = [...rects.values()].reduce((result, rect) => ({
+        minX: Math.min(result.minX, rect.x), minY: Math.min(result.minY, rect.y),
+        maxX: Math.max(result.maxX, rect.x + rect.w), maxY: Math.max(result.maxY, rect.y + rect.h),
+      }), { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
+      const width = Math.ceil(bounds.maxX - bounds.minX + padding * 2);
+      const height = Math.ceil(bounds.maxY - bounds.minY + padding * 2);
+      const typeColors: Record<string, string> = { actor: '#e7f0ff', input: '#e8f7f0', process: '#fff6db', handoff: '#f3eaff', deliverable: '#ffeceb' };
+      const edges = edgeLayer.innerHTML;
+      const nodeSvg = nodes.map((node) => {
+        const rect = rects.get(node.id)!;
+        const element = nodeLayer.querySelector<HTMLElement>(`[data-id="${cssEscape(node.id)}"]`);
+        const title = element?.querySelector<HTMLElement>('.node-title');
+        const elementRect = element?.getBoundingClientRect();
+        const lines = title && elementRect ? captureTextLines(title, elementRect).map((line) => ({ ...line, x: rect.x + line.x / zoom, y: rect.y + line.y / zoom, color: '#26303b' })) : [];
+        return `<g data-node-id="${svgEscape(node.id)}"><rect x="${rect.x}" y="${rect.y}" width="${rect.w}" height="${rect.h}" rx="8" fill="${typeColors[node.type] || '#f1f3f5'}" stroke="#8693a0"/><text x="${rect.x + 12}" y="${rect.y + 17}" font-family="Arial,Helvetica,sans-serif" font-size="10" font-weight="700" fill="#65717f">${svgEscape(node.type.toUpperCase())}</text>${textLinesToSvg(lines)}</g>`;
+      }).join('');
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" data-semantic-scene="flow"><style>.edge-path{fill:none;stroke:#7f8b98;stroke-width:2}.edge-label-bg{fill:#fff;stroke:#b9c2cc}.edge-label{font:11px Arial,sans-serif;fill:#65717f;text-anchor:middle;dominant-baseline:middle}</style><rect width="100%" height="100%" fill="#f4f6f8"/><g transform="translate(${padding - bounds.minX} ${padding - bounds.minY})">${edges}${nodeSvg}</g></svg>`;
+      return { type: 'flow', width, height, svg, minimumTextSize: 13 };
+    }
+
     (window as any).flow = {
       get: () => clone(toFlowDocument()),
       getGraph: () => clone(toFlowGraph()),
@@ -2039,10 +2065,11 @@ const TYPE_COLUMNS = {
       activeVariant: () => activeVariantId,
       toDSL: (options: { includePositions?: boolean } = {}) => formatFlowDiagramSource(toFlowDocument(), options.includePositions !== false),
       exportJSON: () => JSON.stringify(toFlowDocument(), null, 2),
+      captureScene,
       schema: {
         diagramFormatVersion: DIAGRAM_FORMAT_VERSION,
-        diagramTypes: ['flow', 'overview'],
-        sourceEnvelope: 'diagram 1\\ntype flow|overview',
+        diagramTypes: ['flow', 'overview', 'wireframe'],
+        sourceEnvelope: 'diagram 1\\ntype flow|overview|wireframe',
         dslVersion: 3,
         schemaVersion: 5,
         nodeTypes: Object.keys(TYPE_COLUMNS),

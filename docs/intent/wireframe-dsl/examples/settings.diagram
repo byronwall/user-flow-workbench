@@ -1,0 +1,31 @@
+diagram 1
+type wireframe
+wireframe account-settings "Account settings"
+viewport 1280 720
+
+screen settings "Profile and delivery" basis=proposed {
+  frame page content=720 {
+    body {
+      text "Account settings" role=title
+      text "Choose the name and address used for project updates."
+      grid fields columns=2 {
+        field name "Display name" value="Byron"
+        field email "Email address" value="byron@example.com"
+      }
+      text "Delivery" role=heading
+      list delivery {
+        item digest "Weekly digest" detail="One summary each week" state=selected
+        item immediate "Every update" detail="Send a message for each change"
+      }
+      notice preview "Example state" detail="The wireframe shows a choice. It does not save account data."
+      bar actions {
+        start {
+          link cancel "Cancel" goto=settings
+        }
+        end {
+          button save "Save changes"
+        }
+      }
+    }
+  }
+}

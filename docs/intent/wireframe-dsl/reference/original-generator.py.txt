@@ -1,0 +1,138 @@
+from pathlib import Path
+from html import escape
+import json
+out=Path('/Users/byronwall/Projects/user-flow-workbench/docs/intent/visual-idea-overview/wireframes')
+W,H=1280,720
+INK='#26303b'; MUTED='#65717f'; LINE='#bac1c9'; PAPER='#ffffff'; BG='#f2f4f6'; BLUE='#285da8'; SOFT='#eef4fc'
+def text(x,y,s,size=14,weight=400,color=INK,anchor=None):
+    a=f' text-anchor="{anchor}"' if anchor else ''
+    return f'<text x="{x}" y="{y}" font-size="{size}" font-weight="{weight}" fill="{color}"{a}>{escape(s)}</text>'
+def rect(x,y,w,h,fill=PAPER,stroke=LINE,r=4,dash=False):
+    return f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="{r}" fill="{fill}" stroke="{stroke}"'+(' stroke-dasharray="6 4"' if dash else '')+'/>'
+def line(x1,y1,x2,y2,color=LINE,dash=False):
+    return f'<path d="M{x1} {y1}L{x2} {y2}" fill="none" stroke="{color}"'+(' stroke-dasharray="5 4"' if dash else '')+'/>'
+def button(x,y,w,label,new=False,active=False,disabled=False):
+    return rect(x,y,w,30,SOFT if active else PAPER,BLUE if new or active else LINE,4,new)+text(x+w/2,y+20,label,12,600,'#99a1aa' if disabled else BLUE if active else INK,'middle')
+def lines(x,y,items,size=13,step=21,color=INK,weight=400):
+    return ''.join(text(x,y+i*step,s,size,weight,color) for i,s in enumerate(items))
+def tag(x,y,label,w=73):
+    return rect(x,y,w,23,SOFT,BLUE,3)+text(x+w/2,y+16,label,11,600,BLUE,'middle')
+def svg(body,title,desc):
+    return f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}" role="img" aria-labelledby="title desc"><title id="title">{escape(title)}</title><desc id="desc">{escape(desc)}</desc><style>text{{font-family:Arial,Helvetica,sans-serif}} .edge{{fill:none;stroke:#8995a1;stroke-width:1.5;marker-end:url(#arrow)}}</style><defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#8995a1"/></marker></defs>'+rect(0,0,W,H,PAPER,LINE,0)+body+'</svg>'
+def sidebar(current=False,title='About this overview',selected=False,alternative=False):
+    b=rect(934,0,346,720,PAPER,LINE,0)+text(955,27,'Inspector',13,600,BLUE)+text(1120,27 if current else 21,'Flow DSL' if current else 'Diagram DSL',13,600)+(text(1120,37,'Read only',10,color=MUTED) if not current else '')+line(951,43,1080,43,BLUE)
+    if current:
+        b+=text(953,74,'Nodes',15,700)+text(953,98,'Select a node to inspect its details.',12,color=MUTED)
+        for i,(label,w) in enumerate([('All',32),('actor',49),('input',48),('process',67)]):
+            x=[953,994,1052,1109][i];b+=button(x,113,w,label,active=i==0)
+        b+=text(953,169,'19 nodes · type filters',12,color=MUTED)+line(951,184,1260,184)
+        for i,(label,kind) in enumerate([('Job seeker','Actor'),('Understand the role','Need'),('Stay truthful and defensible','Need'),('Spend effort where it matters','Need'),('Side-by-side source context','UX'),('Evidence and confidence','UX'),('Target job posting','Input'),('Current resume','Input')]):
+            yy=208+i*62;b+=rect(954,yy-8,25,26,BG,LINE,3)+text(992,yy+4,label,13,600)+text(992,yy+23,kind,11,color=MUTED)+line(951,yy+41,1260,yy+41)
+        return b
+    b+=text(954,78,'Capability' if selected else title,14,700)
+    if selected:
+        b+=lines(954,116,['Tailor a resume','to a role'],21,26,weight=700)+text(954,181,'Drafting',12,color=MUTED)
+        b+=lines(954,222,['Draft focused changes using the','user’s evidence and the selected','job requirements.'],14,22)
+        b+=text(954,322,'Related flows',13,700)+rect(951,340,308,77,SOFT,BLUE,4,True)+text(965,366,'Tailor a resume to a job posting',13,600)+text(965,394,'Open flow  →',13,600,BLUE)
+        b+=text(954,461,'No link is also a valid state.',12,color=MUTED)+text(954,484,'Capabilities can precede flows.',12,color=MUTED)
+    else:
+        b+=text(954,116,'Resume app',22,700)+tag(954,134,'Intended')
+        b+=lines(954,196,['A working idea, ready to reduce','through conversation.'],14,23)
+        b+=line(953,242,1260,242)+text(954,277,'Select a capability',15,600)+lines(954,304,['Read its detail and open a related','flow when one exists.'],13,22,color=MUTED)
+        if alternative:
+            b+=line(953,376,1260,376)+text(954,409,'Guided interview',15,700)+lines(954,438,['Ask for missing evidence before','drafting targeted changes.'],13,22)
+            b+=text(954,502,'Switch views to compare.',12,color=MUTED)
+    b+=line(953,627,1260,627)+text(954,656,'Source current',12,600)+text(954,681,'Edit through your agent.',12,color=MUTED)
+    return b
+
+def toolbar(flow=False,current=False):
+    b=rect(0,0,934,44,PAPER,LINE,0)
+    if flow:
+        b+=text(10,27,'User Flow Workbench',14,700)
+        for x,w,l in [(165,88,'Auto layout'),(260,38,'Fit'),(306,78,'Add node'),(391,76,'Duplicate'),(474,62,'Delete')]:
+            b+=button(x,7,w,l,disabled=l in ['Duplicate','Delete'])
+        b+=button(657,7,90,'All flows' if current else 'All diagrams',new=not current)+button(754,7,92,'Export JSON')+button(853,7,73,'Reset file')
+    else:
+        b+=text(12,20,'User Flow Workbench',14,700)+text(12,36,'resume-app.diagram',10,color=MUTED)
+        b+=tag(255,11,'Overview',77)+button(605,7,112,'Reload source',new=True)+button(726,7,95,'All diagrams',new=True)+button(830,7,94,'Export JSON')
+    return b
+
+def flow_body(offset=0):
+    b=rect(0,86+offset,934,634-offset,BG,LINE,0)
+    nodes=[(90,150+offset,['Job seeker']),(325,150+offset,['Target job posting']),(325,240+offset,['Current resume']),(655,150+offset,['Parse the','job posting']),(655,240+offset,['Inventory','resume evidence']),(90,365+offset,['Requirements brief']),(90,455+offset,['Resume evidence']),(360,365+offset,['Map requirements','to evidence']),(655,365+offset,['Match / gap matrix']),(90,600,['Draft targeted','changes']),(360,600,['Human approval']),(655,600,['Tailored resume'])]
+    edges=[(270,178+offset,325,178+offset),(270,178+offset,298,268+offset),(505,178+offset,655,178+offset),(505,268+offset,655,268+offset),(835,178+offset,90,365+offset),(835,268+offset,90,455+offset),(270,393+offset,360,393+offset),(270,483+offset,360,393+offset),(540,393+offset,655,393+offset),(835,393+offset,90,600),(270,628,360,628),(540,628,655,628)]
+    for x1,y1,x2,y2 in edges:
+        if x2>x1 and y1==y2:d=f'M{x1} {y1}H{x2}'
+        elif x2<x1:d=f'M{x1} {y1}H{min(x1+15,908)}V{y2-24}H{x2+20}V{y2}'
+        else:d=f'M{x1} {y1}H{(x1+x2)//2}V{y2}H{x2}'
+        b+=f'<path d="{d}" class="edge"/>'
+    for x,y,lab in nodes:
+        b+=rect(x,y,180,58,PAPER,'#8c99a5',7)+lines(x+14,y+24 if len(lab)>1 else y+34,lab,13,19,weight=600)
+    b+=rect(10,680,208,27,PAPER,LINE,5)+text(20,698,'89%  ·  ELK / local routes',11,color=MUTED)
+    b+=rect(520,680,400,27,PAPER,LINE,5)+text(532,698,'User   Input   Process   Artifact   Handoff   Outcome',11,color=MUTED)
+    return b
+
+def variantbar(alternative=False,current=False,y=44):
+    b=rect(0,y,934,42,PAPER,LINE,0)+text(10,y+26,'View',12,color=MUTED)
+    if current:
+        for x,w,l in [(44,48,'Base'),(101,160,'One resume per posting'),(270,209,'Evidence projection'),(488,215,'Guided evidence interview')]:b+=button(x,y+6,w,l,active=x==44)
+    else:
+        b+=button(50,y+6,115,'Current idea',active=not alternative)+button(176,y+6,159,'Guided interview',new=True,active=alternative)
+    return b
+
+groups=[('Role & evidence',['Understand job requirements','Inventory career evidence','See matches and gaps']),('Drafting',['Tailor a resume to a role','Prioritize useful changes']),('Review & output',['Review suggested edits','Approve a final resume','Export the result'])]
+def board(selected=False,alternative=False):
+    top=86 if alternative else 44
+    b=rect(0,top,934,720-top,BG,LINE,0)+text(30,top+48,'Resume app',25,700)+tag(206,top+29,'Intended')
+    b+=text(30,top+79,'Prepare a relevant resume using truthful career evidence.',15,color=MUTED)
+    b+=rect(20,top+107,893,405,'none',BLUE,6,True)
+    for i,(name,items) in enumerate(groups):
+        if alternative and i==0:items=items+['Answer evidence questions']
+        x=35+i*293
+        b+=text(x,top+141,name,16,700)+line(x,top+157,x+266,top+157,'#9eabb7')
+        for j,label in enumerate(items):
+            yy=top+178+j*70
+            active=selected and label.startswith('Tailor')
+            b+=rect(x,yy,265,54,SOFT if active else PAPER,BLUE if active else LINE,5)
+            # Explicit line breaks keep long capability titles readable.
+            split={'Understand job requirements':['Understand job','requirements'],'Inventory career evidence':['Inventory career evidence'],'Tailor a resume to a role':['Tailor a resume to a role'],'Prioritize useful changes':['Prioritize useful changes'],'Answer evidence questions':['Answer evidence questions']}.get(label,[label])
+            b+=lines(x+13,yy+23 if len(split)>1 else yy+32,split,14,18,weight=600)
+    b+=text(31,top+550,'Grouped capabilities · no sequence implied',12,color=MUTED)
+    return b
+
+frames=[]
+def save(name,title,desc,body,notes):
+    (out/f'{name}.svg').write_text(svg(body,title,desc))
+    frames.append(dict(id=name,title=title,description=desc,notes=notes))
+
+save('01-current','01 / Current flow viewer','Low-fidelity trace of the inspected flow viewer. Gray marks existing UI; the graph is simplified, not a new design.',toolbar(True,True)+variantbar(current=True)+flow_body()+sidebar(current=True),['Existing: action toolbar, view tabs, flow canvas, and fixed inspector.','This baseline is traced from the live viewer; graph geometry is simplified.','Current picker failed to open during inspection; its code supplies the next frame’s starting structure.'])
+# mixed picker
+b=rect(0,0,1280,720,BG,LINE,0)+rect(245,110,790,510,PAPER,LINE,9)+text(280,156,'User Flow Workbench',15,700)+text(280,203,'Choose a diagram',28,700)+text(280,238,'Files in this folder and its subfolders',14,color=MUTED)+line(278,266,1000,266)
+for i,(title,path,kind) in enumerate([('Resume app','ideas/resume-app.diagram','Overview'),('Tailor a resume to a job posting','flows/resume-alignment.diagram','Flow'),('Online checkout','examples/checkout.diagram','Flow')]):
+    y=284+i*94;b+=rect(276,y,728,78,PAPER,BLUE if i==0 else LINE,4,i==0)+tag(295,y+25,kind,83)+text(401,y+30,title,16,600)+text(401,y+54,path,12,color=MUTED)+text(974,y+46,'→',21,color=BLUE)
+b+=text(280,594,'One extension. Type comes from file metadata.',13,color=MUTED)
+save('02-picker','02 / One picker for both types','Adapt the existing file picker. Document kind is a label, not a new navigation hierarchy.',b,['Change: “All flows” and “Choose a flow” become “All diagrams” and “Choose a diagram.”','Add a type label from metadata; keep the current file-list pattern.','No project sidebar, folder manager, or global Overview / Flow mode switch.'])
+save('03-overview','03 / New overview, familiar shell','The new board replaces the flow canvas. Keep the inspector and source tab positions.',toolbar()+board()+sidebar(),['New: a grouped board with readable capability titles and one-line purpose.','Change: source reload replaces node-edit actions; hide flow legend and movement hints.','Keep the right sidebar width. No duplicate inventory there. Hide view tabs when there are no alternatives.'])
+save('04-capability','04 / Capability detail and a flow link','Selection changes only the inspector. The board does not reflow.',toolbar()+board(selected=True)+sidebar(selected=True),['New inspector content: capability purpose and optional related flow links.','No Add feature, edit form, status workflow, or embedded chat. Edits stay with the agent.','A capability without a flow remains valid; show a quiet no-link state.'])
+save('05-return','05 / Existing flow with return context','Keep the existing flow editor. Add a return row only when entered from an overview.',toolbar(True,False)+rect(0,44,934,30,SOFT,BLUE,0,True)+text(14,64,'← Resume app  /  Tailor a resume to a role',12,600,BLUE)+variantbar(current=True,y=74)+flow_body(offset=30)+sidebar(current=True),['Change: a small return row preserves overview and capability context.','Flow canvas, node inspector, editing controls, pan, zoom, and routing stay intact.','Standalone flows show no return row. An overview is not a required parent.'])
+save('06-alternative','06 / A temporary alternative','Use the existing view-tab pattern to show one complete idea at a time.',toolbar()+variantbar(alternative=True)+board(alternative=True)+sidebar(alternative=True),['Reuse the existing view-tab location, only when a legitimate choice exists.','The selected view is complete: no ghost cards, split lanes, or merged alternatives.','Choosing the final direction remains an agent source edit; no adoption button or archive UI.'])
+(out/'frames.json').write_text(json.dumps(frames,indent=2)+'\n')
+# Small state sheet - these are local states, not extra application pages.
+b=text(36,52,'Source and empty states',26,700)+text(36,82,'Local states inside the overview; no new workflow screens.',15,color=MUTED)
+for i,(title,detail) in enumerate([('Loading diagram…','Keep the shell stable while the selected source loads.'),('No capabilities yet','Describe the idea to your agent, then reload the source.'),('Source error · Showing previous valid view','Line 8: unknown group. Keep the board visible; show Retry and the diagnostic.'),('This capability was removed','Clear selection; return the inspector to the overview summary.')]):
+    y=118+i*137;b+=rect(36,y,1208,108,PAPER,BLUE if i==2 else LINE,5,i==2)+text(58,y+36,title,17,700)+text(58,y+70,detail,14,color=MUTED)
+    if i==2:b+=button(1135,y+20,85,'Retry',new=True)
+(out/'07-local-states.svg').write_text(svg(b,'07 / Local loading, empty, and stale states','Four local states that reuse the shell and inspector rather than add screens.'))
+# Contact sheet contains six directly comparable application frames.
+cw,ch=1320,1370
+sheet=f'<svg xmlns="http://www.w3.org/2000/svg" width="{cw}" height="{ch}" viewBox="0 0 {cw} {ch}"><style>text{{font-family:Arial,Helvetica,sans-serif}}</style><rect width="100%" height="100%" fill="#fafbfc"/>'+text(24,36,'UI integration / low-fidelity scope',25,700)+text(24,61,'Gray = existing structure     Blue / dashed = added or changed surface     Illustrative resume content',13,color=MUTED)
+for i,f in enumerate(frames):
+    x=24+(i%2)*650;y=90+(i//2)*422
+    raw=(out/(f['id']+'.svg')).read_text()
+    inner=raw[raw.index('>')+1:raw.rindex('</svg>')]
+    inner=inner.replace('id="title"', f'id="title-{i}"').replace('id="desc"', f'id="desc-{i}"').replace('id="arrow"', f'id="arrow-{i}"').replace('url(#arrow)', f'url(#arrow-{i})')
+    sheet+=text(x,y+18,f['title'],17,700)+f'<svg x="{x}" y="{y+32}" width="624" height="351" viewBox="0 0 1280 720">{inner}</svg>'
+    sheet+=text(x,y+405,['Existing layout; retain the flow editor.','Same picker, both document types.','One new board; no new navigation system.','Selection swaps inspector content.','Flow detail gains a return row.','Existing tabs, complete alternative views.'][i],13,color=MUTED)
+sheet+='</svg>'
+(out/'contact-sheet.svg').write_text(sheet)
+print('Generated six wireframes, local states, and a contact sheet.')

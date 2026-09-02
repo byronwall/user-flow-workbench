@@ -91,7 +91,7 @@ Do not model variants as a vertical lane of special nodes. Each variant applies 
 - The graph document schema version is `5`.
 - The Flow DSL version is `3`.
 - Earlier DSL and schema versions are not supported.
-- The agent-facing source uses a shared `diagram 1` envelope with exactly one `type flow` or `type overview` line. Flow and overview bodies keep separate semantics.
+- The agent-facing source uses a shared `diagram 1` envelope with one `type flow`, `type overview`, or `type wireframe` line. Each body keeps separate semantics.
 - The flow body remains a line-based DSL. The overview body stores ordered groups, capabilities, optional purpose and status, and safe relative flow references.
 - Node and edge identities are required and stable.
 - Canonical formatting makes repeated agent edits converge.
@@ -106,7 +106,7 @@ Do not model variants as a vertical lane of special nodes. Each variant applies 
 - Variant positions override base positions. They stay optional.
 - Semantic form controls are read-only in a materialized variant. Agents edit variant changes in the DSL.
 - The app is a TypeScript SolidStart SPA.
-- Production flow diagrams live as editable `.diagram` files in `src/data/flows`, and production overview diagrams live in `src/data/overviews`.
+- Production flow, overview, and wireframe diagrams live in separate folders below `src/data` and share the `.diagram` extension.
 - `flow view` serves the packaged SolidStart application on the loopback interface.
 - `flow render` captures one file or a directory through the packaged viewer with a fresh local browser profile.
 - Render output uses a 1200 × 800 CSS pixel canvas by default, with a supported minimum of 320 × 240 pixels. The legend is hidden below 480 pixels to preserve diagram content. Directory output keeps source-relative paths and writes a JSON report.
@@ -160,6 +160,12 @@ The overview reloads source data while it is visible. A refresh keeps the last g
 3. Test large diagrams, dense crossings, backward edges, and disconnected groups.
 4. Improve keyboard access, focus behavior, and inspector behavior on small screens.
 5. Decide how diagrams are saved, named, duplicated, imported, and shared.
+
+## Wireframes
+
+Wireframes compress proposed interface ideas into inspectable diagrams. Named renderer-owned themes (`default` and `recipe`) keep the DSL free of CSS. The language has panels, cards as leaf elements, explicit select, toggle, and checkbox controls, and finite button icon, tone, and state options. General grids use `columns=N min=PX` with a minimum of 120 pixels; calendar layouts use that grid instead of a calendar primitive. Textareas and lists support plain, ordered, and checkable modes, with checked items and optional remove actions. Authored navigation and native popover triggers work in the viewer. A compact per-screen state selector shows rest, hover, and open states; the removed large progressive-state gallery is not part of the viewer.
+
+Workbench wireframes can embed one real flow or overview scene. Read-only capture hooks reuse the existing browser layout and routing. The wireframe viewer does not include a second graph renderer. Arbitrary events, bindings, dialogs, and production UI generation remain outside the first slice.
 
 ## Open product questions
 

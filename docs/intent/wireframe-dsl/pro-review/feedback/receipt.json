@@ -1,0 +1,40 @@
+{
+  "conversation": "https://chatgpt.com/c/6a94e6c8-ec48-83ea-8227-cfef46ea7ad6",
+  "report_file": "wireframe-dsl-review.md",
+  "report_bytes": 57583,
+  "report_sha256": "bf4b7de3e4cd3b4f3cf913867ab26a109392c62fd42d886fe559846e2daee789",
+  "download_verified_identical": true,
+  "repository_head": "c1d47705f00db2167e1e4661043c641f1b743eec",
+  "baseline_kind": "Working tree; concurrent uncommitted overview and common-format implementation",
+  "working_sources": {
+    "src/lib/diagram-dsl.ts": "53e8f267f3c1a3d0098e5e800279ec6d2c3a5335f1d3de95b075185d5b9c2a39",
+    "src/types/diagram.ts": "ead2da08f86e28a9ccc5d58684d097199e9e64a3c8d9ee490ea6927616a8a397",
+    "src/lib/overview-dsl.ts": "1177ef9c6a7f46211c339e60339a336ec44650d654ad0575001ffdff90be3a06",
+    "src/components/OverviewWorkbench.tsx": "92c40e04981ae325f19231a7a5dff89e9d66a5e608443da4b1ff9d84e0df9567",
+    "src/lib/flow-workbench.ts": "f94c4d10be2c0305d478771fa213c9daa5651d88741979a84344febd10f924fb",
+    "src/server/flow-catalog.ts": "be2a4a87882c410f0b552fefaaaa826bf233942ed27d12e529b141341576baae",
+    "src/routes/index.tsx": "6a23cdf38e5c080cfdc13b535b974b902a5df828a16725752023de371370dbe0",
+    "src/lib/overview-navigation.ts": "fd09c352dc3d9dd9adb9693dd895162bdad410f87d87eda507b58d2192ddd292",
+    "src/cli/cdp.ts": "92d72576888ddd4c7e347607978e7cf88abeeec76b65e73c41178ddcfbae91e3",
+    "src/source-refresh.ts": "8e2bb5dba9bd4a1d797406834e62b71759f5845a912ab744367cd7248b62f0cd",
+    "package.json": "28b5d58f667d9eba5470f3f7f67acab339cce97a34704e5a7a8220867cae3b08"
+  },
+  "integration_date": "2026-08-31",
+  "local_checks": {
+    "model_typecheck": "passed",
+    "referenced_diagrams_cli_check": 3,
+    "current_document_links": "passed",
+    "example_reference_paths": "passed",
+    "wireframe_parser": "not implemented; examples reviewed against contract",
+    "browser_render_proof": "not performed"
+  },
+  "screenshot_correction": {
+    "original": "reference/current-ui.png",
+    "example_copy": "reference/current-ui.jpg",
+    "bytes_unchanged": true,
+    "actual_format": "JPEG",
+    "width": 1280,
+    "height": 720,
+    "sha256": "1ff23c3e0209d5f3cf873e8582ed2dd714e3617dc5c8337cd3cc85c21a337161"
+  }
+}

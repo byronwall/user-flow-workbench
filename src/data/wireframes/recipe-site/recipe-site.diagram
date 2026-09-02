@@ -1,0 +1,428 @@
+diagram 1
+type wireframe
+
+wireframe recipe-site "Recipe planning website"
+viewport 1440 900
+theme recipe
+
+reference recipes-site image="src/data/wireframes/recipe-site/references/recipes.png" width=1864 height=1424 state="Recipe library"
+reference plan-site image="src/data/wireframes/recipe-site/references/plan.png" width=1978 height=1230 state="Planned meals"
+reference shopping-site image="src/data/wireframes/recipe-site/references/shopping-list.png" width=1480 height=1498 state="Shopping list"
+reference ai-site image="src/data/wireframes/recipe-site/references/ai.png" width=1802 height=1510 state="AI recipe generator"
+reference recipe-details-site image="src/data/wireframes/recipe-site/references/recipe-details.png" width=1826 height=1504 state="Apple Pie recipe details"
+
+screen recipes "Recipe library" basis=observed reference=recipes-site {
+  shot rest
+  shot create-open open=new-recipe-popover
+
+  frame page content=1320 {
+    body {
+      bar navigation {
+        start {
+          badge "recipes"
+          link plan-link "plan" goto=plan
+          link list-link "list" goto=shopping
+          link purchases-link "purchases"
+          link ingredients-link "ingredients"
+          link ai-link "ai" goto=ai
+          link kroger-link "kroger"
+        }
+        end {
+          button sign-out "sign out"
+        }
+      }
+      grid filters columns=2 {
+        panel search-filters {
+          text "SEARCH" role=heading
+          field recipe-search "Search" value="Search recipes"
+          select tag-filter "TAGS" value="More tags"
+        }
+        panel type-filters {
+          text "TYPE" role=heading
+          grid meal-types columns=3 {
+            button all "All"  state=selected
+            button breakfast "BREAKFAST"
+            button lunch "LUNCH"
+            button dinner "DINNER"
+            button dessert "DESSERT"
+            button snack "SNACK"
+            button drink "DRINK"
+            button appetizer "APPETIZER"
+            button side "SIDE"
+          }
+        }
+      }
+      bar recipe-actions {
+        end {
+          button new-recipe "＋ New Recipe" icon=add
+        }
+      }
+      popover new-recipe-popover trigger=new-recipe {
+        text "New Recipe" role=heading
+        field recipe-name "Name" value="Recipe name"
+        select recipe-type "Type" value="Dinner"
+        field recipe-tags "Tags" value="Add tags"
+        button save-recipe "Save recipe"
+      }
+      grid recipe-grid columns=3 {
+        panel apple-pie-card {
+          card apple-pie "Apple Pie" detail="DESSERT · + Tag" goto=recipe-details
+          bar apple-pie-actions {
+            end {
+              button apple-plan "Add to plan" icon=calendar-add
+              button apple-list "Add to list" icon=cart
+            }
+          }
+        }
+        panel salmon-card {
+          card salmon "Asian Salmon in Foil" detail="DINNER · + Tag"
+          bar salmon-actions {
+            end {
+              button salmon-plan "Add to plan" icon=calendar-add
+              button salmon-list "Add to list" icon=cart
+            }
+          }
+        }
+        panel casserole-card {
+          card casserole "Bacon Breakfast Casserole" detail="BREAKFAST · + Tag"
+          bar casserole-actions {
+            end {
+              button casserole-plan "Add to plan" icon=calendar-add
+              button casserole-list "Add to list" icon=cart
+            }
+          }
+        }
+        panel feta-pasta-card {
+          card feta-pasta "Baked Feta Pasta" detail="DINNER · + Tag"
+          bar feta-pasta-actions {
+            end {
+              button feta-plan "Add to plan" icon=calendar-add
+              button feta-list "Add to list" icon=cart
+            }
+          }
+        }
+        panel potato-bar-card {
+          card potato-bar "baked potato bar" detail="DINNER · + Tag"
+          bar potato-bar-actions {
+            end {
+              button potato-plan "Add to plan" icon=calendar-add
+              button potato-list "Add to list" icon=cart
+            }
+          }
+        }
+        panel baked-spaghetti-card {
+          card baked-spaghetti "Baked Spaghetti" detail="DINNER · + Tag · allrecipes.com"
+          bar baked-spaghetti-actions {
+            end {
+              button spaghetti-plan "Add to plan" icon=calendar-add
+              button spaghetti-list "Add to list" icon=cart
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+screen plan "Planned meals" basis=observed reference=plan-site {
+  frame page content=1320 {
+    body {
+      bar navigation {
+        start {
+          link recipes-link "recipes" goto=recipes
+          badge "plan"
+          link list-link "list" goto=shopping
+          link purchases-link "purchases"
+          link ingredients-link "ingredients"
+          link ai-link "ai" goto=ai
+          link kroger-link "kroger"
+        }
+        end {
+          button sign-out "sign out"
+        }
+      }
+      text "Planned Meals" role=title
+      bar calendar-controls {
+        start {
+          toggle hide-made "Hide made meals" state=on
+        }
+        end {
+          button previous "‹" icon=chevron-left
+          button today "Today"
+          button next "›" icon=chevron-right
+        }
+      }
+      grid calendar columns=7 min=120 {
+        panel day-23 {
+          text "SUN" role=caption
+          text "23 AUG" role=heading
+          button add-23 "＋" icon=add
+        }
+        panel day-24 {
+          text "MON" role=caption
+          text "24 AUG" role=heading
+          button add-24 "＋" icon=add
+        }
+        panel day-25 {
+          text "TUE" role=caption
+          text "25 AUG" role=heading
+          card potato-day "baked potato bar"
+          button add-25 "＋" icon=add
+        }
+        panel day-26 {
+          text "WED" role=caption
+          text "26 AUG" role=heading
+          card cowboy-day "Cowboy Caviar"
+          card guacamole-day "Guacamole"
+          button add-26 "＋" icon=add
+        }
+        panel day-27 {
+          text "THU" role=caption
+          text "27 AUG" role=heading
+          card coconut-day "Coconut Shrimp"
+          card sabzi-day "Sabzi Pullao"
+          button add-27 "＋" icon=add
+        }
+        panel day-28 {
+          text "FRI" role=caption
+          text "28 AUG" role=heading
+          card beef-day "Slow Cooker Beef"
+          button add-28 "＋" icon=add
+        }
+        panel day-29 {
+          text "SAT" role=caption
+          text "29 AUG" role=heading
+          button add-29 "＋" icon=add
+        }
+        panel day-30 {
+          text "SUN" role=caption
+          text "30 AUG" role=heading
+          button add-30 "＋" icon=add
+        }
+        panel day-31 {
+          text "MON" role=caption
+          text "31 AUG" role=heading
+          button add-31 "＋" icon=add
+        }
+        panel day-1 {
+          text "TUE" role=caption
+          text "1 SEP" role=heading
+          button add-1 "＋" icon=add
+        }
+        panel day-2 {
+          text "WED" role=caption
+          text "2 SEP" role=heading
+          button add-2 "＋" icon=add
+        }
+        panel day-3 {
+          text "THU" role=caption
+          text "3 SEP" role=heading
+          button add-3 "＋" icon=add
+        }
+        panel day-4 {
+          text "FRI" role=caption
+          text "4 SEP" role=heading
+          button add-4 "＋" icon=add
+        }
+        panel day-5 {
+          text "SAT" role=caption
+          text "5 SEP" role=heading
+          button add-5 "＋" icon=add
+        }
+        panel day-6 {
+          text "SUN" role=caption
+          text "6 SEP" role=heading
+          button add-6 "＋" icon=add
+        }
+        panel day-7 {
+          text "MON" role=caption
+          text "7 SEP" role=heading
+          button add-7 "＋" icon=add
+        }
+        panel day-8 {
+          text "TUE" role=caption
+          text "8 SEP" role=heading
+          button add-8 "＋" icon=add
+        }
+        panel day-9 {
+          text "WED" role=caption
+          text "9 SEP" role=heading
+          button add-9 "＋" icon=add
+        }
+        panel day-10 {
+          text "THU" role=caption
+          text "10 SEP" role=heading
+          button add-10 "＋" icon=add
+        }
+        panel day-11 {
+          text "FRI" role=caption
+          text "11 SEP" role=heading
+          button add-11 "＋" icon=add
+        }
+        panel day-12 {
+          text "SAT" role=caption
+          text "12 SEP" role=heading
+          button add-12 "＋" icon=add
+        }
+      }
+    }
+  }
+}
+
+screen shopping "Shopping list" basis=observed reference=shopping-site {
+  frame page content=1320 {
+    body {
+      bar navigation {
+        start {
+          link recipes-link "recipes" goto=recipes
+          link plan-link "plan" goto=plan
+          badge "list"
+          link purchases-link "purchases"
+          link ingredients-link "ingredients"
+          link ai-link "ai" goto=ai
+          link kroger-link "kroger"
+        }
+        end {
+          button sign-out "sign out"
+        }
+      }
+      text "Shopping list" role=title
+      list included-recipes mode=plain {
+        item potato "baked potato bar" action=remove
+        item guacamole "Guacamole" action=remove
+        item cowboy "Cowboy Caviar" action=remove
+        item sabzi "Sabzi Pullao- Vegetables with Fried Rice" action=remove
+        item coconut "Coconut Shrimp Cream Curry" action=remove
+        item beef "Slow Cooker Beef and Broccoli" action=remove
+      }
+      bar shopping-actions {
+        start {
+          button add-loose "＋ Add loose item" icon=add
+          button delete-all "Delete all" icon=trash tone=destructive
+          button delete-bought "Delete bought" icon=trash
+          button copy-notes "Copy for Notes" icon=copy
+        }
+        end {
+          button group-recipe "Recipe"  state=selected
+          button group-aisle "Aisle"
+        }
+      }
+      panel coconut-items-panel {
+        text "Coconut Shrimp Cream Curry" role=heading
+        list coconut-items mode=checkable {
+          item tomato "2 tbsp tomato paste" state=checked action=remove
+          item cayenne "1 tsp cayenne pepper" state=checked action=remove
+          item bay "2 bay leaves" state=checked action=remove
+          item jalapeno "1 jalapeno thinly sliced" state=checked action=remove
+          item coconut-milk "2 cans coconut milk" state=unchecked action=remove
+        }
+        checkbox show-pantry "Show pantry items" state=unchecked
+      }
+    }
+  }
+}
+
+screen ai "AI recipe generator" basis=observed reference=ai-site {
+  frame page content=1240 {
+    body {
+      bar navigation {
+        start {
+          link recipes-link "recipes" goto=recipes
+          link plan-link "plan" goto=plan
+          link list-link "list" goto=shopping
+          link purchases-link "purchases"
+          link ingredients-link "ingredients"
+          badge "ai"
+          link kroger-link "kroger"
+        }
+        end {
+          button sign-out "sign out"
+        }
+      }
+      text "AI Recipe Generator" role=title
+      textarea prompt "Prompt" value="Large group meal for someone with celiac disease and peanut allergies. Include a main dish and side. Keep it kid friendly."
+      grid generator-options columns=3 {
+        select servings "Servings (optional)" value="Optional"
+        select time-limit "Time limit minutes (optional)" value="Optional"
+        select count "How many?" value="3"
+      }
+      button generate "Generate" icon=sparkles
+      bar generated-actions {
+        start {
+          text "Generated 3 recipes" role=caption
+        }
+        end {
+          button select-all "□ Select all"
+          button save-selected "Save selected (0)"  state=disabled
+        }
+      }
+      list generated-recipes mode=plain {
+        item chicken-bake "Gluten-Free Chicken and Vegetable Bake" detail="45 min · kid-friendly · gluten-free · one-pan meal"
+        item beef-bowls "Peanut-Free Beef and Rice Bowls" detail="35 min · family-style · dairy-free"
+        item taco-bar "Build-Your-Own Chicken Taco Bar" detail="40 min · gluten-free · serves a crowd"
+      }
+    }
+  }
+}
+
+screen recipe-details "Recipe details" basis=observed reference=recipe-details-site {
+  frame page content=1320 {
+    body {
+      bar navigation {
+        start {
+          link recipes-link "recipes" goto=recipes
+          link plan-link "plan" goto=plan
+          link list-link "list" goto=shopping
+          link purchases-link "purchases"
+          link ingredients-link "ingredients"
+          link ai-link "ai" goto=ai
+          link kroger-link "kroger"
+        }
+        end {
+          button sign-out "sign out"
+        }
+      }
+      panel recipe-header {
+        text "Apple Pie" role=title
+        text "DESSERT · + Tag" role=caption
+        text "A classic apple pie with a crisp crust and warm cinnamon filling." role=body
+      }
+      panel recipe-actions {
+        text "ACTIONS" role=heading
+        grid action-buttons columns=2 {
+          button plan-recipe "Plan" icon=calendar-add
+          button list-recipe "List" icon=cart
+          button touch-up "Touch up" icon=sparkles
+          button cook-recipe "Cook it" icon=chef-hat
+        }
+        button delete-recipe "Delete" icon=trash tone=destructive
+      }
+      grid recipe-content columns=2 {
+        panel ingredients-panel {
+          text "ingredients" role=heading
+          list ingredients-list mode=plain {
+            item cinnamon "1 1/2 tsp cinnamon"
+            item butter "8 Tbsp unsalted butter"
+            item flour "3 Tbsp all-purpose flour"
+            item water "1/4 cup water"
+            item sugar "1 cup granulated sugar"
+            item egg "1 egg, plus 1 Tbsp water, for egg wash"
+            item apples "2 1/4 lbs Granny Smith apples, peeled and cored"
+            item ice-cream "1 vanilla ice cream"
+            item crust "1 double pie crust"
+          }
+        }
+        panel instructions-panel {
+          text "instructions" role=heading
+          list instructions-list mode=ordered {
+            item step-one "Make the pie crust and chill it. Preheat the oven to 425°F."
+            item step-two "Melt butter over medium heat. Whisk in flour, water, and sugar. Simmer for 3 minutes."
+            item step-three "Peel, core, and slice the apples. Add cinnamon and coat with the sauce."
+            item step-four "Roll out the crust, fill the pie, and seal the top crust."
+            item step-five "Bake until the crust is golden and the filling bubbles."
+          }
+        }
+      }
+    }
+  }
+}

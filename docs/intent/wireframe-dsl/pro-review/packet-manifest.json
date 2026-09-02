@@ -1,0 +1,257 @@
+{
+  "snapshot_utc": "2026-08-31T02:25:59.773901+00:00",
+  "release_commit": "c1d47705f00db2167e1e4661043c641f1b743eec",
+  "files": [
+    {
+      "path": "docs/intent/wireframe-dsl/README.md",
+      "source": "working",
+      "sha256": "8c04cb74b43a3f69528eea835ea52aa53ca51fe740ef2ad27f36e62d3d841815",
+      "bytes": 7891
+    },
+    {
+      "path": "docs/intent/wireframe-dsl/language.md",
+      "source": "working",
+      "sha256": "dc693fbdbcdc801ed12f082bf1f2318cbce44f9eb527e752f15f78556d39e7ac",
+      "bytes": 11384
+    },
+    {
+      "path": "docs/intent/wireframe-dsl/examples/minimal.diagram",
+      "source": "working",
+      "sha256": "7af82acd1a8162fc884a6fd103873124558cb8bfdb2d4b80c2acf1b97e41d202",
+      "bytes": 930
+    },
+    {
+      "path": "docs/intent/wireframe-dsl/examples/workbench.diagram",
+      "source": "working",
+      "sha256": "fd28874d4c6509899dc9afcaec5e9a95d17a974a9c198916b0c034ce40e3212f",
+      "bytes": 5700
+    },
+    {
+      "path": "docs/intent/wireframe-dsl/examples/resume-flow.diagram",
+      "source": "working",
+      "sha256": "97b6b9940b8c5677fccfdc8ea9e50a917053aabbd4717edd1169d74b3a54c82f",
+      "bytes": 649
+    },
+    {
+      "path": "docs/intent/wireframe-dsl/model.ts",
+      "source": "working",
+      "sha256": "49fce22c72f4e3cb49a4228165f52080ebff2858d793495fb0a0b5d5c880adc3",
+      "bytes": 4003
+    },
+    {
+      "path": "docs/intent/visual-idea-overview/intent-brief.md",
+      "source": "working",
+      "sha256": "e458699742ae2fa5809c8e88d5d428d1d220a699da5cf2ba9f9ae76bede6d719",
+      "bytes": 5666
+    },
+    {
+      "path": "docs/intent/visual-idea-overview/shape-brief.md",
+      "source": "working",
+      "sha256": "7ec6d2710fc1586ed7bd5e67a0043b8b1b8bd26d02e720f851b632c6dda709f8",
+      "bytes": 9777
+    },
+    {
+      "path": "docs/intent/visual-idea-overview/implementation-plan.md",
+      "source": "working",
+      "sha256": "648df6357af0e25b884753080a2e1c37757a13f7cc30c0425cbe2963855743d7",
+      "bytes": 20126
+    },
+    {
+      "path": "docs/intent/visual-idea-overview/ui-scope-review.md",
+      "source": "working",
+      "sha256": "97f81df35a15b1c929f9e5b8a9e1a9d1163f9318a29cb412a3d0a7f559f2f4fc",
+      "bytes": 5771
+    },
+    {
+      "path": "docs/intent/visual-idea-overview/reconciliation.md",
+      "source": "working",
+      "sha256": "02637632737f88eeb302922ea2677eea9cf52c47cbec19c65f160ca75f8ecd47",
+      "bytes": 3987
+    },
+    {
+      "path": "AGENTS.md",
+      "source": "release",
+      "sha256": "bcbdfb6a63a26ba62aef738459c5fb24e20d35dd02568b5fe2661a2f236c459e",
+      "bytes": 1268
+    },
+    {
+      "path": "README.md",
+      "source": "release",
+      "sha256": "c1e0e24de3c517a7331127e752a1e2be8490e335ea71a4fd641106cd7b2bd342",
+      "bytes": 8150
+    },
+    {
+      "path": "package.json",
+      "source": "release",
+      "sha256": "e8235a53e6301531dd05e2a83ce862618e0cfdce5ce762ca51c43abe1f0f2c97",
+      "bytes": 1623
+    },
+    {
+      "path": "docs/product-context.md",
+      "source": "release",
+      "sha256": "61fe90099f0e1566a38847bfe8ca97db992e8b3a47fcfa5fc3b37c6479904ab5",
+      "bytes": 9460
+    },
+    {
+      "path": "docs/flow-dsl-spec.md",
+      "source": "release",
+      "sha256": "19409e5bc1b4dc2e2ea2960f04537c47203d11205c03a948cc10085dd8aec5fe",
+      "bytes": 16925
+    },
+    {
+      "path": "src/types/graph.ts",
+      "source": "release",
+      "sha256": "6b55f8dccd1145950c3e5679a1762aa92f2587d791722ba83648a77ab209a488",
+      "bytes": 2625
+    },
+    {
+      "path": "src/lib/graph-dsl.ts",
+      "source": "release",
+      "sha256": "2ec63d27cc125473507562dc88e48b7bbc114e4436cfd49d7fc19618b01be0ec",
+      "bytes": 43263
+    },
+    {
+      "path": "src/lib/graph-lint.ts",
+      "source": "release",
+      "sha256": "0b07755818b5f8605ffd1b5bdedfbc000cf8e95fc48bed55fc28b8100ac9f80f",
+      "bytes": 1727
+    },
+    {
+      "path": "src/lib/graph-semantics.ts",
+      "source": "release",
+      "sha256": "eb86acc93c3c8a932380cdb3d88ee1a12e53a9152ba111fad3d52b43632b06d0",
+      "bytes": 1206
+    },
+    {
+      "path": "src/data/flows/resume-alignment.flow",
+      "source": "release",
+      "sha256": "9209367d0ab16d588d8185f0d701a5280c61f4f06ca8eb8d92675857cb1b3611",
+      "bytes": 12445
+    },
+    {
+      "path": "skills/author-flow-diagrams/references/flow-dsl-base.md",
+      "source": "release",
+      "sha256": "70a11d2e24285cd647f4017ab3a72dac03eda360a0c70cbb521c85bca4840ddd",
+      "bytes": 3775
+    },
+    {
+      "path": "src/lib/flow-workbench.ts",
+      "source": "release",
+      "sha256": "e042ed92dbf7d35b5cdf297fe9c244ab65f7f4ee3bdde864d0500d9235bdaa0b",
+      "bytes": 85678,
+      "included_line_ranges": [
+        [
+          1,
+          85
+        ],
+        [
+          217,
+          225
+        ],
+        [
+          341,
+          420
+        ],
+        [
+          1279,
+          1380
+        ],
+        [
+          1940,
+          1965
+        ]
+      ]
+    },
+    {
+      "path": "src/types/overview.ts",
+      "source": "working",
+      "sha256": "03c4c009698e4b6a812118d88b38a5a56c5edccfe8395d80b0d2c573eb10bf8c",
+      "bytes": 509
+    },
+    {
+      "path": "src/data/overviews/resume-app.ts",
+      "source": "working",
+      "sha256": "e996241e6d7bf4b4d4cbb4b3f56f2ee5f3894db6fd2105105a40dc51f50f69d1",
+      "bytes": 2540
+    },
+    {
+      "path": "docs/intent/wireframe-dsl/pro-review/prior-art-notes.md",
+      "source": "working",
+      "sha256": "37e1e3e39c61364a29d9b06a153525390d273572d3d686d5a341f3dd346165f0",
+      "bytes": 2086
+    },
+    {
+      "path": "docs/intent/wireframe-dsl/reference/original-generator.py.txt",
+      "source": "working",
+      "sha256": "6f637fc940d15bc3c93b4ad0945b900458564c4fe521b1f7048d05ab87ebc2dc",
+      "bytes": 15148
+    },
+    {
+      "path": "docs/intent/visual-idea-overview/wireframes/index.html",
+      "source": "working",
+      "sha256": "5ce61870afdca36c77b2a467f68737b60cd8544ef76b91f036c31367b9b43fe2",
+      "bytes": 7804
+    },
+    {
+      "path": "docs/intent/visual-idea-overview/wireframes/frames.json",
+      "source": "working",
+      "sha256": "24eee3c29a19d16348719cdb5534eed2b4f25c0adb2cae3d250016e1b44b0b0d",
+      "bytes": 2935
+    },
+    {
+      "path": "docs/intent/visual-idea-overview/wireframes/01-current.svg",
+      "source": "working",
+      "sha256": "4c8215c4248d98310b1ab45082fc075846c540c6d8198fcd19c8acea47bd7193",
+      "bytes": 10846
+    },
+    {
+      "path": "docs/intent/visual-idea-overview/wireframes/02-picker.svg",
+      "source": "working",
+      "sha256": "5f2a5bac650469025e63ae6c9dc44d2ce2374b94fc2d7d707f0b9541dc37a4f0",
+      "bytes": 3046
+    },
+    {
+      "path": "docs/intent/visual-idea-overview/wireframes/03-overview.svg",
+      "source": "working",
+      "sha256": "be478844898d0bdd372967b64fe1befadb9e2e637fc55c1c9fd1ef5445f0058e",
+      "bytes": 6101
+    },
+    {
+      "path": "docs/intent/visual-idea-overview/wireframes/04-capability.svg",
+      "source": "working",
+      "sha256": "473a716d598d8deb42d8e74de995b640dff92ec93846ee4dfffa36c3e4733adf",
+      "bytes": 6418
+    },
+    {
+      "path": "docs/intent/visual-idea-overview/wireframes/05-return.svg",
+      "source": "working",
+      "sha256": "41a6427e37ca0a78db07bda2d81a008e76dab0decc264d7891082e2f7547b658",
+      "bytes": 11085
+    },
+    {
+      "path": "docs/intent/visual-idea-overview/wireframes/06-alternative.svg",
+      "source": "working",
+      "sha256": "2fdcd7772c7a649a969d33d6a4a12519fe02bb04fcb61a1b8fa451394c43bcc3",
+      "bytes": 7314
+    },
+    {
+      "path": "docs/intent/visual-idea-overview/wireframes/07-local-states.svg",
+      "source": "working",
+      "sha256": "10ea9c8d1731e7a4a8d8a69c4f21d706f130f115d44b5804ec13d4aff3d6ddcb",
+      "bytes": 2482
+    },
+    {
+      "path": "docs/intent/visual-idea-overview/wireframes/contact-sheet.svg",
+      "source": "working",
+      "sha256": "cd83e91a50d70ee9e8b3cee8fdc97a3c2f0198a0bd88159542bb3973b8df212b",
+      "bytes": 46318
+    }
+  ],
+  "attachments": [
+    "review-packet.md",
+    "wireframe-sources.txt",
+    "../reference/current-ui.png",
+    "../../visual-idea-overview/wireframes/03-overview.png",
+    "../../visual-idea-overview/wireframes/04-capability.png"
+  ]
+}
