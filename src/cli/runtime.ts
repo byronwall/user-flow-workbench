@@ -95,37 +95,43 @@ export async function terminateChild(child: ChildProcess): Promise<boolean> {
 export async function startOwnedServer(root: string, requestedPort?: number, io?: FlowCliIO, signal?: AbortSignal): Promise<OwnedServer> {
   throwIfAborted(signal);
   const { cwd, entry } = await findServerEntry();
-  const launchId = randomUUID();
   const zeroPortToken = "__FLOW_WORKBENCH_PORT_ZERO__";
   const preload = `const net=require('node:net');const listen=net.Server.prototype.listen;net.Server.prototype.listen=function(...args){if(args[0]&&typeof args[0]==='object'&&args[0].port==='${zeroPortToken}')args[0]={...args[0],port:0};else if(args[0]==='${zeroPortToken}')args[0]=0;return listen.apply(this,args)};import(process.argv[1]).catch(error=>{console.error(error);process.exitCode=1});`;
-  const child = spawn(process.execPath, ["-e", preload, entry], {
-    cwd,
-    env: { ...process.env, FLOW_WORKBENCH_ROOT: root, FLOW_WORKBENCH_LAUNCH_ID: launchId, HOST: "127.0.0.1", PORT: String(requestedPort || zeroPortToken), NITRO_HOST: "127.0.0.1", NITRO_PORT: String(requestedPort || zeroPortToken) },
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-  let closed: Promise<boolean> | undefined;
-  try {
-    const ready = await waitForServer(child, requestedPort || 0, launchId, 10_000, signal);
-    io?.out(`Listening on ${ready.line}`);
-    return {
-      url: `http://127.0.0.1:${ready.port}`,
-      port: ready.port,
-      waitForExit: () => new Promise<number>(resolve => {
-        if (child.exitCode !== null) { resolve(child.exitCode ?? 1); return; }
-        child.once("exit", (code, signal) => resolve(code ?? (signal ? 1 : 0)));
-      }),
-      async close() {
-        closed ||= terminateChild(child);
-        if (!await closed) throw new Error("Server cleanup could not confirm process exit.");
-      },
-    };
-  } catch (error) {
-    const exited = await terminateChild(child);
-    if (!exited) {
+  let port = requestedPort || 0;
+  while (true) {
+    throwIfAborted(signal);
+    const launchId = randomUUID();
+    const child = spawn(process.execPath, ["-e", preload, entry], {
+      cwd,
+      env: { ...process.env, FLOW_WORKBENCH_ROOT: root, FLOW_WORKBENCH_LAUNCH_ID: launchId, HOST: "127.0.0.1", PORT: String(port || zeroPortToken), NITRO_HOST: "127.0.0.1", NITRO_PORT: String(port || zeroPortToken) },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let closed: Promise<boolean> | undefined;
+    try {
+      const ready = await waitForServer(child, port, launchId, 10_000, signal);
+      io?.out(`Listening on ${ready.line}`);
+      return {
+        url: `http://127.0.0.1:${ready.port}`,
+        port: ready.port,
+        waitForExit: () => new Promise<number>(resolve => {
+          if (child.exitCode !== null) { resolve(child.exitCode ?? 1); return; }
+          child.once("exit", (code, signal) => resolve(code ?? (signal ? 1 : 0)));
+        }),
+        async close() {
+          closed ||= terminateChild(child);
+          if (!await closed) throw new Error("Server cleanup could not confirm process exit.");
+        },
+      };
+    } catch (error) {
+      const exited = await terminateChild(child);
       const primary = error instanceof Error ? error.message : String(error);
-      throw new Error(`${primary}; server cleanup could not confirm process exit.`);
+      if (!exited) throw new Error(`${primary}; server cleanup could not confirm process exit.`);
+      if (requestedPort && /EADDRINUSE|already in use/i.test(primary) && port < 65535) {
+        port += 1;
+        continue;
+      }
+      throw error;
     }
-    throw error;
   }
 }
 
