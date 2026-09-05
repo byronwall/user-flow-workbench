@@ -16,7 +16,12 @@ function tokenize(source: string): Token[] {
       if (quotedOption) {
         const key = quotedOption[1]; column += key.length + 2; let value = "";
         while (column < line.length && line[column] !== '"') {
-          if (line[column] === "\\" && column + 1 < line.length) { value += line[column + 1]; column += 2; }
+          if (line[column] === "\\" && column + 1 < line.length) {
+            const escaped = line[column + 1];
+            if (!["n", '"', "\\"].includes(escaped)) throw new Error(`${lineIndex + 1}:${column + 1}:Unknown string escape "\\${escaped}".`);
+            value += escaped === "n" ? "\n" : escaped === '"' || escaped === "\\" ? escaped : `\\${escaped}`;
+            column += 2;
+          }
           else value += line[column++];
         }
         if (line[column] === '"') column += 1;
@@ -25,7 +30,12 @@ function tokenize(source: string): Token[] {
         column += 1;
         let value = "";
         while (column < line.length && line[column] !== '"') {
-          if (line[column] === "\\" && column + 1 < line.length) { value += line[column + 1]; column += 2; }
+          if (line[column] === "\\" && column + 1 < line.length) {
+            const escaped = line[column + 1];
+            if (!["n", '"', "\\"].includes(escaped)) throw new Error(`${lineIndex + 1}:${column + 1}:Unknown string escape "\\${escaped}".`);
+            value += escaped === "n" ? "\n" : escaped === '"' || escaped === "\\" ? escaped : `\\${escaped}`;
+            column += 2;
+          }
           else value += line[column++];
         }
         if (line[column] === '"') column += 1;
@@ -144,12 +154,20 @@ class Parser {
   }
   private frame(): WireframeFrame {
     this.take("frame"); const kind = this.take().value; const options = this.options(); this.take("{");
+    if (kind !== "page" && kind !== "workbench") throw this.fail(this.tokens[this.index - 1], `Unknown frame "${kind}".`);
     const slots: Record<string, WireframeElement[]> = {};
-    while (!this.peek("}")) { const slot = this.take().value; this.take("{"); slots[slot] = this.elements(); this.take("}"); }
+    const allowed = kind === "page" ? ["body"] : ["header", "top", "main", "aside", "footer"];
+    while (!this.peek("}")) {
+      const slotToken = this.take(); const slot = slotToken.value;
+      if (!allowed.includes(slot)) throw this.fail(slotToken, `Unknown ${kind} frame slot "${slot}".`);
+      if (slot in slots) throw this.fail(slotToken, `Duplicate ${kind} frame slot "${slot}".`);
+      this.take("{"); slots[slot] = this.elements(); this.take("}");
+    }
     this.take("}");
     if (kind === "page") return { kind, content: this.number(options.content, 720, "page content"), body: slots.body || [] };
-    if (kind !== "workbench") throw this.fail(this.peek(), `Unknown frame "${kind}".`);
-    return { kind, inspector: this.number(options.inspector, 346, "inspector"), header: slots.header || [], top: slots.top || [], main: slots.main || [], aside: slots.aside || [] };
+    if (!("main" in slots)) throw this.fail(this.peek(), 'Workbench frame needs a "main" slot.');
+    if (!("aside" in slots)) throw this.fail(this.peek(), 'Workbench frame needs an "aside" slot.');
+    return { kind, inspector: this.number(options.inspector, 346, "inspector"), header: slots.header || [], top: slots.top || [], main: slots.main, aside: slots.aside, ...(slots.footer?.length ? { footer: slots.footer } : {}) };
   }
   private elements(): WireframeElement[] {
     const elements: WireframeElement[] = [];
@@ -270,32 +288,45 @@ class Parser {
   private validate(document: WireframeDocument) {
     const screenIds = new Set(document.screens.map(screen => screen.id));
     const partIds = new Set(document.parts.map(part => part.id));
-    const visit = (elements: WireframeElement[], ids: Set<string>, screen: WireframeScreen) => {
+    const visit = (elements: WireframeElement[], ids: Map<string, number>, screen: WireframeScreen, partStack = new Set<string>()) => {
+      const addId = (id: string) => ids.set(id, (ids.get(id) || 0) + 1);
       for (const element of elements) {
-        if ("id" in element && element.id) ids.add(element.id);
+        if ("id" in element && element.id) addId(element.id);
         if ((element.kind === "button" || element.kind === "link" || element.kind === "card") && element.goto && !screenIds.has(element.goto)) throw this.fail(undefined, `Unknown screen "${element.goto}".`);
         if (element.kind === "list") {
           for (const item of element.items) {
-            ids.add(item.id);
+            addId(item.id);
             if (item.goto && !screenIds.has(item.goto)) throw this.fail(undefined, `List "${element.id}" links to an unknown screen.`);
           }
         }
+        if (element.kind === "tabs") for (const tab of element.tabs) addId(tab.id);
         if (element.kind === "table") {
           if (element.rows.some(row => row.goto && !screenIds.has(row.goto))) throw this.fail(undefined, `Table "${element.id}" links to an unknown screen.`);
-          for (const row of element.rows) for (const cell of Object.values(row.cells)) if (typeof cell !== "string") ids.add(cell.actionId);
+          for (const row of element.rows) { addId(row.id); for (const cell of Object.values(row.cells)) if (typeof cell !== "string") addId(cell.actionId); }
         }
         if (element.kind === "use" && !partIds.has(element.partId)) throw this.fail(undefined, `Unknown part "${element.partId}".`);
-        if (element.kind === "popover") visit(element.children, ids, screen);
-        if (element.kind === "stack" || element.kind === "grid" || element.kind === "form" || element.kind === "panel") visit(element.children, ids, screen);
-        if (element.kind === "bar") { visit(element.start, ids, screen); visit(element.end, ids, screen); }
+        if (element.kind === "popover") visit(element.children, ids, screen, partStack);
+        if (element.kind === "stack" || element.kind === "grid" || element.kind === "form" || element.kind === "panel") visit(element.children, ids, screen, partStack);
+        if (element.kind === "bar") { visit(element.start, ids, screen, partStack); visit(element.end, ids, screen, partStack); }
+        if (element.kind === "use" && !partStack.has(element.partId)) {
+          const part = document.parts.find(candidate => candidate.id === element.partId);
+          if (part) visit(part.children, ids, screen, new Set(partStack).add(element.partId));
+        }
       }
     };
     for (const screen of document.screens) {
-      const ids = new Set<string>(); const frame = screen.frame;
-      const slots = frame.kind === "page" ? [frame.body] : [frame.header, frame.top, frame.main, frame.aside]; slots.forEach(slot => visit(slot, ids, screen));
+      const ids = new Map<string, number>(); const frame = screen.frame;
+      const slotNames = frame.kind === "page" ? ["body"] : ["header", "top", "main", "aside", ...(frame.footer ? ["footer"] : [])];
+      slotNames.forEach(slot => ids.set(slot, (ids.get(slot) || 0) + 1));
+      const slots = frame.kind === "page" ? [frame.body] : [frame.header, frame.top, frame.main, frame.aside, ...(frame.footer ? [frame.footer] : [])]; slots.forEach(slot => visit(slot, ids, screen));
       for (const shot of screen.shots) {
         if (shot.hoverId && !ids.has(shot.hoverId)) throw this.fail(undefined, `Shot "${shot.id}" has unknown hover target "${shot.hoverId}".`);
         if (shot.openPopoverId && !ids.has(shot.openPopoverId)) throw this.fail(undefined, `Shot "${shot.id}" has unknown popover "${shot.openPopoverId}".`);
+      }
+      for (const mark of screen.marks) {
+        const count = ids.get(mark.target) || 0;
+        if (!count) throw this.fail(undefined, `Unknown mark target "${mark.target}".`);
+        if (count > 1) throw this.fail(undefined, `Ambiguous mark target "${mark.target}".`);
       }
     }
   }

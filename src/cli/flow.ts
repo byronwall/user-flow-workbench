@@ -286,12 +286,21 @@ function outputFor(root: string, source: string, outputDir: string): string {
   return resolve(outputDir, relativeSource.replace(/\.diagram$/i, ".png"));
 }
 
+export function renderServerRoot(source: string, directorySource: boolean, workingDirectory = process.cwd()): string {
+  const resolvedSource = resolve(source);
+  if (directorySource) return resolvedSource;
+  const resolvedWorkingDirectory = resolve(workingDirectory);
+  return resolvedSource === resolvedWorkingDirectory || resolvedSource.startsWith(`${resolvedWorkingDirectory}${sep}`)
+    ? resolvedWorkingDirectory
+    : dirname(resolvedSource);
+}
+
 async function renderCommand(options: RenderOptions, io: FlowCliIO): Promise<number> {
   const sourceInfo = await lstat(options.source);
   if (sourceInfo.isSymbolicLink()) throw new Error("Render does not follow symbolic links. Choose a regular file or directory.");
   const files = sourceInfo.isDirectory() ? await diagramFiles([options.source]) : [options.source];
   if (!files.length) throw new Error("No .diagram files found.");
-  const root = sourceInfo.isDirectory() ? options.source : dirname(options.source);
+  const root = renderServerRoot(options.source, sourceInfo.isDirectory());
   if (options.outputDir && (resolve(options.outputDir) === resolve(root) || resolve(options.outputDir).startsWith(`${resolve(root)}${sep}`))) {
     throw new Error("--output-dir must be outside the source directory so rendering cannot mutate source files.");
   }

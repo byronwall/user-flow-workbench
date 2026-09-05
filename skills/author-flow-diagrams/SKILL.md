@@ -1,21 +1,28 @@
 ---
 name: author-flow-diagrams
-description: Author or revise User Flow Workbench `.diagram` files containing flow or overview diagrams with clear semantics and durable source edits.
+description: Author or revise User Flow Workbench `.diagram` files for operational flows, capability overviews, read-only application maps, or low-fidelity wireframe screens with clear semantics and durable source edits.
 ---
 
 # Author Flow Diagrams
 
-Create a valid `.diagram` source file that reads clearly before manual positioning. Choose `flow` for an operational graph or `overview` for a compact capability map. Keep shared truth in the base graph when a flow has variants.
+Create or revise a valid `.diagram` source file that reads clearly before manual positioning. Choose one body mode:
+
+- `flow` for an operational graph. Keep shared truth in the base graph when a flow has variants.
+- `overview` for a compact capability map and its safe flow inventory.
+- `application` for a read-only page, state, object, navigation, and explicit artifact crosswalk.
+- `wireframe` for a low-fidelity visual proposal or reconstruction. Follow [wireframe authoring](references/wireframe-authoring.md) for its implemented syntax and workflow.
+
+Do not mix `flow`, `overview`, `wireframe`, and `application` body commands.
 
 ## Read only the needed guidance
 
-Start with [the compact authoring reference](references/flow-dsl-base.md). It branches by document type and contains valid examples.
+For `flow`, `overview`, or `application`, start with [the compact authoring reference](references/flow-dsl-base.md). It branches by document type and contains valid examples.
 
-Read [the complete Diagram DSL specification](references/flow-dsl-spec.md) when you use variants, positions, parser diagnostics, overview syntax, or deliberately rewrite canonical formatting. It is the only syntax authority. The repository copy at `docs/diagram-dsl-spec.md` is its maintained source; this reference is a distribution copy for use outside this repository.
+For `flow`, `overview`, or `application`, read [the complete Diagram DSL specification](references/flow-dsl-spec.md) when you use variants, positions, parser diagnostics, overview/application syntax, or deliberately rewrite canonical formatting. It is the only syntax authority for those modes. The repository copy at `docs/diagram-dsl-spec.md` is its maintained source; this reference is a distribution copy for use outside this repository.
 
-Use the user's requested output path and instruction to omit variants when provided. Otherwise, use the project convention. In this repository, production diagrams belong in `src/data/flows/*.diagram` and examples belong in `docs/examples/*.diagram`. Maintain `.diagram` source only. JSON is generated render or export data.
+Use the user's requested output path and instruction to omit variants when provided. Otherwise, use the project convention. In this repository, production diagrams belong in `src/data/flows/*.diagram`, `src/data/overviews/*.diagram`, or `src/data/wireframes/*.diagram`; examples belong in `docs/examples/*.diagram` or the relevant skill reference. Maintain `.diagram` source only. JSON is generated render or export data.
 
-Every file starts with `diagram 1` and exactly one type line. The type line selects the body parser. Do not infer the type from a filename or mix flow and overview body commands.
+Every file starts with `diagram 1` and exactly one type line. The type line selects the body parser. Do not infer the type from a filename or mix body commands.
 
 ## Author the shared graph
 
@@ -41,9 +48,28 @@ Keep titles short because the canvas shows titles only. Put qualifications, evid
 
 ## Author an overview
 
-Keep the overview declaration, optional purpose and status, ordered groups, and capabilities easy to scan. Use short capability titles and add `detail` only when it clarifies the idea. Ungrouped capabilities keep their order after groups. An empty draft is valid. Overview capabilities do not need flow links, goals, or detail, but each can have many safe relative `.diagram` flow references with optional target variants. Unsafe references are parse errors and prevent loading. Missing, wrong-type, or unknown-variant safe targets produce warnings while the overview remains loadable.
+Keep the overview declaration, optional purpose and status, ordered groups, and capabilities easy to scan. Use short capability titles and add `detail` only when it clarifies the idea. Ungrouped capabilities keep their order after groups. An empty draft is valid. Overview capabilities do not need flow links, wireframe links, goals, or detail. Each can have many safe relative `.diagram` flow references with optional target variants and wireframe references with optional stable screen IDs. Unsafe references are parse errors and prevent loading. Missing, wrong-type, unknown-variant, or removed-screen safe targets produce warnings while the overview remains loadable.
 
-The overview flow shelf is a source inventory, not a relationship model. It shows the union of valid flow files in the overview's folder and valid flow references in the active view, deduplicated by source path. Same-folder discovery does not create a semantic capability link. A linked flow can return through a validated overview path, capability ID, and view ID.
+The overview flow and wireframe shelves are source inventories, not relationship models. Each shows the union of valid same-folder files and valid explicit references in the active view, deduplicated by source path. Folder-only rows do not invent capability links; explicit rows retain their capability and optional screen context. Same-folder discovery does not create a recursive folder project. A linked flow or wireframe can return through a validated overview path, capability ID, and view ID; wireframe links may also include a stable screen ID.
+
+## Author an application map
+
+Use `type application` for a read-only crosswalk of application pages, authored states, conceptual objects, ownership/cardinality, and page navigation. Keep the map explicit and compact. A page can reference an overview capability, flow node, wireframe screen, or planning document with a safe relative path.
+
+```text
+diagram 1
+type application
+
+application studio "Evidence Studio"
+object project "Project"
+page home "Home" route="/" primary=project {
+  state ready "Ready"
+  overview "scope.diagram" capability=home
+  wireframe "home.diagram" screen=home
+}
+```
+
+Missing, wrong-type, and missing-target links remain non-blocking warnings. Coverage warnings report pages without wireframes and unclaimed records only inside explicitly referenced flow, overview, and wireframe files. Do not infer links from folder membership or titles, scan unrelated files, or score completeness. Page and state selection use URL parameters. Application sources are read-only; `Reload source` refreshes visible or focused pages and preserves the last valid board as stale after failure.
 
 ## Keep flow layout useful
 
@@ -70,9 +96,9 @@ flow check path/to/changed.diagram
 flow format --check path/to/changed.diagram
 ```
 
-Run both checks for a new uncommented diagram. Check, format, view, and render accept directories containing both flow and overview `.diagram` files. `--variant ID` selects a flow or overview view during render. If an existing diagram contains comments, preserve the comments and report that `format --check` can fail because canonical formatting removes comments. Run the write form of `flow format` only when rewriting the full source is intended. In this repository, a production-flow change also uses `pnpm test:dsl`, `pnpm typecheck`, and `pnpm check:flows`.
+For a new or edited `flow`, `overview`, or `application`, run both checks. Check, format, view, and render accept directories containing those `.diagram` files. `--variant ID` selects a flow or overview view during render. If an existing diagram contains comments, preserve the comments and report that `format --check` can fail because canonical formatting removes comments. Run the write form of `flow format` only when rewriting the full source is intended. In this repository, a production-flow change also uses `pnpm test:dsl`, `pnpm typecheck`, and `pnpm check:flows`.
 
-Use the shipped render command for visual review:
+Use the shipped render command for visual review of flow and overview diagrams:
 
 ```sh
 flow check path/to/changed.diagram
@@ -83,7 +109,9 @@ For a directory, use `flow render path/to/diagrams --output-dir path/to/previews
 
 The renderer uses a local Chrome or Chromium executable. Pass `--browser PATH` for one invocation, or set `FLOW_WORKBENCH_BROWSER` for a local executable outside the standard paths. It never downloads a browser and uses a fresh browser profile for each capture.
 
-Flow JSON export and overview source export are browser downloads. Source files remain authoritative: flow edits use a browser-local working copy, overview views are source-backed, and neither viewer writes source files. Automated browser checks did not verify the browser's download destination.
+For `wireframe`, run only `flow check` or `pnpm flow check` for structural validation, then inspect the selected wireframe in the live viewer. Do not apply the flow/overview format or render checks to wireframes.
+
+Flow JSON export and overview/application source exports are browser downloads. Source files remain authoritative: flow edits use a browser-local working copy, while overview, wireframe, and application views are source-backed and read-only. The flow toolbar shows local-copy state and can reset the file. No viewer writes source files. Automated browser checks did not verify the browser's download destination.
 
 Report three separate evidence labels:
 

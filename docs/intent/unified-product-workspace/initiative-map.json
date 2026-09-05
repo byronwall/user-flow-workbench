@@ -1,0 +1,463 @@
+{
+  "schema_version": "0.4.0",
+  "initiative": {
+    "title": "Unified product workspace",
+    "slug": "unified-product-workspace",
+    "scale": "capability",
+    "current_phase": "plan",
+    "last_updated": "2026-09-02",
+    "summary": "Turn overview, wireframe, and flow documents into connected views inside one capability-centered project workspace."
+  },
+  "artifacts": {
+    "intent_brief": {
+      "path": "intent-brief.md",
+      "status": "current",
+      "updated_at": "2026-09-02"
+    },
+    "brainstorm": {
+      "path": "brainstorm.md",
+      "status": "not-created",
+      "updated_at": null
+    },
+    "shape_brief": {
+      "path": "shape-brief.md",
+      "status": "current",
+      "updated_at": "2026-09-02"
+    },
+    "implementation_plan": {
+      "path": "implementation-plan.md",
+      "status": "current",
+      "updated_at": "2026-09-02"
+    }
+  },
+  "sources": [
+    {
+      "id": "user-unify",
+      "type": "conversation",
+      "location": "Current task: opening request",
+      "anchor": "turn it into a coherent single app instead of 3 smaller apps or feature sets",
+      "authority": "direct-user"
+    },
+    {
+      "id": "user-approval",
+      "type": "conversation",
+      "location": "Current task: response after initial proposal",
+      "anchor": "Overall I like the proposal.",
+      "authority": "direct-user-confirmation"
+    },
+    {
+      "id": "user-overviews",
+      "type": "conversation",
+      "location": "Current task: annotation about project organization",
+      "anchor": "I expect overviews to be quite common. They make a nice summary and organizing doc.",
+      "authority": "direct-user"
+    },
+    {
+      "id": "user-wireframes",
+      "type": "conversation",
+      "location": "Current task: annotation about wireframe ownership",
+      "anchor": "they will nearly always be associated with a capability or in a flow somehow",
+      "authority": "direct-user"
+    },
+    {
+      "id": "user-plan",
+      "type": "conversation",
+      "location": "Current task: latest request",
+      "anchor": "Let's create a proper implementation plan. I'll review before we mint tickets.",
+      "authority": "direct-user"
+    },
+    {
+      "id": "user-ticket-approval",
+      "type": "conversation",
+      "location": "Current task: ticket creation request",
+      "anchor": "Let's go ahead and create tickets breaking down the work.",
+      "authority": "direct-user-authorization"
+    },
+    {
+      "id": "repo-guidance",
+      "type": "repository",
+      "location": "AGENTS.md; docs/product-context.md",
+      "anchor": "Preserve typed diagram semantics, dependable pointer interaction, source safety, and shared diagram documentation.",
+      "authority": "project-guidance"
+    },
+    {
+      "id": "repo-entry",
+      "type": "repository",
+      "location": "src/routes/index.tsx",
+      "anchor": "Home loads the catalog and selected document, then dispatches to three full-page workbench components.",
+      "authority": "current-repository-reality"
+    },
+    {
+      "id": "repo-catalog",
+      "type": "repository",
+      "location": "src/server/flow-catalog.ts; src/routes/api/diagrams.ts; src/routes/api/diagram.ts",
+      "anchor": "One secure catalog and document reader serve every declared diagram type.",
+      "authority": "current-repository-reality"
+    },
+    {
+      "id": "repo-navigation",
+      "type": "repository",
+      "location": "src/lib/overview-navigation.ts; src/components/OverviewWorkbench.tsx; src/components/Workbench.tsx",
+      "anchor": "OverviewOrigin already preserves overview, capability, and view context when a capability opens a flow.",
+      "authority": "current-repository-reality"
+    },
+    {
+      "id": "repo-wireframes",
+      "type": "repository",
+      "location": "src/components/WireframeWorkbench.tsx; src/types/wireframe.ts; src/lib/wireframe-dsl.ts",
+      "anchor": "Wireframes own screen and shot state and can embed one real overview or flow scene.",
+      "authority": "current-repository-reality"
+    },
+    {
+      "id": "repo-state",
+      "type": "repository",
+      "location": "src/lib/flow-workbench.ts; src/source-refresh.ts",
+      "anchor": "Flows can use browser-local working copies while overview refresh keeps the last valid source-backed view.",
+      "authority": "current-repository-reality"
+    },
+    {
+      "id": "repo-tests",
+      "type": "repository",
+      "location": "package.json; src/lib/*.test.ts; src/server/flow-catalog.test.ts",
+      "anchor": "Node tests cover DSL, navigation, inventory, catalog safety, refresh, and flow behavior. Browser checks remain separate.",
+      "authority": "current-repository-reality"
+    }
+  ],
+  "intent": {
+    "claims": [
+      {
+        "id": "coherent-workspace",
+        "type": "outcome",
+        "statement": "Overview, wireframe, and flow documents feel like connected views inside one application.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": ["user-unify", "user-approval"],
+        "confidence": "high"
+      },
+      {
+        "id": "overview-home",
+        "type": "desired experience",
+        "statement": "A common project normally starts from an overview that summarizes and organizes its capabilities.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": ["user-overviews"],
+        "confidence": "high"
+      },
+      {
+        "id": "capability-context",
+        "type": "required behavior",
+        "statement": "Capability context remains visible while a person opens related screens and flows.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": ["user-approval", "user-wireframes"],
+        "confidence": "high"
+      },
+      {
+        "id": "wireframe-sequence",
+        "type": "sequence",
+        "statement": "A wireframe can relate to a capability before a related flow exists.",
+        "commitment": "explicit",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": ["user-wireframes"],
+        "confidence": "high"
+      },
+      {
+        "id": "typed-models",
+        "type": "decision",
+        "statement": "Keep separate overview, wireframe, and flow models inside one workspace.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": ["user-approval", "repo-guidance"],
+        "confidence": "high"
+      },
+      {
+        "id": "explicit-links",
+        "type": "constraint",
+        "statement": "Semantic navigation comes from explicit safe references, not folder membership or inference.",
+        "commitment": "derived",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": ["repo-guidance", "repo-navigation"],
+        "confidence": "high"
+      },
+      {
+        "id": "standalone-artifacts",
+        "type": "required behavior",
+        "statement": "Projects without overviews and artifacts without capability links remain usable and discoverable.",
+        "commitment": "derived",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": ["user-overviews", "repo-catalog"],
+        "confidence": "medium"
+      },
+      {
+        "id": "no-universal-graph",
+        "type": "anti-goal",
+        "statement": "Do not create a universal product graph or merge the three DSL bodies.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": ["user-approval", "repo-guidance"],
+        "confidence": "high"
+      },
+      {
+        "id": "review-gate",
+        "type": "sequence",
+        "statement": "Byron reviews the implementation plan before tickets are created.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "resolved",
+        "time_horizon": "proof",
+        "sources": ["user-plan", "user-ticket-approval"],
+        "confidence": "high"
+      }
+    ],
+    "themes": [
+      "Capability-centered navigation",
+      "Typed artifacts in one workspace",
+      "Explicit source-backed relationships",
+      "Valid standalone fallbacks"
+    ],
+    "conflicts": [],
+    "human_questions": []
+  },
+  "brainstorm": {
+    "status": "complete-in-conversation",
+    "requested_count": 7,
+    "options": [
+      { "id": "shared-chrome", "premise": "Visual consistency is sufficient." },
+      { "id": "artifact-library", "premise": "Files are the main project unit." },
+      { "id": "overview-hub", "premise": "The overview is the required navigation hub." },
+      { "id": "infinite-canvas", "premise": "Spatial proximity unifies every level." },
+      { "id": "screen-first", "premise": "Screens are the main product unit." },
+      { "id": "universal-graph", "premise": "One semantic graph owns every artifact." },
+      { "id": "capability-workspace", "premise": "Capabilities connect separate typed artifacts inside one shell." }
+    ],
+    "selected_option": "capability-workspace"
+  },
+  "shape": {
+    "status": "current",
+    "appetite": "One focused capability delivered through four useful milestones without replacing the current renderers or adding storage.",
+    "problem": "Separate page chrome and navigation make three connected document types feel like separate applications.",
+    "recommended_shape": "A persistent capability-centered workspace around the existing overview, wireframe, and flow renderers.",
+    "success_moves": [
+      "Prove the shell with the existing overview-to-flow relationship before changing syntax.",
+      "Keep specialized renderer state with its current owner.",
+      "Add only a typed capability-to-wireframe reference.",
+      "Derive backlinks from the active overview before considering project-wide indexing.",
+      "Keep render mode and direct document URLs as bypasses.",
+      "Use the existing inventory when no overview can become the home."
+    ],
+    "first_proof": {
+      "question": "Does persistent project and capability context make overview and flow feel like one application?",
+      "artifact": "A local resume-project journey from overview capability to flow and back inside one workspace shell.",
+      "decision_rule": "Continue when context remains clear and flow interaction stays dependable; fall back to shared chrome when the shell harms the canvas."
+    },
+    "rabbit_holes": [
+      "Universal product graph",
+      "Generic renderer framework",
+      "Stored relationship registry",
+      "Inferred semantic links",
+      "Project manifest before multiple-overview behavior requires one"
+    ],
+    "open_decisions": []
+  },
+  "implementation": {
+    "status": "complete",
+    "repository_snapshot": {
+      "root": "/Users/byronwall/Projects/user-flow-workbench",
+      "revision": "11553125b622e502a7133f07c966484df850d46b",
+      "worktree_status": "Main branch with unrelated author-flow-diagrams skill edits and two untracked skill reference files.",
+      "subsystems": [
+        "Home route and typed workbench dispatch",
+        "Diagram catalog and secure document reader",
+        "Overview DSL, materialization, references, and navigation",
+        "Wireframe DSL, screens, shots, and embedded diagram capture",
+        "Flow workbench layout, routing, pointer interaction, and local working copy",
+        "Source refresh and stale-state handling",
+        "Flow CLI view, check, and render"
+      ],
+      "test_commands": [
+        "pnpm test:overview",
+        "pnpm test:dsl",
+        "pnpm typecheck",
+        "pnpm build",
+        "pnpm flow check",
+        "pnpm flow render"
+      ],
+      "deployment_surfaces": [
+        "Local SolidStart viewer",
+        "Packaged flow CLI and loopback server"
+      ]
+    },
+    "dependencies": [
+      {
+        "id": "existing-renderers",
+        "name": "Existing overview, wireframe, and flow renderer lifecycles",
+        "material": false,
+        "application_seam": "Home dispatch inside the persistent workspace shell",
+        "first_proof_role": {
+          "mode": "real",
+          "rationale": "The first proof must exercise the actual flow canvas and overview selection behavior."
+        },
+        "failure_modes": [
+          "Flow pointer interaction breaks inside a resized container",
+          "Overview source refresh clears valid context",
+          "Wireframe screen state disagrees with URL state",
+          "Render mode captures workspace chrome"
+        ],
+        "proof_rungs": ["focused-node-tests", "built-local-browser", "cli-render-smoke"],
+        "local_proof": "Run existing tests and a built local viewer with repository fixtures.",
+        "live_proof": "No external live system exists; use a clean browser against the packaged loopback viewer.",
+        "rollout": "Keep direct URLs, inventory fallback, and render-mode bypass until final verification."
+      }
+    ],
+    "fast_local_loop": {
+      "command": "pnpm test:overview",
+      "dependencies_started": [],
+      "network_required": false,
+      "shared_infrastructure_required": false,
+      "failure_injection": [
+        "Temporary catalogs with zero, one, and several overviews",
+        "Missing and wrong-type diagram references",
+        "Removed variants, capabilities, and wireframe screens",
+        "Malformed source and out-of-order refresh results"
+      ],
+      "slower_confirmation": "pnpm build, packaged flow view, CLI renders, and clean browser interaction checks"
+    },
+    "milestones": [
+      {
+        "id": "workspace-shell",
+        "title": "One shell preserves overview and flow context",
+        "outcome": "The resume overview and linked flow work inside one persistent project shell.",
+        "proof": "Browser navigation, refresh, history, render bypass, and direct flow interaction checks.",
+        "valid_intermediate_state": "All three document types remain usable through direct URLs and the inventory fallback.",
+        "rollback": "Remove the shell wrapper and retain current conditional workbench dispatch.",
+        "dependencies_introduced": []
+      },
+      {
+        "id": "wireframe-links",
+        "title": "A capability opens its wireframe screens",
+        "outcome": "A capability can open a validated wireframe document and optional screen with preserved overview context.",
+        "proof": "DSL round trips, secure resolver fixtures, warning repair, and an overview-to-screen browser journey.",
+        "valid_intermediate_state": "Flow links and standalone wireframes remain valid when no wireframe reference exists.",
+        "rollback": "Remove representative wireframe references and ignore the optional capability field.",
+        "dependencies_introduced": []
+      },
+      {
+        "id": "capability-navigation",
+        "title": "The overview organizes project navigation",
+        "outcome": "The active overview provides capability navigation while every catalog document remains discoverable.",
+        "proof": "Pure projection tests plus browser checks for linked, shared, invalid, and not-linked-here documents.",
+        "valid_intermediate_state": "The workspace can fall back to its overview chooser and complete diagram inventory.",
+        "rollback": "Hide the capability navigator and keep the shell's chooser and inventory.",
+        "dependencies_introduced": []
+      },
+      {
+        "id": "coherent-workspace",
+        "title": "The workspace replaces duplicate application chrome",
+        "outcome": "Overview, wireframe, and flow work feel like views inside one application.",
+        "proof": "Full unit, type, build, CLI capture, accessibility, and clean browser regression evidence.",
+        "valid_intermediate_state": "Specialized renderer controls and source ownership remain intact inside shared navigation.",
+        "rollback": "Restore renderer-specific chrome while keeping proven relationships and catalog behavior.",
+        "dependencies_introduced": []
+      }
+    ],
+    "cut_line": [
+      "Universal product graph",
+      "Project-wide backlinks for direct opens",
+      "Flow-node-to-screen links",
+      "In-app source or relationship editing",
+      "Automatic relationship inference",
+      "Project manifest or database",
+      "Nested project grouping",
+      "Generic renderer and toolbar frameworks"
+    ],
+    "open_decisions": []
+  },
+  "tickets": {
+    "status": "complete",
+    "tracker": "tk",
+    "epic": {
+      "id": "ufw-jtsp",
+      "path": "../../../.tickets/ufw-jtsp.md"
+    },
+    "packets": [
+      {
+        "id": "ufw-lozf",
+        "path": "../../../.tickets/ufw-lozf.md",
+        "milestone": "workspace-shell",
+        "claims": ["coherent-workspace", "overview-home", "capability-context", "typed-models", "standalone-artifacts", "no-universal-graph"],
+        "sources": ["user-unify", "user-approval", "user-overviews", "repo-guidance", "repo-entry", "repo-catalog", "repo-navigation", "repo-state", "repo-tests"]
+      },
+      {
+        "id": "ufw-w2gh",
+        "path": "../../../.tickets/ufw-w2gh.md",
+        "milestone": "wireframe-links",
+        "claims": ["capability-context", "wireframe-sequence", "typed-models", "explicit-links", "standalone-artifacts", "no-universal-graph"],
+        "sources": ["user-unify", "user-approval", "user-wireframes", "repo-guidance", "repo-catalog", "repo-navigation", "repo-wireframes", "repo-tests"]
+      },
+      {
+        "id": "ufw-8680",
+        "path": "../../../.tickets/ufw-8680.md",
+        "milestone": "capability-navigation",
+        "claims": ["overview-home", "capability-context", "typed-models", "explicit-links", "standalone-artifacts", "no-universal-graph"],
+        "sources": ["user-unify", "user-approval", "user-overviews", "user-wireframes", "repo-guidance", "repo-catalog", "repo-navigation", "repo-wireframes", "repo-state", "repo-tests"]
+      },
+      {
+        "id": "ufw-65is",
+        "path": "../../../.tickets/ufw-65is.md",
+        "milestone": "coherent-workspace",
+        "claims": ["coherent-workspace", "overview-home", "capability-context", "typed-models", "explicit-links", "standalone-artifacts", "no-universal-graph"],
+        "sources": ["user-unify", "user-approval", "user-overviews", "user-wireframes", "repo-guidance", "repo-entry", "repo-catalog", "repo-navigation", "repo-wireframes", "repo-state", "repo-tests"]
+      }
+    ],
+    "dependency_edges": [
+      { "ticket": "ufw-w2gh", "prerequisite": "ufw-lozf" },
+      { "ticket": "ufw-8680", "prerequisite": "ufw-w2gh" },
+      { "ticket": "ufw-65is", "prerequisite": "ufw-8680" },
+      { "ticket": "ufw-jtsp", "prerequisite": "ufw-lozf" },
+      { "ticket": "ufw-jtsp", "prerequisite": "ufw-w2gh" },
+      { "ticket": "ufw-jtsp", "prerequisite": "ufw-8680" },
+      { "ticket": "ufw-jtsp", "prerequisite": "ufw-65is" }
+    ],
+    "coverage": {
+      "user-plan": ["ufw-jtsp"],
+      "user-ticket-approval": ["ufw-jtsp"],
+      "review-gate": ["ufw-jtsp"],
+      "cut-line": ["ufw-jtsp", "ufw-lozf", "ufw-w2gh", "ufw-8680", "ufw-65is"],
+      "verification": ["ufw-lozf", "ufw-w2gh", "ufw-8680", "ufw-65is"],
+      "rollout-and-recovery": ["ufw-lozf", "ufw-w2gh", "ufw-8680", "ufw-65is"]
+    }
+  },
+  "history": [
+    {
+      "date": "2026-09-02",
+      "event": "Created review-ready planning artifacts after Byron approved the capability-centered workspace direction.",
+      "affected_artifacts": ["intent-brief.md", "shape-brief.md", "implementation-plan.md", "initiative-map.json"]
+    },
+    {
+      "date": "2026-09-02",
+      "event": "Created one local epic and four standalone implementation tickets with a verified dependency chain.",
+      "affected_artifacts": ["implementation-plan.md", "initiative-map.json", ".tickets/ufw-jtsp.md", ".tickets/ufw-lozf.md", ".tickets/ufw-w2gh.md", ".tickets/ufw-8680.md", ".tickets/ufw-65is.md"]
+    },
+    {
+      "date": "2026-09-03",
+      "event": "Implemented and verified all four workspace milestones and closed their tickets.",
+      "affected_artifacts": ["implementation-plan.md", "initiative-map.json", ".tickets/ufw-lozf.md", ".tickets/ufw-w2gh.md", ".tickets/ufw-8680.md", ".tickets/ufw-65is.md"]
+    }
+  ]
+}

@@ -1,0 +1,52 @@
+diagram 1
+type application
+
+application resume-studio "Resume Studio"
+purpose "A representative, evidence-first workspace for preparing a truthful application for one role."
+object posting "Target job posting" detail="The role context used by the project."
+object evidence "Evidence library" detail="Source-backed career evidence gathered for review."
+object interview "Evidence interview" detail="A focused conversation that fills evidence gaps."
+object draft "Resume draft" detail="A working resume shaped for the target role."
+object export "Frozen export" detail="The approved, portable result."
+page projects "Projects" route="/projects" {
+  purpose "Choose or create a resume project and keep the target role in view."
+  state empty "No project selected" detail="The person can start a new project."
+  state ready "Project selected" detail="The project opens at its assessment."
+  overview "docs/examples/checkout.diagram" capability=application-map
+}
+page assessment "Assessment" route="/projects/:projectId/assessment" primary=posting {
+  purpose "Understand the target role and identify the evidence that matters."
+  state reviewing "Reviewing role" detail="The posting is available beside the assessment."
+  state assessed "Assessment captured" detail="Important requirements are ready for evidence work."
+  flow "docs/examples/checkout.diagram" node=checkout
+  document "docs/intent/application-map/shape-brief.md" heading="Core shape"
+}
+page interview-page "Evidence interview" route="/projects/:projectId/interview" primary=interview {
+  purpose "Ask focused questions where the current evidence is incomplete."
+  state interview-waiting "Questions ready"
+  state interview-answering "Answer in progress"
+  wireframe "src/data/wireframes/sharing-disclosure.diagram" screen=sharing
+}
+page confirmation "Confirmation" route="/projects/:projectId/confirmation" primary=evidence {
+  purpose "Confirm that the evidence is accurate and defensible before drafting."
+  state confirmation-reviewing "Evidence review"
+  state confirmation-confirmed "Evidence confirmed"
+  document "docs/intent/application-map/implementation-plan.md" heading="Milestone 2"
+}
+page review "Review" route="/projects/:projectId/review" primary=draft {
+  purpose "Review suggested changes against the evidence and target role."
+  state review-draft "Draft available"
+  state review-approved "Draft approved"
+  flow "docs/examples/checkout.diagram" node=payment
+}
+page export-page "Export" route="/projects/:projectId/export" primary=export {
+  purpose "Freeze and export the approved resume result."
+  state export-ready "Ready to export"
+  state export-frozen "Export frozen"
+  document "docs/intent/application-map/intent-brief.md" heading="First proof"
+}
+nav projects-to-assessment projects -> assessment trigger="Open assessment"
+nav assessment-to-interview assessment -> interview-page trigger="Find an evidence gap" condition="Evidence is incomplete"
+nav interview-to-confirmation interview-page -> confirmation trigger="Confirm evidence"
+nav confirmation-to-review confirmation -> review trigger="Start drafting"
+nav review-to-export review -> export-page trigger="Approve and export"

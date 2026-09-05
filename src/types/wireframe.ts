@@ -30,7 +30,7 @@ export type WireframeIcon = (typeof WIREFRAME_ICONS)[number];
 
 export type WireframeFrame =
   | { kind: "page"; content: number; body: WireframeElement[] }
-  | { kind: "workbench"; inspector: number; header: WireframeElement[]; top: WireframeElement[]; main: WireframeElement[]; aside: WireframeElement[] };
+  | { kind: "workbench"; inspector: number; header: WireframeElement[]; top: WireframeElement[]; main: WireframeElement[]; aside: WireframeElement[]; footer?: WireframeElement[] };
 
 export interface WireframeShot { id: string; hoverId?: string; openPopoverId?: string }
 export interface WireframeScreen {

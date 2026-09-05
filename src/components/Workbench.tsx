@@ -6,23 +6,10 @@ import { InspectorPanel } from "./InspectorPanel";
 import { Toolbar } from "./Toolbar";
 import { VariantBar } from "./VariantBar";
 import type { FlowDocument } from "../types/graph";
-import { composeOverviewUrl } from "../lib/overview-navigation";
 
 interface WorkbenchProps {
   initialGraph: FlowDocument;
   documentKey: string;
-  documentPath: string;
-  returnContext?: FlowReturnContext;
-}
-
-export interface FlowReturnContext {
-  overviewPath: string;
-  overviewTitle: string;
-  capabilityId: string;
-  capabilityTitle?: string;
-  viewId?: string;
-  viewTitle?: string;
-  notice?: string;
 }
 
 type SidebarTab = "inspector" | "code";
@@ -50,25 +37,8 @@ export function Workbench(props: WorkbenchProps) {
   });
 
   return (
-    <div class="app flow-app" classList={{ "flow-app-with-return": Boolean(props.returnContext) }}>
-      <Toolbar documentPath={props.documentPath} />
-      <Show when={props.returnContext}>
-        {(context) => (
-          <div class="flow-return-context" role="status">
-            <a rel="external" href={composeOverviewUrl({ path: context().overviewPath, capabilityId: context().capabilityId, viewId: context().viewId })}>
-              <span aria-hidden="true">←</span> {context().overviewTitle}
-            </a>
-            <span class="flow-return-separator" aria-hidden="true">/</span>
-            <strong>{context().capabilityTitle || context().capabilityId}</strong>
-            <Show when={context().viewTitle}><span class="flow-return-view"> · {context().viewTitle}</span></Show>
-            <Show when={context().notice}><span class="flow-return-notice">{context().notice}</span></Show>
-            <Show when={flowState().workingCopy} fallback={<small>Source-backed flow.</small>}>
-              <span class="flow-return-local-copy">{flowState().restoredLocalCopy ? "Restored browser-local copy." : "Using browser-local working copy."}</span>
-              <button class="flow-return-reset" type="button" onClick={() => (document.getElementById("resetBtn") as HTMLButtonElement | null)?.click()}>Reset file</button>
-            </Show>
-          </div>
-        )}
-      </Show>
+    <div class="app flow-app">
+      <Toolbar flowState={flowState()} />
       <VariantBar />
       <main class="shell">
         <Show when={flowState().variantNotice}>

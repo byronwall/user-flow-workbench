@@ -4,13 +4,13 @@ import { createHash } from "node:crypto";
 import { EventEmitter } from "node:events";
 import { access, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { deflateSync } from "node:zlib";
 import { contactSheetOutputPaths, writeContactSheets } from "./contact-sheet.ts";
 import { browserExists, launchBrowser } from "./cdp.ts";
-import { runFlowCli, type FlowViewOptions } from "./flow.ts";
+import { renderServerRoot, runFlowCli, type FlowViewOptions } from "./flow.ts";
 import { terminateChild } from "./runtime.ts";
 
 const validFlow = `diagram 1\ntype flow\n\ngraph example "Example"\nnode start actor "Start"\nnode done deliverable "Done"\nedge finish start -> done\n`;
@@ -173,6 +173,14 @@ test("render accepts a requested overview view and preserves its source hash", a
   assert.doesNotMatch(result.error || "", /Unknown overview variant/);
   await assert.rejects(() => access(join(directory, "overview.png")));
   await rm(directory, { recursive: true, force: true });
+});
+
+test("single-file renders keep workspace-relative embedded references resolvable", () => {
+  const projectRoot = resolve(fileURLToPath(new URL("../../", import.meta.url)));
+  const source = join(projectRoot, "src/data/wireframes/resume-workbench.diagram");
+  assert.equal(renderServerRoot(source, false, projectRoot), projectRoot);
+  assert.equal(renderServerRoot("/tmp/standalone/example.diagram", false, projectRoot), "/tmp/standalone");
+  assert.equal(renderServerRoot(join(projectRoot, "src/data"), true, projectRoot), join(projectRoot, "src/data"));
 });
 
 test("render rejects an unknown overview view without falling back to base", async () => {

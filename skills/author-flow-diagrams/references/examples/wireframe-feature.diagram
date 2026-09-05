@@ -1,0 +1,66 @@
+diagram 1
+type wireframe
+
+wireframe recipe-feature "Quick add to meal plan"
+viewport 1280 720
+theme recipe
+
+screen recipes "Recipe library" basis=proposed {
+  shot rest
+  shot filters-open open=filters-popover
+
+  frame page content=960 {
+    body {
+      bar navigation {
+        start {
+          badge "recipes"
+          link plan-link "plan" goto=plan
+        }
+        end {
+          button filter-trigger "Filters" icon=search
+          button add-trigger "Add to plan" icon=add goto=plan
+        }
+      }
+      popover filters-popover trigger=filter-trigger {
+        panel filter-content {
+          select category "Category" value="All"
+          checkbox vegetarian "Vegetarian" state=unchecked
+          button apply-filters "Apply filters"
+        }
+      }
+      text "Recipe library" role=title
+      field search "Search recipes" value="Search by name"
+      grid recipe-grid columns=2 min=240 {
+        panel apple-panel {
+          card apple "Apple Pie" detail="Dessert · 45 min" goto=plan
+          text "Add this recipe to a planned meal." role=caption
+        }
+        panel salmon-panel {
+          card salmon "Asian Salmon" detail="Dinner · 30 min"
+          text "Ready for the weekly plan." role=caption
+        }
+      }
+    }
+  }
+}
+
+screen plan "Planned meals" basis=proposed {
+  frame page content=720 {
+    body {
+      text "Planned meals" role=title
+      text "Your selected recipe is ready to schedule." role=body
+      panel selected-recipe {
+        card planned-apple "Apple Pie" detail="Tuesday dinner" state=selected
+        toggle hide-made "Hide completed meals" state=off
+      }
+      bar actions {
+        start {
+          link back "Back to recipes" goto=recipes
+        }
+        end {
+          button browse-recipes "Browse recipes" goto=recipes
+        }
+      }
+    }
+  }
+}

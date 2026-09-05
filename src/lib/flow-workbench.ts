@@ -400,6 +400,17 @@ const TYPE_COLUMNS = {
       return null;
     }
 
+    function nodeIdFromUrl(): string | null {
+      const raw = window.location.hash.slice(1);
+      if (!raw) return null;
+      try {
+        const nodeId = decodeURIComponent(raw);
+        return graph.nodes.some(node => node.id === nodeId) ? nodeId : null;
+      } catch {
+        return null;
+      }
+    }
+
     function publishVariantNotice(nextNotice: string | undefined) {
       variantNotice = nextNotice;
       reportWorkingCopy({ variantNotice: nextNotice });
@@ -2104,6 +2115,8 @@ const TYPE_COLUMNS = {
       }
       updateLayoutEngineLabel();
       renderAll();
+      const requestedNodeId = nodeIdFromUrl();
+      if (requestedNodeId) selectNode(requestedNodeId);
       restoring = false;
       const hasSemanticSavedGraph = hasSavedGraph && semanticDocumentSignature(flowDocument) !== initialSemanticSignature;
       reportWorkingCopy({ workingCopy: hasSemanticSavedGraph, restoredLocalCopy: hasSemanticSavedGraph, variantNotice });

@@ -41,7 +41,7 @@ pnpm flow view
 pnpm flow view path/to/project --port 4317
 ```
 
-Open the printed local URL. The `Project index` keeps declared overviews in `Overviews`, including invalid ones. It lists valid flows in `Flows`. Invalid flows and unknown or missing types appear in `Other diagram files`. Syntax errors appear on their row.
+Open the printed local URL. One valid overview opens as the project home. Several valid overviews open an overview chooser. Without a valid overview, the project inventory remains available. The inventory lists valid files under `Overviews`, `Wireframes`, and `Flows`. Invalid and unknown files appear under `Other diagram files`, with syntax errors on their row.
 
 Render a diagram with the packaged viewer and a local Chrome or Chromium browser:
 
@@ -55,7 +55,7 @@ Rendering uses a fresh browser profile and never writes to `.diagram` files or b
 
 Directory renders preserve each source path below the output directory. They write `report.json` with one result for every source file and return a nonzero code if any file fails. `--report <path>` changes the report location. `--json` prints the result as JSON. `--contact-sheet` writes a PNG contact sheet by default with each successful preview retained at its native pixel size; pass a `.svg` path to keep an SVG sheet instead. Large directories split into `-01`, `-02`, and later pages. Existing sheets are preserved unless `--overwrite` is set.
 
-The workbench reads source files from disk. Flow edits use a browser-local working copy keyed by workspace and source path; reset returns to the source. Overview views and the Diagram DSL tab are read-only. Browser edits and view changes do not write source files.
+The workbench reads source files from disk. Flow edits use a browser-local working copy keyed by workspace and source path. The flow toolbar shows this state, and `Reset file` returns to the source. Overview and wireframe views are source-backed and read-only. Browser edits and view changes do not write source files.
 
 Install the published CLI globally or run it without installation:
 
@@ -79,7 +79,7 @@ npx skills add byronwall/user-flow-workbench --skill author-flow-diagrams
 
 ## Current capabilities
 
-- Write one `.diagram` source file for either a flow or an overview.
+- Write one `.diagram` source file for a flow, overview, wireframe, or application map.
 - Write one node per line in a compact flow DSL.
 - Give every edge a stable ID with `edge id from -> to`.
 - Convert flow or overview DSL to plain JSON for rendering and export.
@@ -99,12 +99,18 @@ npx skills add byronwall/user-flow-workbench --skill author-flow-diagrams
 - Use ELK Layered for automatic placement and orthogonal routes.
 - Fall back to a local Manhattan router when ELK is unavailable.
 - Expose a small `window.flow` API for agents and scripts.
-- Discover nested `.diagram` files through the local `flow view` server.
+- Discover nested `.diagram` files under one selected root through the local `flow view` server.
 - Keep browser edits separate for each source path and workspace.
 
-Overview diagrams show ordered capability groups and ungrouped capabilities. Select a capability to read its detail and safe relative flow links in the inspector. Overview variants are read-only views derived from the shared base; an agent adopts one by editing the source, formatting the chosen view as the base, removing rejected variants, checking, and reloading.
+Overview diagrams show ordered capability groups and ungrouped capabilities. Select a capability to read its detail, safe relative flow links, and safe wireframe-screen links. Overview variants are read-only views derived from the shared base. Source reload keeps the last valid view and marks it stale after an invalid refresh. An agent adopts a variant by editing the source, formatting the chosen view as the base, removing rejected variants, checking, and reloading.
 
 The overview flow shelf lists the union of valid flow files in the overview's folder and valid flow references in the active view. It deduplicates by source path. Same-folder discovery is project inventory only and does not imply a semantic link. Linked flows can return to the overview with the originating capability and view when those values remain valid.
+
+The overview wireframe shelf follows the same inventory rules for valid wireframe files and explicit wireframe references. Folder-only rows are project inventory; explicit rows retain capability and screen context.
+
+Application Maps use `type application` for read-only pages, states, objects, ownership, navigation, and explicit links to overview capabilities, flow nodes, wireframe screens, and planning documents. A valid map is the preferred project home, with overview and inventory fallback. Page and state selection stays in the URL. Source reload keeps the last valid board and marks it stale after failure. Coverage warnings are non-blocking and inspect only explicit links; they do not infer links or score completeness.
+
+Nested discovery does not create recursive folder projects. The selected root remains one project.
 
 ## Project direction
 
@@ -116,12 +122,12 @@ See [docs/product-context.md](docs/product-context.md) for the original intent, 
 
 ## Architecture
 
-- `src/routes/index.tsx` lists discovered files and dispatches the selected flow or overview.
+- `src/routes/index.tsx` lists discovered files and dispatches the selected flow, overview, wireframe, or application map.
 - `src/routes/api/diagrams.ts` serves the mixed-type file catalog.
 - `src/routes/api/diagram.ts` safely loads one catalog document as JSON.
 - `src/server/flow-catalog.ts` owns discovery, path checks, parsing, and workspace identities.
 - `src/components/` contains the page shell, toolbar, DSL panel, canvas, and inspector.
-- `src/lib/diagram-dsl.ts` dispatches the shared envelope to the flow or overview parser.
+- `src/lib/diagram-dsl.ts` dispatches the shared envelope to the flow, overview, wireframe, or application parser.
 - `src/lib/graph-dsl.ts` parses and writes the flow body DSL.
 - `src/lib/flow-workbench.ts` contains direct manipulation, routing, layout, and the agent API.
 - `src/data/flows/*.diagram` contains production flow documents.
@@ -129,7 +135,7 @@ See [docs/product-context.md](docs/product-context.md) for the original intent, 
 
 ELK is installed as a package and loads as a separate browser bundle. The local Manhattan router remains the fallback. The browser keeps the editable working graph in `localStorage`.
 
-The API parses selected `.diagram` files directly. It validates safe flow references and optional variants for overviews. It does not maintain parallel JSON fixtures.
+The API parses selected `.diagram` files directly. It validates safe flow and wireframe references for overviews, and explicit typed references plus coverage warnings for application maps. It does not maintain parallel JSON fixtures.
 
 ## Diagram DSL
 

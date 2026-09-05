@@ -20,6 +20,15 @@ group core "Core" {
 }
 capability loose "Ungrouped"
 `;
+const APPLICATION = `diagram 1
+type application
+
+application app "Example application"
+object user "User"
+page home "Home" {
+  state ready "Ready"
+}
+`;
 
 test("dispatches flow documents and preserves body semantics", () => {
   const parsed = parseDiagram(FLOW);
@@ -36,6 +45,14 @@ test("dispatches overviews, including empty and ungrouped content", () => {
   assert.equal(diagramToDsl(parsed), OVERVIEW);
   const empty = parseDiagram("diagram 1\ntype overview\noverview draft \"Draft\"\n");
   assert.deepEqual((empty.document as import("../types/overview.ts").OverviewDocument).groups, []);
+});
+
+test("dispatches and formats application documents", () => {
+  const parsed = parseDiagram(APPLICATION);
+  assert.equal(parsed.type, "application");
+  assert.equal((parsed.document as import("../types/application.ts").ApplicationDocument).pages[0]?.states[0]?.id, "ready");
+  const formatted = diagramToDsl(parsed);
+  assert.equal(diagramToDsl(parseDiagram(formatted)), formatted);
 });
 
 test("reports envelope errors and located body errors", () => {

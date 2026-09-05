@@ -1,0 +1,217 @@
+{
+  "schema_version": "0.4.0",
+  "initiative": {
+    "title": "Application Map",
+    "slug": "application-map",
+    "scale": "capability",
+    "current_phase": "plan",
+    "last_updated": "2026-09-04",
+    "summary": "Add a compact read-only application document that owns pages, conceptual objects, navigation, and explicit links to existing product artifacts and planning documents."
+  },
+  "artifacts": {
+    "intent_brief": { "path": "intent-brief.md", "status": "current", "updated_at": "2026-09-04" },
+    "brainstorm": { "path": "brainstorm.md", "status": "not-requested", "updated_at": null },
+    "shape_brief": { "path": "shape-brief.md", "status": "current", "updated_at": "2026-09-04" },
+    "implementation_plan": { "path": "implementation-plan.md", "status": "current", "updated_at": "2026-09-04" }
+  },
+  "sources": [
+    {
+      "id": "source-user-proposal",
+      "type": "conversation",
+      "location": "Codex task 01a06a3e-94b9-7111-a71b-f6cf2f837b31",
+      "anchor": "Final user question and final proposal for the missing organizing data structure",
+      "authority": "recent direct proposal",
+      "date": "2026-09-04",
+      "role": "primary",
+      "note": "Defines the Application Map records, viewer behavior, and explicit boundaries."
+    },
+    {
+      "id": "source-resume-intent",
+      "type": "planning artifact",
+      "location": "/Users/byronwall/Projects/evidence-first-resume-studio/docs/intent/evidence-to-resume-flow/intent-brief.md",
+      "anchor": "Current job-centered resume-project intent and page-worthy user journey",
+      "authority": "supporting first-party source",
+      "date": "2026-09-04",
+      "role": "representative-proof",
+      "note": "Provides the resume studio context without making its requirements universal."
+    },
+    {
+      "id": "source-resume-shape",
+      "type": "planning artifact",
+      "location": "/Users/byronwall/Projects/evidence-first-resume-studio/docs/intent/evidence-to-resume-flow/shape-brief.md",
+      "anchor": "Target domain model and evidence-to-resume flows",
+      "authority": "supporting first-party source",
+      "date": "2026-09-04",
+      "role": "representative-proof",
+      "note": "Supports representative object and page references; it is not a Workbench DSL requirement."
+    },
+    {
+      "id": "source-resume-plan",
+      "type": "planning artifact",
+      "location": "/Users/byronwall/Projects/evidence-first-resume-studio/docs/intent/evidence-to-resume-flow/implementation-plan.md",
+      "anchor": "Proof-first resume implementation milestones and route boundaries",
+      "authority": "supporting first-party source",
+      "date": "2026-09-04",
+      "role": "representative-proof",
+      "note": "Provides durable planning links for the representative map."
+    },
+    {
+      "id": "source-resume-diagrams",
+      "type": "diagram sources",
+      "location": "/Users/byronwall/Projects/evidence-first-resume-studio/diagrams",
+      "anchor": "resume-app.diagram, resume-alignment.diagram, resume-workbench.diagram, and evidence-library.diagram",
+      "authority": "current representative source",
+      "date": "2026-09-04",
+      "role": "representative-proof",
+      "note": "Supplies existing overview, flow, wireframe, and evidence-library artifacts for typed references."
+    },
+    {
+      "id": "source-repository",
+      "type": "repository",
+      "location": "/Users/byronwall/Projects/user-flow-workbench/src",
+      "anchor": "diagram dispatch, catalog, workspace shell, source refresh, overview/wireframe references, and tests",
+      "authority": "current repository reality",
+      "date": "2026-09-04",
+      "role": "implementation-reality",
+      "note": "The working tree has user-owned changes. This plan does not edit production code."
+    },
+    {
+      "id": "source-project-guidance",
+      "type": "repository guidance",
+      "location": "AGENTS.md and docs/product-context.md",
+      "anchor": "Shared diagram envelope, explicit references, safe paths, fallback behavior, and source ownership",
+      "authority": "project constraint",
+      "date": "2026-09-04",
+      "role": "constraint",
+      "note": "Requires explicit links, no recursive project semantics, and maintained DSL documentation."
+    }
+  ],
+  "intent": {
+    "claims": [
+      { "id": "appmap-001", "type": "outcome", "statement": "The Workbench has one compact source-backed model for pages, objects, and application navigation.", "commitment": "explicit", "importance": "core", "status": "active", "time_horizon": "first release", "sources": ["source-user-proposal"], "confidence": "high" },
+      { "id": "appmap-002", "type": "decision", "statement": "The missing model is a fourth diagram body declared by type application.", "commitment": "explicit", "importance": "core", "status": "active", "time_horizon": "proof", "sources": ["source-user-proposal", "source-project-guidance"], "confidence": "high" },
+      { "id": "appmap-003", "type": "required behavior", "statement": "Application Maps own pages, user-visible durable objects, ownership/cardinality, page states, and app-level navigation.", "commitment": "explicit", "importance": "core", "status": "active", "time_horizon": "first release", "sources": ["source-user-proposal"], "confidence": "high" },
+      { "id": "appmap-004", "type": "required behavior", "statement": "Pages can link explicitly to overview capabilities, flow nodes, wireframe screens, and external planning documents.", "commitment": "explicit", "importance": "core", "status": "active", "time_horizon": "first release", "sources": ["source-user-proposal"], "confidence": "high" },
+      { "id": "appmap-005", "type": "required behavior", "statement": "The viewer provides a page graph, object rail, page inspector, direct artifact links, source refresh, page/state URL state, and coverage warnings.", "commitment": "explicit", "importance": "core", "status": "active", "time_horizon": "first release", "sources": ["source-user-proposal"], "confidence": "high" },
+      { "id": "appmap-006", "type": "constraint", "statement": "Unsafe paths are parser errors; missing, wrong-type, and missing-target cross-file references are non-blocking warnings.", "commitment": "explicit", "importance": "core", "status": "active", "time_horizon": "proof", "sources": ["source-user-proposal", "source-project-guidance"], "confidence": "high" },
+      { "id": "appmap-007", "type": "decision", "statement": "A valid Application Map is the preferred project home, with overview fallback.", "commitment": "explicit", "importance": "core", "status": "active", "time_horizon": "first release", "sources": ["source-user-proposal"], "confidence": "high" },
+      { "id": "appmap-008", "type": "constraint", "statement": "Application Maps remain source-backed and read-only in the first slice.", "commitment": "explicit", "importance": "core", "status": "active", "time_horizon": "first release", "sources": ["source-user-proposal", "source-project-guidance"], "confidence": "high" },
+      { "id": "appmap-009", "type": "anti-goal", "statement": "The first slice does not add application variants, a universal graph, in-app editing, a new API route, or a renderer abstraction.", "commitment": "explicit", "importance": "core", "status": "active", "time_horizon": "first release", "sources": ["source-user-proposal"], "confidence": "high" },
+      { "id": "appmap-010", "type": "anti-goal", "statement": "Requirements, tickets, API contracts, database fields, and the full planning corpus remain outside the DSL.", "commitment": "explicit", "importance": "core", "status": "active", "time_horizon": "first release", "sources": ["source-user-proposal"], "confidence": "high" },
+      { "id": "appmap-011", "type": "constraint", "statement": "Same-folder discovery and recursive project structure do not create semantic links.", "commitment": "explicit", "importance": "supporting", "status": "active", "time_horizon": "first release", "sources": ["source-user-proposal", "source-project-guidance"], "confidence": "high" },
+      { "id": "appmap-012", "type": "example", "statement": "The evidence-first resume studio is the representative proof for the Application Map.", "commitment": "illustrative", "importance": "supporting", "status": "active", "time_horizon": "proof", "sources": ["source-resume-intent", "source-resume-shape", "source-resume-plan", "source-resume-diagrams"], "confidence": "high", "notes": "Representative evidence must not become universal resume requirements." },
+      { "id": "appmap-013", "type": "derived implication", "statement": "Existing catalog, shell, source-refresh, and typed reference patterns should be reused before new infrastructure is added.", "commitment": "derived", "importance": "core", "status": "active", "time_horizon": "proof", "sources": ["source-repository", "source-project-guidance"], "confidence": "high" }
+    ],
+    "themes": ["Application structure", "Explicit artifact coverage", "Source-backed planning", "Read-only navigation"],
+    "conflicts": [],
+    "human_questions": []
+  },
+  "brainstorm": { "status": "not-requested", "requested_count": 7, "options": [], "selected_option": null },
+  "shape": {
+    "status": "complete",
+    "appetite": "One medium read-only capability delivered through four small vertical slices with no new dependency.",
+    "problem": "The Workbench lacks an explicit owner for application pages, conceptual objects, app navigation, and cross-artifact coverage.",
+    "recommended_shape": "A fourth type application document with pages, objects, ownership/cardinality, navigation, and typed explicit references, rendered by a specialized read-only workbench.",
+    "success_moves": [
+      "Prove the source model before the viewer.",
+      "Keep the four reference kinds separate.",
+      "Reuse the current read path and catalog.",
+      "Keep target failures as non-blocking warnings.",
+      "Keep page state in the URL.",
+      "Use one representative resume fixture."
+    ],
+    "first_proof": {
+      "question": "Does a compact Application Map make the resume studio’s page ownership and artifact coverage easier to understand?",
+      "artifact": "One valid resume Application Map loaded through the existing catalog/API path and rendered with page graph, object rail, inspector, and typed links.",
+      "decision_rule": "Continue when explicit semantics, safe references, warning behavior, and existing-document fallbacks all work without inferred relationships."
+    },
+    "rabbit_holes": ["Requirements or ticket DSL", "Universal graph", "Application variants", "Inferred folder/title relationships", "Renderer framework", "Resume-specific requirements"],
+    "open_decisions": [
+      { "id": "shape-dsl-spelling", "decision": "Choose exact application DSL option spelling after parser proof.", "evidence": "Readable syntax and format-idempotence tests.", "fallback": "Use the smallest explicit line syntax that preserves typed targets." }
+    ]
+  },
+  "implementation": {
+    "status": "complete",
+    "tracker": {
+      "system": "tk",
+      "epic": "ufw-j4cd",
+      "tickets": {
+        "application-structural-proof": "ufw-kxbr",
+        "application-viewer-proof": "ufw-gph8",
+        "application-reference-home-proof": "ufw-60jt",
+        "application-state-coverage-proof": "ufw-4oht"
+      }
+    },
+    "repository_snapshot": {
+      "root": "/Users/byronwall/Projects/user-flow-workbench",
+      "revision": "cd06e7f9b4deabf30de500de0f61e807188ac06a",
+      "worktree_status": "Dirty user-owned changes overlap docs, parser support, overview/wireframe workbenches, workspace shell, styles, and tests. Preserve all unrelated changes.",
+      "subsystems": ["shared diagram envelope", "diagram parser and formatter", "diagram catalog and API", "workspace shell and URL state", "overview references and source refresh", "wireframe screen navigation", "CLI checks and tests"],
+      "test_commands": ["pnpm test:overview", "pnpm test:dsl", "pnpm typecheck", "pnpm build", "pnpm check:flows"],
+      "deployment_surfaces": []
+    },
+    "dependencies": [],
+    "fast_local_loop": {
+      "command": "pnpm test:overview",
+      "dependencies_started": [],
+      "network_required": false,
+      "shared_infrastructure_required": false,
+      "failure_injection": ["Malformed application records", "Unsafe paths", "Missing and wrong-type targets", "Unknown page/state IDs", "Failed source refresh"],
+      "slower_confirmation": "pnpm test:dsl, pnpm typecheck, pnpm build, pnpm check:flows, and clean browser inspection"
+    },
+    "milestones": [
+      {
+        "id": "application-structural-proof",
+        "title": "A fourth document type is structurally usable",
+        "outcome": "A type application source parses, formats, catalogs, loads, and reports safe syntax errors.",
+        "dependencies_introduced": [],
+        "proof": "Parser, catalog, API, CLI, format-idempotence, typecheck, build, and focused test checks.",
+        "valid_intermediate_state": "Existing flow, overview, and wireframe documents keep their current behavior and routes.",
+        "rollback": "Remove application dispatch and the new model/parser; existing source files need no migration.",
+        "status": "complete"
+      },
+      {
+        "id": "application-viewer-proof",
+        "title": "The resume map reads as a product structure",
+        "outcome": "The representative map renders an explicit page graph, object rail, page inspector, and typed artifact links.",
+        "dependencies_introduced": [],
+        "proof": "Clean browser inspection at desktop and narrow widths with keyboard page selection and direct links.",
+        "valid_intermediate_state": "The application map is read-only while all existing renderers remain independently usable.",
+        "rollback": "Remove ApplicationWorkbench dispatch and retain the structural parser/catalog support or revert it without source migration.",
+        "status": "complete"
+      },
+      {
+        "id": "application-reference-home-proof",
+        "title": "Typed references and project-home precedence are dependable",
+        "outcome": "Valid maps become project home, explicit targets open with context, and broken targets remain repairable warnings.",
+        "dependencies_introduced": [],
+        "proof": "Pure resolution tests plus browser journeys for valid, broken, invalid, fallback, and no-home projects.",
+        "valid_intermediate_state": "Overview and inventory fallback remain available; same-folder files remain inventory only.",
+        "rollback": "Disable application-home selection and target projection while retaining existing overview and inventory navigation.",
+        "status": "complete"
+      },
+      {
+        "id": "application-state-coverage-proof",
+        "title": "URL state, refresh, coverage, and docs close the first slice",
+        "outcome": "Page/state URL state, last-valid source refresh, coverage warnings, and maintained documentation are proven.",
+        "dependencies_introduced": [],
+        "proof": "Full project checks and clean browser inspection of links, stale refresh, warnings, direct URLs, and existing interactions.",
+        "valid_intermediate_state": "No editing, persistence, variants, new endpoint, or universal renderer is required for the read-only map.",
+        "rollback": "Remove application-specific URL, refresh, and warning projections while preserving source parsing and existing document behavior.",
+        "status": "complete"
+      }
+    ],
+    "cut_line": ["Application variants", "Universal graph", "In-app editing", "New API routes", "Requirements/tickets/API/database DSL", "Recursive project grouping", "Inferred links", "Coverage scoring", "Renderer abstraction"],
+    "open_decisions": [
+      { "id": "plan-dsl-spelling", "decision": "Finalize exact record and option spelling.", "evidence": "Representative source readability, diagnostics, and formatter idempotence.", "fallback": "Keep the smallest line-based explicit syntax." },
+      { "id": "plan-document-targets", "decision": "Finalize allowed document extensions and heading lookup behavior.", "evidence": "Resume planning artifact links and safe containment tests.", "fallback": "Validate path and file existence, then warn on heading mismatch." }
+    ]
+  },
+  "history": [
+    { "date": "2026-09-04", "event": "Recovered the Application Map proposal from Codex task 01a06a3e-94b9-7111-a71b-f6cf2f837b31." },
+    { "date": "2026-09-04", "event": "Bounded the first slice to a fourth type application, a read-only viewer, explicit links, and the resume studio representative proof." },
+    { "date": "2026-09-04", "event": "Inspected the dirty Workbench tree and recorded existing parser, catalog, shell, reference, refresh, and test seams without editing production code." },
+    { "date": "2026-09-04", "event": "Created tk epic ufw-j4cd and four dependency-ordered implementation tickets ufw-kxbr, ufw-gph8, ufw-60jt, and ufw-4oht." },
+    { "date": "2026-09-04", "event": "Completed all four milestones, synced the installed authoring skill, and passed focused tests, build, CLI, and clean browser checks." }
+  ]
+}

@@ -1,13 +1,8 @@
-export function Toolbar(props: { documentPath: string }) {
+import type { FlowWorkbenchState } from "../lib/flow-workbench";
+
+export function Toolbar(props: { flowState: FlowWorkbenchState }) {
   return (
     <header class="topbar">
-      <div class="brand">
-        <h1>
-          <span class="brand-full">User Flow Workbench</span>
-          <span class="brand-compact">Workbench</span>
-        </h1>
-        <p title={props.documentPath}>{props.documentPath}</p>
-      </div>
       <div class="toolbar" aria-label="Canvas actions">
         <button class="btn primary" id="autoLayoutBtn" type="button">Auto layout</button>
         <button class="btn" id="fitBtn" type="button">Fit</button>
@@ -17,7 +12,7 @@ export function Toolbar(props: { documentPath: string }) {
       </div>
       <div class="spacer" />
       <div class="toolbar" aria-label="Graph actions">
-        <a class="btn flow-switcher" href="/" rel="external">Project index</a>
+        <span class="flow-source-status" role="status">{props.flowState.workingCopy ? (props.flowState.restoredLocalCopy ? "Restored browser-local copy." : "Using browser-local working copy.") : "Source-backed flow."}</span>
         <button class="btn" id="exportBtn" type="button">Export JSON</button>
         <button class="btn" id="resetBtn" type="button">Reset file</button>
       </div>

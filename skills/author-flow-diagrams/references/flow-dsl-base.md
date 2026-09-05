@@ -70,25 +70,54 @@ type overview
 overview draft "Untitled draft"
 ```
 
-Overview capabilities do not need flow links, goals, or detail. When a flow is
-useful, add one or more relative `.diagram` references after the capability:
+Overview capabilities do not need flow links, wireframe links, goals, or detail.
+When a flow or proposed screen is useful, add one or more relative `.diagram`
+references after the capability:
 
 ```text
 capability tailor "Tailor a resume" detail="Draft focused changes."
   flow "src/data/flows/resume-alignment.diagram"
   flow "src/data/flows/resume-alignment.diagram" variant="per-job-resume"
+  wireframe "src/data/wireframes/resume-workbench.diagram" screen="capability"
 ```
 
-The target must be a `type flow` document. Missing, unsafe, wrong-type, and
-unknown-variant targets produce warnings while the overview stays loadable.
+Flow targets must be `type flow` documents. Wireframe targets must be `type
+wireframe` documents, and an optional screen ID must exist in the target.
+Missing, unsafe, wrong-type, unknown-variant, and removed-screen targets produce
+warnings while the overview stays loadable.
 Ungrouped capabilities keep their order after groups. Preserve stable IDs and
 add detail only when it clarifies the idea.
 
 An overview variant applies ordered operations to a cloned base. It can add,
 remove, or set groups and capabilities, and unset capability `detail`, `group`,
-or `flows`. To adopt a selected view, materialize it, format it as the new
+`flows`, or `wireframes`. To adopt a selected view, materialize it, format it as the new
 base, remove rejected variants, check, and reload. The viewer has no adoption
 write action.
+
+## Application maps
+
+Use `type application` for a read-only page and object crosswalk. Keep page
+states, navigation, ownership, and typed references explicit:
+
+```text
+diagram 1
+type application
+
+application studio "Evidence Studio"
+object project "Project"
+page home "Home" route="/" primary=project {
+  state ready "Ready"
+  overview "scope.diagram" capability=home
+  wireframe "home.diagram" screen=home
+}
+```
+
+References use safe relative paths to overview capabilities, flow nodes,
+wireframe screens, or planning documents. Missing targets remain warnings.
+Coverage checks only explicitly referenced artifacts and never infer links from
+folders or titles. The viewer is read-only; `page` and `state` URL parameters
+select the page and authored state. Reload keeps the last valid board marked
+stale after a failed source read.
 
 ## Check and review
 

@@ -84,3 +84,40 @@ variant broken "Broken" {
   const diagnostic = result.diagnostics.find((candidate) => candidate.code === "OVERVIEW120");
   assert.equal(diagnostic?.line, 6);
 });
+
+test("preserves typed wireframe references through parse, format, clone, and variants", () => {
+  const document = parseOverviewDsl(`overview app "App"
+capability c "Capability"
+  flow "flows/a.diagram"
+  wireframe "wireframes/a.diagram" screen="home"
+  wireframe "wireframes/a.diagram" screen="details"
+variant focused "Focused" {
+  set capability c wireframe="wireframes/b.diagram" screen="home"
+  unset capability c wireframes
+}
+`);
+  assert.deepEqual(document.capabilities?.[0]?.wireframeRefs, [
+    { path: "wireframes/a.diagram", screen: "home" },
+    { path: "wireframes/a.diagram", screen: "details" },
+  ]);
+  const formatted = overviewToDsl(document);
+  assert.equal(overviewToDsl(parseOverviewDsl(formatted)), formatted);
+  const view = materializeOverview(document, "focused");
+  assert.deepEqual(view.capabilities?.[0]?.flowRefs, [{ path: "flows/a.diagram" }]);
+  assert.equal(view.capabilities?.[0]?.wireframeRefs, undefined);
+});
+
+test("rejects unsafe wireframe paths and screen IDs", () => {
+  assert.throws(() => parseOverviewDsl(`overview app "App"
+capability c "Capability"
+  wireframe "../outside.diagram" screen="home"
+`));
+  assert.throws(() => parseOverviewDsl(`overview app "App"
+capability c "Capability"
+  wireframe "wireframe.diagram" screen="not safe"
+`));
+  assert.throws(() => parseOverviewDsl(`overview app "App"
+capability c "Capability"
+  flow "bad\\u0000.diagram"
+`));
+});

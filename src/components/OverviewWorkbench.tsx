@@ -2,9 +2,11 @@ import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show }
 import type { OverviewCapability, OverviewDocument, OverviewGroup, OverviewReferenceWarning } from "../types/overview";
 import type { DiagramCatalog } from "../types/diagram";
 import { createSourceRefresh, type SourceRefreshState } from "../source-refresh";
-import { composeFlowUrl } from "../lib/overview-navigation";
+import { composeFlowUrl, composeOverviewCapabilityUrl, composeWireframeUrl } from "../lib/overview-navigation";
 import { overviewFlowInventory, type OverviewFlowInventoryItem } from "../lib/overview-flow-inventory";
+import { overviewWireframeInventory, type OverviewWireframeInventoryItem } from "../lib/overview-wireframe-inventory";
 import { materializeOverview } from "../lib/overview-dsl";
+import { projectWorkspaceNavigation, type WorkspaceNavigationProjection } from "../lib/workspace-navigation";
 import { captureTextLines, svgEscape, textLinesToSvg } from "../lib/dom-vector-scene";
 
 type OverviewSidebarTab = "inspector" | "source";
@@ -23,14 +25,26 @@ export interface OverviewFlowReferenceTarget {
   variant?: string;
 }
 
+export interface OverviewWireframeReferenceTarget {
+  path: string;
+  title: string;
+  screen?: string;
+  screenTitle?: string;
+}
+
 export type ResolveOverviewFlowReference = (reference: NonNullable<OverviewCapability["flowRefs"]>[number]) => Promise<OverviewFlowReferenceTarget>;
+export type ResolveOverviewWireframeReference = (reference: NonNullable<OverviewCapability["wireframeRefs"]>[number]) => Promise<OverviewWireframeReferenceTarget>;
 
 function sameCapability(left: OverviewCapability, right: OverviewCapability) {
   const leftRefs = left.flowRefs || [];
   const rightRefs = right.flowRefs || [];
+  const leftWireframes = left.wireframeRefs || [];
+  const rightWireframes = right.wireframeRefs || [];
   return left.id === right.id && left.title === right.title && left.detail === right.detail && left.groupId === right.groupId
     && leftRefs.length === rightRefs.length
-    && leftRefs.every((reference, index) => reference.path === rightRefs[index]?.path && reference.variant === rightRefs[index]?.variant);
+    && leftRefs.every((reference, index) => reference.path === rightRefs[index]?.path && reference.variant === rightRefs[index]?.variant)
+    && leftWireframes.length === rightWireframes.length
+    && leftWireframes.every((reference, index) => reference.path === rightWireframes[index]?.path && reference.screen === rightWireframes[index]?.screen);
 }
 
 function createStableGroupProjection() {
@@ -72,7 +86,11 @@ export interface OverviewWorkbenchProps {
   catalog?: DiagramCatalog;
   loadSource?: (signal: AbortSignal) => Promise<OverviewSourceResult>;
   resolveFlowReference?: ResolveOverviewFlowReference;
+  resolveWireframeReference?: ResolveOverviewWireframeReference;
   referenceWarnings?: readonly OverviewReferenceWarning[];
+  onNavigationChange?: (projection: WorkspaceNavigationProjection) => void;
+  onCapabilityChange?: (capabilityId: string | undefined) => void;
+  onVariantChange?: (variantId: string | undefined) => void;
 }
 
 interface FlowWorkbenchWindow extends Window {
@@ -117,9 +135,33 @@ function OverviewFlowShelf(props: { items: readonly OverviewFlowInventoryItem[];
   );
 }
 
+function OverviewWireframeShelf(props: { items: readonly OverviewWireframeInventoryItem[]; overviewPath?: string; viewId?: string }) {
+  return (
+    <section class="overview-flow-shelf" aria-labelledby="overview-wireframe-shelf-title">
+      <div class="overview-flow-shelf-heading"><h2 id="overview-wireframe-shelf-title">Wireframes in this project · {props.items.length}</h2><span>Source-backed inventory</span></div>
+      <Show when={props.items.length} fallback={<p class="overview-flow-shelf-empty">No valid wireframes found in this project or its linked capabilities.</p>}>
+        <div class="overview-flow-list">
+          <For each={props.items}>{(item) => {
+            const href = item.relationship && props.overviewPath
+              ? composeWireframeUrl(item.path, item.relationship.screen, { path: props.overviewPath, capabilityId: item.relationship.capabilityId, ...(props.viewId ? { viewId: props.viewId } : {}) })
+              : composeWireframeUrl(item.path, item.relationship?.screen);
+            return <a class="overview-flow-row" href={href} rel="external"><span class="overview-flow-copy"><strong>{item.title}</strong><small>{item.path}</small></span><span class="overview-flow-meta">{item.linkedFrom.length ? `Linked from: ${item.linkedFrom.join(", ")}` : "Project wireframe"}</span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3 5 5-5 5" /></svg></a>;
+          }}</For>
+        </div>
+      </Show>
+    </section>
+  );
+}
+
 interface FlowReferenceState {
   status: "loading" | "ready" | "error";
   target?: OverviewFlowReferenceTarget;
+  error?: Error;
+}
+
+interface WireframeReferenceState {
+  status: "loading" | "ready" | "error";
+  target?: OverviewWireframeReferenceTarget;
   error?: Error;
 }
 
@@ -158,7 +200,24 @@ function OverviewFlowLinks(props: {
   );
 }
 
-function OverviewInspector(props: { document: OverviewDocument; selected?: OverviewCapability; stale: boolean; referenceStates: Record<string, FlowReferenceState>; referenceWarnings: readonly OverviewReferenceWarning[]; onRetryReference: () => void; overviewPath?: string; viewId?: string }) {
+function OverviewWireframeLinks(props: { capability: OverviewCapability; states: Record<string, WireframeReferenceState>; warnings: readonly OverviewReferenceWarning[]; overviewPath?: string; viewId?: string; onRetry: () => void }) {
+  const refs = () => props.capability.wireframeRefs || [];
+  return <div class="overview-flow-links">
+    <Show when={refs().length} fallback={<div class="overview-no-links"><strong>No linked wireframe yet.</strong><span>Capabilities can come before proposed screens.</span></div>}>
+      <For each={refs()}>{(reference, index) => {
+        const state = () => props.states[`${props.capability.id}:${index()}`];
+        const warning = () => props.warnings.find((candidate) => candidate.capabilityId === props.capability.id && candidate.path === reference.path && candidate.screen === reference.screen);
+        return <div class="overview-flow-link-row">
+          <Show when={state()?.status === "ready" && !warning()} fallback={<Show when={warning() || state()?.status === "error"} fallback={<span class="overview-flow-link-loading">Checking linked wireframe…</span>}><span class="overview-flow-link-warning" role="alert">{warning()?.message || state()?.error?.message || "This linked wireframe is unavailable."} {warning()?.suggestion || "Repair the reference, then retry."}</span><button class="btn" type="button" onClick={props.onRetry}>Retry</button></Show>}>
+            <Show when={state()?.target}>{(target) => <a class="overview-flow-link" href={composeWireframeUrl(target().path, target().screen, props.overviewPath ? { path: props.overviewPath, capabilityId: props.capability.id, ...(props.viewId ? { viewId: props.viewId } : {}) } : undefined)} rel="external"><span>{target().title}{target().screenTitle ? ` · ${target().screenTitle}` : ""}</span><small>{target().screen ? `Screen: ${target().screen}` : "Open wireframe"}</small></a>}</Show>
+          </Show>
+        </div>;
+      }}</For>
+    </Show>
+  </div>;
+}
+
+function OverviewInspector(props: { document: OverviewDocument; selected?: OverviewCapability; stale: boolean; referenceStates: Record<string, FlowReferenceState>; wireframeStates: Record<string, WireframeReferenceState>; referenceWarnings: readonly OverviewReferenceWarning[]; onRetryReference: () => void; overviewPath?: string; viewId?: string }) {
   return (
     <section class="overview-inspector-body" aria-live="polite">
       <Show when={props.selected} fallback={
@@ -183,6 +242,8 @@ function OverviewInspector(props: { document: OverviewDocument; selected?: Overv
             <div class="overview-inspector-rule" />
             <h3>Related flows</h3>
             <OverviewFlowLinks capability={selected()} states={props.referenceStates} warnings={props.referenceWarnings} overviewPath={props.overviewPath} viewId={props.viewId} onRetry={props.onRetryReference} />
+            <h3>Related wireframe screens</h3>
+            <OverviewWireframeLinks capability={selected()} states={props.wireframeStates} warnings={props.referenceWarnings} overviewPath={props.overviewPath} viewId={props.viewId} onRetry={props.onRetryReference} />
           </>
         )}
       </Show>
@@ -203,6 +264,7 @@ export function OverviewWorkbench(props: OverviewWorkbenchProps) {
   const [activeVariantId, setActiveVariantId] = createSignal<string | null>(null);
   const [variantNotice, setVariantNotice] = createSignal<string>();
   const [referenceStates, setReferenceStates] = createSignal<Record<string, FlowReferenceState>>({});
+  const [wireframeStates, setWireframeStates] = createSignal<Record<string, WireframeReferenceState>>({});
   const [referenceWarnings, setReferenceWarnings] = createSignal<readonly OverviewReferenceWarning[]>(props.referenceWarnings || []);
   const [activeSidebarTab, setActiveSidebarTab] = createSignal<OverviewSidebarTab>("inspector");
   const [refreshState, setRefreshState] = createSignal<SourceRefreshState<OverviewSourceResult>>({
@@ -228,11 +290,15 @@ export function OverviewWorkbench(props: OverviewWorkbenchProps) {
   });
   const selected = createMemo(() => groups().flatMap((group) => group.capabilities).find((capability) => capability.id === selectedId()));
   const stale = createMemo(() => refreshState().stale || refreshState().status === "error");
+  const navigation = createMemo(() => projectWorkspaceNavigation(viewDocument(), props.catalog || { rootName: "", workspaceId: "", diagrams: [] }, props.documentPath));
+
+  createEffect(() => props.onNavigationChange?.(navigation()));
 
   createEffect(() => {
     const active = activeVariantId();
     if (active && !currentDocument().variants?.some((variant) => variant.id === active)) {
       setActiveVariantId(null);
+      props.onVariantChange?.(undefined);
       setVariantNotice(`The overview view "${active}" is no longer available. Showing the base view.`);
       const url = new URL(window.location.href);
       url.searchParams.delete("variant");
@@ -243,6 +309,7 @@ export function OverviewWorkbench(props: OverviewWorkbenchProps) {
   const selectVariant = (variantId: string | null) => {
     if (variantId && !currentDocument().variants?.some((variant) => variant.id === variantId)) return;
     setActiveVariantId(variantId);
+    props.onVariantChange?.(variantId || undefined);
     setVariantNotice(undefined);
     const url = new URL(window.location.href);
     if (variantId) url.searchParams.set("variant", variantId);
@@ -252,8 +319,18 @@ export function OverviewWorkbench(props: OverviewWorkbenchProps) {
 
   createEffect(() => {
     const id = selectedId();
-    if (id && !selected()) setSelectedId(null);
+    if (id && !selected()) {
+      setSelectedId(null);
+      props.onCapabilityChange?.(undefined);
+      window.history.replaceState(window.history.state, "", composeOverviewCapabilityUrl(window.location.href, null));
+    }
   });
+
+  const selectCapability = (id: string) => {
+    setSelectedId(id);
+    props.onCapabilityChange?.(id);
+    window.history.pushState({ ...window.history.state, overviewCapability: id }, "", composeOverviewCapabilityUrl(window.location.href, id));
+  };
 
   let referenceRequest = 0;
   const loadFlowReferences = (capability: OverviewCapability) => {
@@ -275,9 +352,28 @@ export function OverviewWorkbench(props: OverviewWorkbenchProps) {
     });
   };
 
+  const loadWireframeReferences = (capability: OverviewCapability) => {
+    const requestId = referenceRequest;
+    const resolver = props.resolveWireframeReference;
+    const refs = capability.wireframeRefs || [];
+    if (!resolver || !refs.length) return;
+    refs.forEach((reference, index) => {
+      const key = `${capability.id}:${index}`;
+      setWireframeStates((current) => ({ ...current, [key]: { status: "loading" } }));
+      void resolver(reference).then((target) => {
+        if (requestId !== referenceRequest) return;
+        setReferenceWarnings((current) => current.filter((warning) => warning.capabilityId !== capability.id || warning.path !== reference.path || warning.screen !== reference.screen));
+        setWireframeStates((current) => ({ ...current, [key]: { status: "ready", target } }));
+      }).catch((error) => {
+        if (requestId !== referenceRequest) return;
+        setWireframeStates((current) => ({ ...current, [key]: { status: "error", error: error instanceof Error ? error : new Error(String(error)) } }));
+      });
+    });
+  };
+
   createEffect(() => {
     const capability = selected();
-    if (capability) loadFlowReferences(capability);
+    if (capability) { loadFlowReferences(capability); loadWireframeReferences(capability); }
     else referenceRequest += 1;
   });
 
@@ -309,20 +405,32 @@ export function OverviewWorkbench(props: OverviewWorkbenchProps) {
   };
 
   onMount(() => {
-    const query = new URLSearchParams(window.location.search);
-    const requestedVariant = query.get("variant");
-    if (requestedVariant) {
-      if (currentDocument().variants?.some((variant) => variant.id === requestedVariant)) setActiveVariantId(requestedVariant);
-      else {
+    const syncLocation = () => {
+      const query = new URLSearchParams(window.location.search);
+      const requestedVariant = query.get("variant");
+      if (requestedVariant && currentDocument().variants?.some((variant) => variant.id === requestedVariant)) {
+        setActiveVariantId(requestedVariant);
+        props.onVariantChange?.(requestedVariant);
+        setVariantNotice(undefined);
+      } else if (requestedVariant) {
+        setActiveVariantId(null);
+        props.onVariantChange?.(undefined);
         setVariantNotice(`The overview view "${requestedVariant}" is no longer available. Showing the base view.`);
         const url = new URL(window.location.href);
         url.searchParams.delete("variant");
         window.history.replaceState(window.history.state, "", url);
+      } else {
+        setActiveVariantId(null);
+        props.onVariantChange?.(undefined);
+        setVariantNotice(undefined);
       }
-    }
-    const requestedCapability = query.get("capability");
-    if (requestedCapability) setSelectedId(requestedCapability);
-    const renderMode = query.get("render") === "1";
+      setSelectedId(query.get("capability"));
+      props.onCapabilityChange?.(query.get("capability") || undefined);
+    };
+    syncLocation();
+    window.addEventListener("popstate", syncLocation);
+    onCleanup(() => window.removeEventListener("popstate", syncLocation));
+    const renderMode = new URLSearchParams(window.location.search).get("render") === "1";
     if (renderMode) {
       document.documentElement.dataset.flowRender = "true";
       document.documentElement.dataset.flowLayout = "css-board";
@@ -362,15 +470,13 @@ export function OverviewWorkbench(props: OverviewWorkbenchProps) {
   });
 
   const error = createMemo(() => refreshState().error);
-  const sourcePath = createMemo(() => currentDocument().sourcePath || props.documentPath || "Untitled diagram");
-
   return (
     <div class="app overview-app" classList={{ "overview-app-with-variants": Boolean(currentDocument().variants?.length) }}>
       <header class="topbar overview-topbar">
-        <div class="brand"><h1><span class="brand-full">User Flow Workbench</span><span class="brand-compact">Workbench</span></h1><p title={sourcePath()}>{sourcePath()}</p></div>
+        <span class="overview-source-status" role="status">Source-backed overview</span>
         <div class="toolbar" aria-label="Overview actions"><button class="btn primary" type="button" onClick={() => void (window as FlowWorkbenchWindow).flowOverview?.refresh?.()}>Reload source</button></div>
         <div class="spacer" />
-        <div class="toolbar" aria-label="Document actions"><a class="btn flow-switcher" href="/" rel="external">Project index</a><button class="btn" type="button" disabled={!sourceText()} onClick={() => downloadSource(currentDocument(), sourceText())}>Export source</button></div>
+        <div class="toolbar" aria-label="Document actions"><button class="btn" type="button" disabled={!sourceText()} onClick={() => downloadSource(currentDocument(), sourceText())}>Export source</button></div>
       </header>
 
       <Show when={currentDocument().variants?.length}>
@@ -389,13 +495,14 @@ export function OverviewWorkbench(props: OverviewWorkbenchProps) {
         <Show when={error()}><div class="overview-source-alert" classList={{ stale: stale() }} role="alert"><strong>{stale() ? "Source changed with errors" : "Could not load source"}</strong><span>{error()?.message}</span><button class="btn" type="button" onClick={() => void (window as FlowWorkbenchWindow).flowOverview?.refresh?.()}>Retry</button><Show when={((error() as Error & { status?: number } | undefined)?.status === 404) || ((error() as Error & { status?: number } | undefined)?.status === 409)}><a class="btn" href="/" rel="external">Choose another diagram</a></Show></div></Show>
         <Show when={variantNotice()}><div class="overview-variant-notice" role="status">{variantNotice()}</div></Show>
         <div class="overview-heading"><div><div class="overview-title-row"><h1>{viewDocument().title || "Untitled overview"}</h1><Show when={viewDocument().statusLabel}><span class="overview-status-pill">{viewDocument().statusLabel}</span></Show></div><p>{viewDocument().purpose || "No purpose provided yet."}</p></div><span class="overview-board-note">Grouped capabilities · no sequence implied</span></div>
-        <section ref={boardElement} class="overview-board" aria-labelledby="overview-board-title"><h2 id="overview-board-title" class="sr-only">Capabilities in this overview</h2><For each={groups()}>{(group) => <section class="overview-group" aria-labelledby={`overview-group-${group.id}`}><h3 id={`overview-group-${group.id}`}>{group.title}</h3><div class="overview-capability-list"><For each={group.capabilities}>{(capability) => <CapabilityButton capability={capability} selected={selectedId() === capability.id} onSelect={() => setSelectedId(capability.id)} />}</For></div></section>}</For><Show when={groups().length === 0}><div class="overview-empty"><strong>No capabilities yet</strong><span>Add a capability to the source file, then reload.</span></div></Show></section>
+        <section ref={boardElement} class="overview-board" aria-labelledby="overview-board-title"><h2 id="overview-board-title" class="sr-only">Capabilities in this overview</h2><For each={groups()}>{(group) => <section class="overview-group" aria-labelledby={`overview-group-${group.id}`}><h3 id={`overview-group-${group.id}`}>{group.title}</h3><div class="overview-capability-list"><For each={group.capabilities}>{(capability) => <CapabilityButton capability={capability} selected={selectedId() === capability.id} onSelect={() => selectCapability(capability.id)} />}</For></div></section>}</For><Show when={groups().length === 0}><div class="overview-empty"><strong>No capabilities yet</strong><span>Add a capability to the source file, then reload.</span></div></Show></section>
         <OverviewFlowShelf items={overviewFlowInventory(props.catalog?.diagrams || [], props.documentPath, viewDocument())} overviewPath={props.documentPath} viewId={activeVariant() || undefined} />
+        <OverviewWireframeShelf items={overviewWireframeInventory(props.catalog?.diagrams || [], props.documentPath, viewDocument())} overviewPath={props.documentPath} viewId={activeVariant() || undefined} />
         <p class="overview-footnote">Select a capability to inspect its detail. The overview stays in place while you review scope.</p>
       </div></div></main>
 
       <aside class="sidebar overview-sidebar" aria-label="Overview details and source"><div class="sidebar-tabs" role="tablist" aria-label="Overview sidebar views"><button class="sidebar-tab" id="overview-inspector-tab" type="button" role="tab" aria-controls="overview-inspector-panel" aria-selected={activeSidebarTab() === "inspector"} tabIndex={activeSidebarTab() === "inspector" ? 0 : -1} onClick={() => setActiveSidebarTab("inspector")} onKeyDown={handleTabKeyDown}>Inspector</button><button class="sidebar-tab" id="overview-source-tab" type="button" role="tab" aria-controls="overview-source-panel" aria-selected={activeSidebarTab() === "source"} tabIndex={activeSidebarTab() === "source" ? 0 : -1} onClick={() => setActiveSidebarTab("source")} onKeyDown={handleTabKeyDown}><span>Diagram DSL</span><small>Read only</small></button></div><div class="overview-sidebar-content">
-        <section class="sidebar-panel overview-sidebar-panel" id="overview-inspector-panel" role="tabpanel" aria-labelledby="overview-inspector-tab" hidden={activeSidebarTab() !== "inspector"}><OverviewInspector document={viewDocument()} selected={selected()} stale={stale()} referenceStates={referenceStates()} referenceWarnings={referenceWarnings()} overviewPath={props.documentPath} viewId={activeVariant() || undefined} onRetryReference={() => { const capability = selected(); if (capability) loadFlowReferences(capability); }} /></section>
+        <section class="sidebar-panel overview-sidebar-panel" id="overview-inspector-panel" role="tabpanel" aria-labelledby="overview-inspector-tab" hidden={activeSidebarTab() !== "inspector"}><OverviewInspector document={viewDocument()} selected={selected()} stale={stale()} referenceStates={referenceStates()} wireframeStates={wireframeStates()} referenceWarnings={referenceWarnings()} overviewPath={props.documentPath} viewId={activeVariant() || undefined} onRetryReference={() => { const capability = selected(); if (capability) { loadFlowReferences(capability); loadWireframeReferences(capability); } }} /></section>
         <section class="sidebar-panel overview-sidebar-panel" id="overview-source-panel" role="tabpanel" aria-labelledby="overview-source-tab" hidden={activeSidebarTab() !== "source"}><div class="overview-source-body" data-source-hash={acceptedSourceHash() || undefined}><p class="overview-panel-kicker">Read only</p><h2>Diagram DSL</h2><p class="overview-muted">Current canonical source from the selected diagram.</p><pre class="overview-source-code"><code>{sourceText() || "Source text is unavailable for this document."}</code></pre><p class="overview-source-note">The agent owns source edits. Reload after an edit to inspect the new document.</p></div></section>
       </div></aside>
     </div>

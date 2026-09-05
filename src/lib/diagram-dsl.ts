@@ -4,6 +4,7 @@ import { DIAGRAM_FORMAT_VERSION, DIAGRAM_TYPES, type DiagramDocument, type Diagr
 import type { GraphDslDiagnostic } from "./graph-dsl.ts";
 import type { FlowDocument } from "../types/graph.ts";
 import { parseWireframeDslWithDiagnostics, wireframeToDsl } from "./wireframe-dsl.ts";
+import { applicationToDsl, formatApplicationDslDiagnostic, parseApplicationDslWithDiagnostics, type ApplicationDslDiagnostic } from "./application-dsl.ts";
 
 export type DiagramDslDiagnostic = {
   code: string;
@@ -45,6 +46,7 @@ export function formatDiagramDslDiagnostic(diagnostic: DiagramDslDiagnostic): st
   if (diagnostic.code.startsWith("FLOW")) return formatGraphDslDiagnostic(diagnostic as GraphDslDiagnostic);
   if (diagnostic.code.startsWith("OVERVIEW")) return formatOverviewDslDiagnostic(diagnostic as OverviewDslDiagnostic);
   if (diagnostic.code.startsWith("WIREFRAME")) return `[${diagnostic.code}] line ${diagnostic.line}, column ${diagnostic.column}: ${diagnostic.message}`;
+  if (diagnostic.code.startsWith("APPLICATION")) return formatApplicationDslDiagnostic(diagnostic as ApplicationDslDiagnostic);
   return `[${diagnostic.code}] line ${diagnostic.line}, column ${diagnostic.column}: ${diagnostic.message}`;
 }
 
@@ -110,6 +112,10 @@ export function parseDiagramWithDiagnostics(source: string): DiagramParseResult 
     const parsed = parseGraphDslWithDiagnostics(body);
     diagnostics.push(...parsed.diagnostics.map((diagnostic) => ({ ...diagnostic, line: diagnostic.line === 1 ? bodyStart + 1 : diagnostic.line + bodyStart - 1 })));
     document = { type: "flow", document: parsed.document };
+  } else if (type === "application") {
+    const parsed = parseApplicationDslWithDiagnostics(bodySource, bodyStart);
+    diagnostics.push(...parsed.diagnostics);
+    document = { type, document: parsed.document };
   } else {
     // Keep the result shape usable for callers, but do not run a body parser
     // when the envelope has no valid type.
@@ -128,7 +134,7 @@ export function parseDiagramWithDiagnostics(source: string): DiagramParseResult 
 export function diagramToDsl(document: DiagramDocument): string {
   const body = document.type === "flow"
     ? graphToDsl(document.document, { includePositions: true }).replace(/^flow 3\r?\n/, "").replace(/^\r?\n+/, "")
-    : document.type === "overview" ? overviewToDsl(document.document) : wireframeToDsl(document.document).replace(/^\r?\n+/, "");
+    : document.type === "overview" ? overviewToDsl(document.document) : document.type === "wireframe" ? wireframeToDsl(document.document).replace(/^\r?\n+/, "") : applicationToDsl(document.document);
   return `diagram ${DIAGRAM_FORMAT_VERSION}\ntype ${document.type}\n\n${body}`;
 }
 

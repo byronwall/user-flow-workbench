@@ -91,7 +91,7 @@ Do not model variants as a vertical lane of special nodes. Each variant applies 
 - The graph document schema version is `5`.
 - The Flow DSL version is `3`.
 - Earlier DSL and schema versions are not supported.
-- The agent-facing source uses a shared `diagram 1` envelope with one `type flow`, `type overview`, or `type wireframe` line. Each body keeps separate semantics.
+- The agent-facing source uses a shared `diagram 1` envelope with one `type flow`, `type overview`, `type wireframe`, or `type application` line. Each body keeps separate semantics.
 - The flow body remains a line-based DSL. The overview body stores ordered groups, capabilities, optional purpose and status, and safe relative flow references.
 - Node and edge identities are required and stable.
 - Canonical formatting makes repeated agent edits converge.
@@ -112,15 +112,22 @@ Do not model variants as a vertical lane of special nodes. Each variant applies 
 - Render output uses a 1200 × 800 CSS pixel canvas by default, with a supported minimum of 320 × 240 pixels. The legend is hidden below 480 pixels to preserve diagram content. Directory output keeps source-relative paths and writes a JSON report.
 - Render startup uses an owned loopback server and launch identity. It waits for layout and final paint, reports ELK or fallback layout, and never downloads a browser.
 - The server discovers `.diagram` files below its selected root and dispatches by the declared type.
-- The index shows a picker before it loads a document. `Overviews` includes invalid overview files. `Flows` includes valid flows. `Other diagram files` includes invalid flows and unknown or missing types.
+- One valid overview opens as the project home. Several valid overviews show a chooser. Without a valid overview, the index remains available. It lists valid files under `Overviews`, `Wireframes`, and `Flows`. Invalid and unknown files appear under `Other diagram files`.
 - `GET /api/diagrams` serves the mixed-type file catalog.
 - `GET /api/diagram` parses one validated relative path and materializes an optional overview variant.
 - The server rejects traversal paths, symbolic links, and ignored build directories.
-- The browser stores the editable working graph in `localStorage`.
+- The browser stores only the editable flow working graph in `localStorage`.
 - Browser storage uses the workspace identity and relative source path.
-- Browser edits do not write back to source files.
+- Browser flow edits do not write back to source files. Overview and wireframe views remain source-backed and read-only.
 - Overview source is read-only in the viewer. `Reload source` refreshes visible or focused pages, and a failed refresh keeps the last valid board marked stale until a later success.
+- Application Maps are read-only source-backed pages, states, objects, ownership, navigation, and explicit typed references. Page and authored state selection use validated `page` and `state` URL parameters and respond to refresh plus Back or Forward. A valid application is the preferred project home; valid overviews remain the fallback. Application refresh reuses the visible/focused source controller and keeps the last valid board marked stale after failure.
+- Application Map pages use a left-to-right graph with arrowed navigation links. ELK places pages and routes orthogonal links. An authored-order fallback remains available. Page nodes show titles; the inspector shows routes and states. Wide graphs scroll horizontally. Numbered edge markers show transition labels and conditions on hover, focus, or tap.
+- Application Maps default to a combined Network view. ELK Layered places pages and objects from left to right using directed incoming and outgoing links. Sources come before their targets; return links and cycles remain visible. The application appears as a node only when an explicit ownership link uses it. The application declaration names the document; project objects and ownership hierarchies are optional. Directed links show navigation, ownership with cardinality, and explicit primary objects. Node shapes and link styles distinguish these types. Layer spacing keeps the hierarchy compact, with orthogonal edge routes. Number markers avoid nodes and each other; a short leader connects a marker when its edge has no clear space. The network fits a bounded viewport. A separate camera supports background drag, wheel zoom at the pointer, touch pinch, and keyboard pan or zoom. Fit restores the complete network. Camera changes do not move nodes or change source data. The Pages and objects view remains available through a view switch. The `map` URL parameter preserves the selected view. Layout is temporary and does not change source data.
+- Application Map objects are selectable. The inspector shows their parent, children, cardinality, and primary pages, with direct navigation between related objects and pages. Coverage stays below the main map, shows five warnings first, and expands the remaining warnings through a native disclosure.
+- Application coverage warnings are non-blocking. They report pages without a wireframe reference, unclaimed nodes in explicitly referenced flows, unclaimed capabilities in explicitly referenced overviews, unclaimed screens in explicitly referenced wireframes, and existing broken planning or artifact links. Folder discovery, inferred links, coverage scores, application variants, and recursive projects are not used.
+- The shared shell owns project navigation, the current source path, and overview capability context. Each renderer owns its layout, view, export, reload, screen, shot, reference, and reset controls.
 - Flow JSON and overview source exports are browser downloads. Automated browser checks do not verify the browser's download destination.
+- Application Maps use the read-only browser renderer and source export path. Capture waits for the application board's ready flag; browser checks do not verify the download destination.
 - The `variant` URL parameter stores the active tab across refreshes.
 - ELK loads from the installed `elkjs@0.12.0` package as a separate browser bundle.
 - ELK uses a rightward layered graph with semantic column partitions.
@@ -145,13 +152,17 @@ Needs connect through `addresses`. UX records connect through `appears-at` and `
 
 ## Capability overview
 
-Overview diagrams provide a compact, source-backed view of product capabilities. They use ordered groups and title-only controls. Selection shows detail in a fixed inspector. The source tab shows read-only Diagram DSL data. Flow and overview documents share the `.diagram` extension and declare their type in the source header.
+Overview diagrams provide a compact, source-backed view of product capabilities. They use ordered groups and title-only controls. Selection shows detail in a fixed inspector. The source tab shows read-only Diagram DSL data. Flow, overview, and wireframe documents share the `.diagram` extension and declare their type in the source header.
 
-An overview can contain groups, ungrouped capabilities, optional purpose and status, and an empty draft. Overview records do not require flow links, goals, or detail. A capability can have optional ordered links to safe relative `.diagram` flow sources, including a selected flow view. Unsafe references are parse errors that prevent loading. Missing, wrong-type, or unknown-variant safe targets show a warning while the overview remains usable. Opening a linked flow carries a validated overview path, capability, and temporary view so the flow can return safely to the overview context.
+An overview can contain groups, ungrouped capabilities, optional purpose and status, and an empty draft. Overview records do not require flow links, wireframe links, goals, or detail. A capability can have optional ordered links to safe relative `.diagram` flow sources, including a selected flow view, and wireframe sources with optional stable screen IDs. Unsafe references are parse errors that prevent loading. Missing, wrong-type, unknown-variant, or removed-screen safe targets show a warning while the overview remains usable. Opening a linked flow or wireframe carries a validated overview path, capability, and temporary view so the artifact can return safely to the overview context.
 
 Each overview shows a compact project flow shelf below its board. The shelf lists the union of valid flow files in the overview's folder and valid flow files referenced by capabilities in the active view. It deduplicates by source path and keeps linked capability titles as navigation context. Folder membership discovers project flows; it does not create semantic links.
 
+Each overview also shows a wireframe shelf below the flow shelf. It lists valid wireframes in the overview folder and valid explicit wireframe references in the active view, deduplicated by source path. Explicit rows preserve capability and first-screen navigation context; folder-only rows remain project inventory without invented links.
+
 The overview reloads source data while it is visible. A refresh keeps the last good view when a read fails and marks the source as stale until a later read succeeds. Overview variants are temporary, read-only views materialized from the shared base; agents can inspect a view and later adopt it by editing the source. Independent browser checks passed for navigation, selection, repaired links, and adoption recovery. See [implementation evidence](intent/visual-idea-overview/final-proof/README.md). The approved board layout remains unchanged.
+
+Nested files belong to one selected project root. Folder discovery does not create recursive folder projects.
 
 ## Near-term flow work
 
@@ -163,9 +174,9 @@ The overview reloads source data while it is visible. A refresh keeps the last g
 
 ## Wireframes
 
-Wireframes compress proposed interface ideas into inspectable diagrams. Named renderer-owned themes (`default` and `recipe`) keep the DSL free of CSS. The language has panels, cards as leaf elements, explicit select, toggle, and checkbox controls, and finite button icon, tone, and state options. General grids use `columns=N min=PX` with a minimum of 120 pixels; calendar layouts use that grid instead of a calendar primitive. Textareas and lists support plain, ordered, and checkable modes, with checked items and optional remove actions. Authored navigation and native popover triggers work in the viewer. A compact per-screen state selector shows rest, hover, and open states; the removed large progressive-state gallery is not part of the viewer.
+Wireframes compress proposed interface ideas into inspectable diagrams. Named renderer-owned themes (`default` and `recipe`) keep the DSL free of CSS. The language has panels, cards as leaf elements, explicit select, toggle, and checkbox controls, and finite button icon, tone, and state options. General grids use `columns=N min=PX` with a minimum of 120 pixels; calendar layouts use that grid instead of a calendar primitive. Quoted wireframe copy supports explicit `\n` line breaks while retaining automatic wrapping. Cards with `goto` remain keyboard and pointer controls; cards without `goto` render as static content. Textareas and lists support plain, ordered, and checkable modes, with checked items and optional remove actions. Authored navigation and native popover triggers work in the viewer. A compact per-screen state selector shows rest, hover, and open states; the removed large progressive-state gallery is not part of the viewer.
 
-Workbench wireframes can embed one real flow or overview scene. Read-only capture hooks reuse the existing browser layout and routing. The wireframe viewer does not include a second graph renderer. Arbitrary events, bindings, dialogs, and production UI generation remain outside the first slice.
+Workbench wireframes can embed one real flow or overview scene. An optional footer slot spans the main and inspector columns; frames without footer content keep the current layout. Screen marks target frame slots or rendered element IDs. The viewer keeps marks hidden by default and provides one `Show changes` review mode with authored reasons; its blue mark outlines remain distinct from orange interaction highlighting. Unknown and ambiguous mark targets fail validation. Read-only capture hooks reuse the existing browser layout and routing. Wireframe frame slots reject unknown and duplicate names. Wireframe screen, shot, reference, comparison, sizing, interaction, and mark-review state do not write source. The wireframe viewer does not include a second graph renderer. Arbitrary events, bindings, dialogs, and production UI generation remain outside the first slice.
 
 ## Open product questions
 

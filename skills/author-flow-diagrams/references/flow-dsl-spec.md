@@ -7,7 +7,7 @@ Graph JSON schema version: 5
 
 ## Purpose
 
-Diagram DSL describes either an operational flow or a compact product overview.
+Diagram DSL describes an operational flow, compact product overview, wireframe, or read-only application map.
 The source extension is `.diagram`; the body parser is selected by one explicit
 type line. The parser does not infer type from the filename and does not accept
 a mixed body.
@@ -29,8 +29,8 @@ type overview
 The header and type line are required. A document has exactly one type line.
 
 Flow diagrams describe an operational flow plus semantic needs and UX records.
-Overview diagrams describe ordered capability groups and optional links to
-standalone flow diagrams.
+Overview diagrams describe ordered capability groups and optional typed links to
+standalone flow and wireframe diagrams.
 
 The format separates three concerns:
 
@@ -257,7 +257,8 @@ Use `type overview` for a compact capability map. An overview has a stable
 document ID and title. Purpose is optional. Status is optional in source and
 defaults to `Intended`; when present it must be `Current` or `Intended`.
 Groups are ordered. Capabilities can be grouped or ungrouped. An empty overview
-is valid, and overview capabilities do not require flow edges, goals, or detail.
+is valid, and overview capabilities do not require flow edges, wireframe links,
+goals, or detail.
 
 ```text
 diagram 1
@@ -279,7 +280,10 @@ Each `flow` reference follows its capability and may be repeated. Its path is
 relative to the configured diagram root, must be a safe relative `.diagram`
 path, and must resolve to a document with `type flow`. An optional `variant`
 selects a flow variant. Missing, unsafe, wrong-type, or unknown-variant links
-produce warnings while the overview remains loadable.
+produce warnings while the overview remains loadable. A `wireframe` reference
+uses the same safe path rules and may include an optional stable `screen` ID.
+Missing, unsafe, wrong-type, or removed-screen targets produce warnings while
+the overview remains loadable.
 
 Overview variants are ordered operations over the shared base. They do not
 inherit from another variant. The materializer clones the base before applying
@@ -292,6 +296,7 @@ variant focused "Focused scope" {
   add group review "Review"
   add capability approve "Approve the result" group="review"
   set capability tailor flow="src/data/flows/resume-alignment.diagram" variant="per-job-resume"
+  set capability tailor wireframe="src/data/wireframes/resume-workbench.diagram" screen="capability"
   unset capability open-ended detail
 }
 ```
@@ -302,15 +307,17 @@ Supported overview operations are:
 add group <group-id> "<title>"
 remove group <group-id>
 set group <group-id> title="<title>"
-add capability <capability-id> "<title>" [detail="<text>"] [group="<group-id>"] [flow="<path.diagram>" [variant="<id>"]]...
+add capability <capability-id> "<title>" [detail="<text>"] [group="<group-id>"] [flow="<path.diagram>" [variant="<id>"]]... [wireframe="<path.diagram>" [screen="<id>"]]...
 remove capability <capability-id>
-set capability <capability-id> [title="<title>"] [detail="<text>"] [group="<group-id>"] [flow="<path.diagram>" [variant="<id>"]]...
-unset capability <capability-id> detail|group|flows
+set capability <capability-id> [title="<title>"] [detail="<text>"] [group="<group-id>"] [flow="<path.diagram>" [variant="<id>"]]... [wireframe="<path.diagram>" [screen="<id>"]]...
+unset capability <capability-id> detail|group|flows|wireframes
 ```
 
 Adding a group or capability requires a unique ID. A capability can move to an
 existing group or become ungrouped with `group=""`. Removing a group fails if
 it still contains capabilities. Unsetting `flows` removes all flow references.
+Unsetting `wireframes` removes all wireframe references without changing flow
+references.
 The final view must still have unique IDs, valid groups, valid flow paths, and
 valid status.
 
@@ -333,14 +340,75 @@ overview <overview-id> "<title>"
 purpose "<text>"
 status "Current"|"Intended"
 group <group-id> "<title>" {
-  capability <capability-id> "<title>" [detail="<text>"] [flow="<path.diagram>"]...
+  capability <capability-id> "<title>" [detail="<text>"] [flow="<path.diagram>"]... [wireframe="<path.diagram>"]...
     flow "<path.diagram>" [variant="<flow-variant-id>"]
+    wireframe "<path.diagram>" [screen="<wireframe-screen-id>"]
 }
-capability <capability-id> "<title>" [detail="<text>"] [flow="<path.diagram>"]...
+capability <capability-id> "<title>" [detail="<text>"] [flow="<path.diagram>"]... [wireframe="<path.diagram>"]...
 variant <variant-id> "<title>" {
   description "<purpose>"
   <overview operation>
 }
+
+## Application maps
+
+Use `type application` for a read-only map of application pages, authored page
+states, conceptual objects, ownership/cardinality, page navigation, and typed
+links to existing artifacts. Application maps have no variants or editing API.
+
+```text
+diagram 1
+type application
+
+application studio "Evidence Studio"
+purpose "Prepare evidence for one role."
+object project "Project" detail="The workspace for one application effort."
+owns project-evidence studio project one
+page home "Projects" route="/projects" primary=project {
+  purpose "Choose a project."
+  state ready "Project selected"
+  overview "scope.diagram" capability=home
+  flow "alignment.diagram" node=start
+  wireframe "studio.diagram" screen=home
+  document "docs/plan.md" heading="Scope"
+}
+nav home-review home -> review trigger="Open review"
+```
+
+The command shapes are:
+
+```text
+application <id> "<title>"
+purpose "<text>"
+object <id> "<title>" [detail="<text>"]
+owns <id> <owner-id> <object-id> (one|many|optional|one-or-many)
+page <id> "<title>" [route="<path>"] [primary=<object-id>] {
+  purpose "<text>"
+  state <id> "<title>" [detail="<text>"]
+  overview "<path.diagram>" capability=<capability-id>
+  flow "<path.diagram>" node=<node-id>
+  wireframe "<path.diagram>" screen=<screen-id>
+  document "<path.md|mdx|txt|pdf|json>" [heading="<text>"]
+}
+nav <id> <from-page-id> -> <to-page-id> trigger="<text>" [condition="<text>"]
+```
+
+Paths must be safe relative paths below the selected project root. Diagram
+references must resolve to their declared type and target ID. Planning links
+must resolve to an allowed document, and an authored heading must exist when
+one is supplied. Missing, wrong-type, missing-ID, and missing-heading links
+remain non-blocking warnings. Coverage warnings report pages without an
+explicit wireframe and unclaimed nodes, capabilities, or screens only within
+explicitly referenced flow, overview, or wireframe files. Folder discovery,
+title matching, recursive projects, inferred links, and coverage scores do not
+create application semantics.
+
+The viewer displays page and state selection in the `page` and `state` URL
+parameters. It is source-backed and read-only. `Reload source` uses the visible
+or focused refresh controller. A failed refresh preserves the last valid board
+and marks it stale until a later success. Application capture waits for the
+renderer ready flag. Source exports are browser downloads, and automated
+browser checks do not verify the browser download destination.
 ```
 
 Capability `flow="<path.diagram>"` options are a compact form for a reference
@@ -583,6 +651,7 @@ and may include a selected materialized `view`, `activeVariant`, and reference
 | `capability` | `groups[].capabilities[]` or `capabilities[]` |
 | capability `detail` | `detail` |
 | `flow` reference | `flowRefs[].path` and optional `flowRefs[].variant` |
+| `wireframe` reference | `wireframeRefs[].path` and optional `wireframeRefs[].screen` |
 | overview `variant` | `variants[]` |
 
 ## Diagnostics contract
@@ -636,6 +705,7 @@ A canonical document must meet these rules:
 - Every node, edge, group, capability, and variant ID is unique within its scope.
 - Every edge and position reference resolves.
 - Every flow reference is safe, relative, and points to a flow diagram.
+- Every wireframe reference is safe, relative, and points to a wireframe diagram; an optional screen ID is stable.
 - Every node uses an allowed node type.
 - Every edge relation uses the required endpoint types.
 - Every option uses `key=value`.
@@ -657,7 +727,7 @@ A canonical document must meet these rules:
 8. Direction: Edge arrows match the intended flow direction.
 9. Layout independence: Removing presentation data keeps the same semantic graph.
 10. Variant readiness: Variants are ordered operations over a shared base; no variant node or variant lane exists.
-11. Overview references: Every flow reference is a safe relative `.diagram` path and optional target variant.
+11. Overview references: Every flow reference is a safe relative `.diagram` path and optional target variant; every wireframe reference is a safe relative `.diagram` path and optional target screen.
 12. Overview materialization: A selected view is derived from a cloned base and the final view is validated before adoption.
 
 ## Portable links and mutation regression suite

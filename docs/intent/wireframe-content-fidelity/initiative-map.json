@@ -1,0 +1,128 @@
+{
+  "schema_version": "0.4.0",
+  "initiative": {
+    "title": "Wireframe content fidelity",
+    "slug": "wireframe-content-fidelity",
+    "scale": "feature",
+    "current_phase": "plan",
+    "last_updated": "2026-09-03",
+    "summary": "Represent content-heavy resume screens with multiline static copy, correct static semantics, spanning actions, and visible proposal marks."
+  },
+  "artifacts": {
+    "intent_brief": { "path": "intent-brief.md", "status": "current", "updated_at": "2026-09-03" },
+    "brainstorm": { "path": "brainstorm.md", "status": "not-requested", "updated_at": null },
+    "shape_brief": { "path": "shape-brief.md", "status": "current", "updated_at": "2026-09-03" },
+    "implementation_plan": { "path": "implementation-plan.md", "status": "current", "updated_at": "2026-09-03" }
+  },
+  "sources": [
+    { "id": "user-audit", "type": "conversation", "location": "Current task: wireframe audit", "anchor": "Resume display cannot represent multiline content well.", "authority": "direct-user" },
+    { "id": "user-deliver", "type": "conversation", "location": "Current task: implementation request", "anchor": "Implement all obvious high-value improvements.", "authority": "direct-user" },
+    { "id": "user-wireframe-shelf", "type": "conversation", "location": "Current task: overview inventory addition", "anchor": "Below the flows in this project, add wireframes in this project.", "authority": "direct-user" },
+    { "id": "resume-wireframes", "type": "repository", "location": "/Users/byronwall/Projects/evidence-first-resume-studio/diagrams/resume-workbench.diagram", "anchor": "Four resume review and evidence interview screens expose the content fidelity gaps.", "authority": "current-repository-reality" },
+    { "id": "repo-wireframes", "type": "repository", "location": "src/types/wireframe.ts; src/lib/wireframe-dsl.ts; src/components/WireframeWorkbench.tsx; src/styles.css", "anchor": "The current model has text, textarea, cards, marks, and workbench slots.", "authority": "current-repository-reality" },
+    { "id": "project-guidance", "type": "repository", "location": "AGENTS.md; docs/product-context.md", "anchor": "Keep the wireframe DSL finite, source-backed, and separate from flow and overview semantics.", "authority": "project-guidance" }
+  ],
+  "intent": {
+    "claims": [
+      { "id": "multiline-copy", "type": "required behavior", "statement": "Static wireframe copy preserves intentional paragraph and bullet line breaks.", "commitment": "explicit", "importance": "core", "status": "active", "time_horizon": "first release", "sources": ["user-audit"], "confidence": "high" },
+      { "id": "static-semantics", "type": "derived implication", "statement": "Static resume sections are not rendered as disabled controls.", "commitment": "derived", "importance": "core", "status": "active", "time_horizon": "first release", "sources": ["resume-wireframes", "repo-wireframes"], "confidence": "high" },
+      { "id": "spanning-actions", "type": "required behavior", "statement": "A workbench can place one bottom action area across both columns.", "commitment": "derived", "importance": "supporting", "status": "active", "time_horizon": "first release", "sources": ["resume-wireframes"], "confidence": "high" },
+      { "id": "visible-marks", "type": "required behavior", "statement": "Authored screen marks can be revealed with their reasons during review.", "commitment": "derived", "importance": "supporting", "status": "active", "time_horizon": "first release", "sources": ["repo-wireframes"], "confidence": "high" },
+      { "id": "wireframe-inventory", "type": "required behavior", "statement": "A project overview lists valid same-folder and explicitly linked wireframes without inventing capability relationships.", "commitment": "explicit", "importance": "core", "status": "active", "time_horizon": "first release", "sources": ["user-wireframe-shelf", "repo-wireframes", "project-guidance"], "confidence": "high" },
+      { "id": "finite-language", "type": "constraint", "statement": "The change does not add rich text, arbitrary styles, coordinates, or resume-specific primitives.", "commitment": "derived", "importance": "core", "status": "active", "time_horizon": "first release", "sources": ["project-guidance"], "confidence": "high" },
+      { "id": "deliver-now", "type": "sequence", "statement": "Create the ticket graph and execute the ready work in this run.", "commitment": "explicit", "importance": "core", "status": "active", "time_horizon": "proof", "sources": ["user-deliver"], "confidence": "high" }
+    ],
+    "themes": ["Content fidelity", "Static semantics", "Reviewable proposals"],
+    "conflicts": [],
+    "human_questions": []
+  },
+  "brainstorm": { "status": "not-requested", "requested_count": 7, "options": [], "selected_option": null },
+  "shape": {
+    "status": "current",
+    "appetite": "One focused DSL and renderer extension with no new dependency.",
+    "problem": "Content-heavy wireframes lose document structure, semantic accuracy, spanning actions, and authored change context.",
+    "recommended_shape": "Extend existing copy, card, frame, and mark mechanisms at narrow seams.",
+    "success_moves": ["Prove multiline static copy first.", "Reuse current screen marks.", "Keep the footer optional.", "Protect existing navigation and disclosure behavior."],
+    "first_proof": {
+      "question": "Can existing primitives represent a readable resume without rich text?",
+      "artifact": "A multiline static resume card parsed and rendered by the current viewer.",
+      "decision_rule": "Continue when line breaks remain visible and the static card is not a control; stop before adding rich text."
+    },
+    "rabbit_holes": ["Rich text", "Generic style vocabulary", "Second disclosure model", "Resume-specific element"],
+    "open_decisions": []
+  },
+  "implementation": {
+    "status": "complete",
+    "ticket_graph": {
+      "epic": "ufw-tdbj",
+      "tickets": ["ufw-1pdf", "ufw-zucw", "ufw-hovp", "ufw-qtxm"]
+    },
+    "repository_snapshot": {
+      "root": "/Users/byronwall/Projects/user-flow-workbench",
+      "revision": "cd06e7f9b4deabf30de500de0f61e807188ac06a",
+      "worktree_status": "Dirty user-owned changes overlap renderer, CSS, documentation, fixtures, and tracker files.",
+      "subsystems": ["wireframe model", "wireframe parser", "wireframe renderer", "wireframe styles", "authoring documentation"],
+      "test_commands": ["node --experimental-strip-types --test src/lib/wireframe-dsl.test.ts", "pnpm test:dsl", "pnpm typecheck", "pnpm build"],
+      "deployment_surfaces": []
+    },
+    "dependencies": [],
+    "fast_local_loop": {
+      "command": "node --experimental-strip-types --test src/lib/wireframe-dsl.test.ts",
+      "dependencies_started": [],
+      "network_required": false,
+      "shared_infrastructure_required": false,
+      "failure_injection": ["Unsupported escapes", "Unknown and duplicate frame slots", "Invalid mark targets"],
+      "slower_confirmation": "pnpm test:dsl, pnpm typecheck, pnpm build, and clean browser inspection"
+    },
+    "milestones": [
+      {
+        "id": "static-content",
+        "title": "Static resume content reads correctly",
+        "outcome": "Multiline static resume content renders with correct semantics.",
+        "dependencies_introduced": [],
+        "proof": "Focused parser test and browser DOM inspection.",
+        "valid_intermediate_state": "All existing wireframes remain valid while multiline copy and static cards become more accurate.",
+        "rollback": "Restore current escape handling and card renderer without a source migration.",
+        "status": "complete"
+      },
+      {
+        "id": "spanning-footer",
+        "title": "Workbench actions span the screen",
+        "outcome": "An optional footer spans the workbench.",
+        "dependencies_introduced": [],
+        "proof": "Parser test and browser layout inspection.",
+        "valid_intermediate_state": "Frames without footer content keep their current layout.",
+        "rollback": "Remove the optional footer slot; existing sources remain valid.",
+        "status": "complete"
+      },
+      {
+        "id": "visible-marks",
+        "title": "Authored changes are visible",
+        "outcome": "Existing marks appear in an optional annotated review mode.",
+        "dependencies_introduced": [],
+        "proof": "Focused state test and browser inspection.",
+        "valid_intermediate_state": "The normal mockup remains unchanged when annotation mode is off.",
+        "rollback": "Remove the review toggle and mark presentation while preserving parsed mark data.",
+        "status": "complete"
+      },
+      {
+        "id": "wireframe-inventory",
+        "title": "The overview lists project wireframes",
+        "outcome": "A wireframe shelf appears below the project flow shelf.",
+        "dependencies_introduced": [],
+        "proof": "Pure inventory tests and a clean overview browser inspection.",
+        "valid_intermediate_state": "The existing flow shelf and capability-linked wireframe navigation remain available.",
+        "rollback": "Remove the sibling shelf and projection without changing catalog or overview source semantics.",
+        "status": "complete"
+      }
+    ],
+    "cut_line": ["Markdown", "rich text", "generic semantic tones", "new disclosure model", "resume-specific primitives"],
+    "open_decisions": []
+  },
+  "history": [
+    { "date": "2026-09-03", "event": "Created a focused delivery plan from the resume wireframe audit and repository evidence." },
+    { "date": "2026-09-03", "event": "Created epic ufw-tdbj with three independent implementation packets." },
+    { "date": "2026-09-03", "event": "Added the user-requested overview wireframe inventory outcome to the active delivery scope." },
+    { "date": "2026-09-03", "event": "Completed all four tickets with parser, type, build, code review, and browser evidence." }
+  ]
+}

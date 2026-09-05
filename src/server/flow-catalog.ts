@@ -5,6 +5,7 @@ import { diagramToDsl, formatDiagramDslDiagnostic, parseDiagramWithDiagnostics }
 import type { DiagramCatalog, DiagramCatalogEntry, DiagramDocumentResponse, DiagramLoadError, DiagramType } from "../types/diagram.ts";
 import type { FlowCatalog, FlowCatalogEntry, FlowDocumentResponse } from "../types/flow-catalog.ts";
 import type { FlowDocument } from "../types/graph.ts";
+import type { ApplicationCoverageWarning, ApplicationDocument, ApplicationReference, ApplicationReferenceWarning } from "../types/application.ts";
 import type { OverviewDocument, OverviewReferenceWarning } from "../types/overview.ts";
 import type { WireframeDocument } from "../types/wireframe.ts";
 import { materializeOverview } from "../lib/overview-dsl.ts";
@@ -60,6 +61,10 @@ export async function resolveReferenceImagePath(root: string, requestedPath: str
   return resolveWorkspaceFile(root, requestedPath, [".png", ".jpg", ".jpeg", ".webp"], "Select a relative PNG, JPEG, or WebP image path.");
 }
 
+export async function resolvePlanningDocumentPath(root: string, requestedPath: string): Promise<string> {
+  return resolveWorkspaceFile(root, requestedPath, [".md", ".mdx", ".txt", ".pdf", ".json"], "Select a relative planning document path.");
+}
+
 async function resolveWorkspaceFile(root: string, requestedPath: string, extensions: string[], invalidMessage: string): Promise<string> {
   if (!requestedPath || requestedPath.includes("\0") || isAbsolute(requestedPath)) throw new FlowCatalogError(invalidMessage, 400);
   const segments = requestedPath.split("/");
@@ -86,6 +91,11 @@ export async function readDiagramDocument(requestedPath: string, rootInput?: str
   const common = { path: portablePath(root, path), workspaceId: workspaceId(root), sourceHash: createHash("sha256").update(source).digest("hex"), sourceText: source };
   if (parsed.type === "flow") return { ...common, type: "flow", document: parsed.document.document as FlowDocument, canonicalSource: diagramToDsl(parsed.document) };
   if (parsed.type === "wireframe") return { ...common, type: "wireframe", document: parsed.document.document as WireframeDocument, canonicalSource: diagramToDsl(parsed.document) };
+  if (parsed.type === "application") {
+    const document = parsed.document.document as ApplicationDocument;
+    const warnings = [...await resolveApplicationReferences(document, root), ...await resolveApplicationCoverage(document, root)];
+    return { ...common, type: "application", document, canonicalSource: diagramToDsl(parsed.document), ...(warnings.length ? { warnings } : {}) };
+  }
   const document = parsed.document.document as OverviewDocument;
   let view = document;
   let activeVariant: string | null = null;
@@ -98,6 +108,103 @@ export async function readDiagramDocument(requestedPath: string, rootInput?: str
   }
   warnings.push(...await resolveOverviewReferences(view, root));
   return { ...common, type: "overview", document, canonicalSource: diagramToDsl(parsed.document), ...(activeVariant ? { activeVariant, view } : {}), ...(warnings.length ? { warnings } : {}) };
+}
+
+/** Resolve only explicit application references. Failures stay on the page as warnings. */
+export async function resolveApplicationReferences(document: ApplicationDocument, rootInput?: string): Promise<ApplicationReferenceWarning[]> {
+  const root = await resolveFlowRoot(rootInput);
+  const warnings: ApplicationReferenceWarning[] = [];
+  for (const page of document.pages) {
+    for (const reference of page.references) {
+      try {
+        if (reference.kind === "document") {
+          const targetPath = await resolvePlanningDocumentPath(root, reference.path);
+          if (reference.heading && !documentHasHeading(await readFile(targetPath, "utf8"), reference.heading)) {
+            warnings.push(applicationWarning("APPLICATION_REFERENCE_MISSING_HEADING", page.id, reference, `Planning document heading "${reference.heading}" was not found in "${reference.path}".`, "Choose an existing heading or repair the document reference."));
+          }
+          continue;
+        }
+        const targetPath = await resolveDiagramPath(root, reference.path);
+        const parsed = parseDiagramWithDiagnostics(await readFile(targetPath, "utf8"));
+        if (!parsed.type || parsed.diagnostics.length) {
+          warnings.push(applicationWarning("APPLICATION_REFERENCE_INVALID", page.id, reference, `The referenced diagram "${reference.path}" is not valid.`, "Repair the target diagram before opening it."));
+          continue;
+        }
+        const expected = reference.kind;
+        if (parsed.type !== expected) {
+          warnings.push(applicationWarning("APPLICATION_REFERENCE_WRONG_TYPE", page.id, reference, `Reference expects a ${expected} document, but "${reference.path}" declares type ${parsed.type}.`, `Link a diagram whose declaration is type ${expected}.`));
+          continue;
+        }
+        const targetId = reference.kind === "overview"
+          ? reference.capabilityId
+          : reference.kind === "flow" ? reference.nodeId : reference.screenId;
+        const found = reference.kind === "overview"
+          ? [...(parsed.document.document as OverviewDocument).groups.flatMap((group) => group.capabilities), ...((parsed.document.document as OverviewDocument).capabilities || [])].some((capability) => capability.id === targetId)
+          : reference.kind === "flow"
+            ? (parsed.document.document as FlowDocument).graph.nodes.some((node) => node.id === targetId)
+            : (parsed.document.document as WireframeDocument).screens.some((screen) => screen.id === targetId);
+        if (!found) {
+          warnings.push(applicationWarning("APPLICATION_REFERENCE_MISSING_ID", page.id, reference, `Referenced ${expected} ID "${targetId}" was not found in "${reference.path}".`, "Choose an existing target ID or repair the reference."));
+        }
+      } catch (error) {
+        warnings.push(applicationWarning("APPLICATION_REFERENCE_MISSING", page.id, reference, error instanceof Error ? error.message : `Referenced target "${reference.path}" does not exist.`, "Check the relative target path, then retry."));
+      }
+    }
+  }
+  return warnings;
+}
+
+/** Warn only about gaps inside explicitly referenced artifacts. */
+export async function resolveApplicationCoverage(document: ApplicationDocument, rootInput?: string): Promise<ApplicationCoverageWarning[]> {
+  const root = await resolveFlowRoot(rootInput);
+  const warnings: ApplicationCoverageWarning[] = [];
+  for (const page of document.pages) {
+    if (!page.references.some((reference) => reference.kind === "wireframe")) {
+      warnings.push({ code: "APPLICATION_COVERAGE_PAGE_WITHOUT_WIREFRAME", pageId: page.id, message: `Page "${page.title}" has no explicit wireframe reference.`, suggestion: "Add a wireframe reference when this page has a proposed screen." });
+    }
+  }
+  const targets = new Map<string, { kind: "flow" | "overview" | "wireframe"; claimed: Set<string> }>();
+  for (const page of document.pages) {
+    for (const reference of page.references) {
+      if (reference.kind === "document") continue;
+      const targetId = reference.kind === "overview" ? reference.capabilityId : reference.kind === "flow" ? reference.nodeId : reference.screenId;
+      let target = targets.get(`${reference.kind}:${reference.path}`);
+      if (!target) {
+        try {
+          const targetPath = await resolveDiagramPath(root, reference.path);
+          const parsed = parseDiagramWithDiagnostics(await readFile(targetPath, "utf8"));
+          if (parsed.diagnostics.length || parsed.type !== reference.kind) continue;
+          target = { kind: reference.kind, claimed: new Set<string>() };
+          targets.set(`${reference.kind}:${reference.path}`, target);
+          const ids = reference.kind === "flow"
+            ? (parsed.document.document as FlowDocument).graph.nodes.map((node) => node.id)
+            : reference.kind === "overview"
+              ? [...(parsed.document.document as OverviewDocument).groups.flatMap((group) => group.capabilities), ...((parsed.document.document as OverviewDocument).capabilities || [])].map((capability) => capability.id)
+              : (parsed.document.document as WireframeDocument).screens.map((screen) => screen.id);
+          const code = reference.kind === "flow" ? "APPLICATION_COVERAGE_UNCLAIMED_FLOW_NODE" : reference.kind === "overview" ? "APPLICATION_COVERAGE_UNCLAIMED_OVERVIEW_CAPABILITY" : "APPLICATION_COVERAGE_UNCLAIMED_WIREFRAME_SCREEN";
+          for (const id of ids) warnings.push({ code, kind: reference.kind, path: reference.path, targetId: id, message: `${reference.kind === "flow" ? "Flow node" : reference.kind === "overview" ? "Overview capability" : "Wireframe screen"} "${id}" in "${reference.path}" has no owning application page.`, suggestion: "Add an explicit application page reference or leave the artifact outside this map." });
+        } catch {
+          continue;
+        }
+      }
+      target.claimed.add(targetId);
+    }
+  }
+  return warnings.filter((warning) => {
+    if (warning.code === "APPLICATION_COVERAGE_PAGE_WITHOUT_WIREFRAME") return true;
+    return !targets.get(`${warning.kind}:${warning.path}`)?.claimed.has(warning.targetId);
+  });
+}
+
+function applicationWarning(code: ApplicationReferenceWarning["code"], pageId: string, reference: ApplicationReference, message: string, suggestion: string): ApplicationReferenceWarning {
+  const targetId = reference.kind === "overview" ? reference.capabilityId : reference.kind === "flow" ? reference.nodeId : reference.kind === "wireframe" ? reference.screenId : undefined;
+  return { code, pageId, kind: reference.kind, path: reference.path, ...(targetId ? { targetId } : {}), ...(reference.kind === "document" && reference.heading ? { heading: reference.heading } : {}), message, suggestion };
+}
+
+function documentHasHeading(source: string, heading: string): boolean {
+  const wanted = heading.trim();
+  if (!wanted) return false;
+  return source.split(/\r?\n/).some((line) => line.trim() === wanted || /^#{1,6}\s+(.+?)\s*#*\s*$/.exec(line)?.[1]?.trim() === wanted);
 }
 
 /** Validate overview links without building a reverse registry or blocking the board. */
@@ -119,6 +226,21 @@ export async function resolveOverviewReferences(document: OverviewDocument, root
       } catch (error) {
         const code = error instanceof FlowCatalogError && error.status === 422 ? "OVERVIEW_FLOW_INVALID" : "OVERVIEW_FLOW_MISSING";
         warnings.push({ code, capabilityId: capability.id, path: reference.path, ...(reference.variant ? { variant: reference.variant } : {}), message: error instanceof Error ? error.message : `Cannot load flow "${reference.path}".`, suggestion: "Check that the relative .diagram path exists and declares type flow, then retry." });
+      }
+    }
+    for (const reference of capability.wireframeRefs || []) {
+      try {
+        const targetPath = await resolveDiagramPath(root, reference.path);
+        const targetParsed = parseDiagramWithDiagnostics(await readFile(targetPath, "utf8"));
+        if (!targetParsed.type || targetParsed.diagnostics.length) throw new FlowCatalogError(`Cannot load ${reference.path}.`, 422, { error: "The target diagram has syntax errors.", path: reference.path, diagnostics: targetParsed.diagnostics.map((diagnostic) => ({ code: diagnostic.code, line: diagnostic.line, column: diagnostic.column, message: formatDiagramDslDiagnostic(diagnostic) })) });
+        if (targetParsed.type !== "wireframe") {
+          warnings.push({ code: "OVERVIEW_WIREFRAME_WRONG_TYPE", capabilityId: capability.id, path: reference.path, ...(reference.screen ? { screen: reference.screen } : {}), message: `Wireframe reference resolves to a ${targetParsed.type} document, not a wireframe: "${reference.path}".`, suggestion: "Link a diagram whose declaration is type wireframe." });
+        } else if (reference.screen && !(targetParsed.document.document as WireframeDocument).screens.some((screen) => screen.id === reference.screen)) {
+          warnings.push({ code: "OVERVIEW_WIREFRAME_MISSING_SCREEN", capabilityId: capability.id, path: reference.path, screen: reference.screen, message: `Wireframe screen "${reference.screen}" does not exist in "${reference.path}".`, suggestion: "Remove the screen or choose one listed by the wireframe." });
+        }
+      } catch (error) {
+        const code = error instanceof FlowCatalogError && error.status === 422 ? "OVERVIEW_WIREFRAME_INVALID" : "OVERVIEW_WIREFRAME_MISSING";
+        warnings.push({ code, capabilityId: capability.id, path: reference.path, ...(reference.screen ? { screen: reference.screen } : {}), message: error instanceof Error ? error.message : `Cannot load wireframe "${reference.path}".`, suggestion: "Check that the relative .diagram path exists and declares type wireframe, then retry." });
       }
     }
   }

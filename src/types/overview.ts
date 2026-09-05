@@ -5,6 +5,13 @@ export interface OverviewFlowReference {
   readonly variant?: string;
 }
 
+export interface OverviewWireframeReference {
+  /** A .diagram path relative to the configured diagram root. */
+  readonly path: string;
+  /** An optional stable wireframe screen ID. */
+  readonly screen?: string;
+}
+
 export interface OverviewCapability {
   readonly id: string;
   readonly title: string;
@@ -13,6 +20,8 @@ export interface OverviewCapability {
   readonly groupId?: string;
   /** Ordered links to standalone flow diagrams. */
   readonly flowRefs?: readonly OverviewFlowReference[];
+  /** Ordered links to standalone wireframe screens. */
+  readonly wireframeRefs?: readonly OverviewWireframeReference[];
 }
 
 export interface OverviewGroup {
@@ -36,7 +45,7 @@ export interface OverviewDocument {
 }
 
 export type OverviewGroupChanges = { title?: string };
-export type OverviewCapabilityChanges = { title?: string; detail?: string; groupId?: string; flowRefs?: OverviewFlowReference[] };
+export type OverviewCapabilityChanges = { title?: string; detail?: string; groupId?: string; flowRefs?: OverviewFlowReference[]; wireframeRefs?: OverviewWireframeReference[] };
 
 export type OverviewVariantOperation =
   | { readonly kind: "add-group"; readonly group: OverviewGroup }
@@ -45,7 +54,7 @@ export type OverviewVariantOperation =
   | { readonly kind: "add-capability"; readonly capability: OverviewCapability }
   | { readonly kind: "remove-capability"; readonly capabilityId: string }
   | { readonly kind: "set-capability"; readonly capabilityId: string; readonly changes: OverviewCapabilityChanges }
-  | { readonly kind: "unset-capability"; readonly capabilityId: string; readonly property: "detail" | "group" | "flows" };
+  | { readonly kind: "unset-capability"; readonly capabilityId: string; readonly property: "detail" | "group" | "flows" | "wireframes" };
 
 export interface OverviewVariant {
   readonly id: string;
@@ -59,6 +68,7 @@ export interface OverviewReferenceWarning {
   readonly capabilityId: string;
   readonly path: string;
   readonly variant?: string;
+  readonly screen?: string;
   readonly message: string;
   readonly suggestion?: string;
 }

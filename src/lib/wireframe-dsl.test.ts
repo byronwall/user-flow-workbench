@@ -32,6 +32,18 @@ test("parses disclosure states and rejects broken references", async () => {
   assert.equal(panel?.kind === "panel" && panel.children[1]?.kind, "panel");
 });
 
+test("validates authored mark targets and shared part identities", () => {
+  const source = `diagram 1\ntype wireframe\n\nwireframe marks "Marks"\nviewport 800 600\npart actions {\n  button save "Save" goto=home\n}\nscreen home "Home" {\n  mark main "Review the primary proposal."\n  mark aside "Review supporting detail."\n  mark actions-use "Review the shared actions."\n  mark save "Review the save action."\n  frame workbench {\n    main { text "Main" }\n    aside { use actions-use actions }\n  }\n}`;
+  const parsed = parseDiagramWithDiagnostics(source);
+  assert.deepEqual(parsed.diagnostics, []);
+
+  const unknown = parseDiagramWithDiagnostics(source.replace("mark save", "mark missing"));
+  assert.match(unknown.diagnostics[0]?.message || "", /Unknown mark target/);
+
+  const ambiguous = parseDiagramWithDiagnostics(source.replace("aside { use actions-use actions }", "aside { use actions-use actions use actions-use-second actions }"));
+  assert.match(ambiguous.diagnostics[0]?.message || "", /Ambiguous mark target/);
+});
+
 test("parses wireframe themes and rejects unknown names", () => {
   const source = `diagram 1\ntype wireframe\n\nwireframe recipe "Recipe"\nviewport 800 600\ntheme recipe\nscreen home "Home" {\n  frame page {\n    body {\n      text "Hello"\n    }\n  }\n}`;
   const parsed = parseDiagramWithDiagnostics(source);
@@ -44,6 +56,51 @@ test("parses wireframe themes and rejects unknown names", () => {
 
   const duplicate = parseDiagramWithDiagnostics(source.replace("theme recipe", "theme recipe\ntheme default"));
   assert.equal(duplicate.diagnostics[0]?.code, "WIREFRAME101");
+});
+
+test("decodes newline escapes and rejects unknown quoted-copy escapes", () => {
+  const source = `diagram 1\ntype wireframe\n\nwireframe copy "Copy"\nviewport 800 600\nscreen home "Home" {\n  frame page {\n    body {\n      text "First paragraph\\nSecond paragraph"\n      card static "Summary" detail="Line one\\nLine two\\q"\n    }\n  }\n}`;
+  const parsed = parseDiagramWithDiagnostics(source.replace("\\q", " safe"));
+  assert.deepEqual(parsed.diagnostics, []);
+  if (parsed.document.type !== "wireframe") assert.fail("Expected a wireframe.");
+  const body = parsed.document.document.screens[0].frame.kind === "page" ? parsed.document.document.screens[0].frame.body : [];
+  assert.equal(body[0]?.kind === "text" && body[0].text, "First paragraph\nSecond paragraph");
+  assert.equal(body[1]?.kind === "card" && body[1].detail, "Line one\nLine two safe");
+  const unknown = parseDiagramWithDiagnostics(source);
+  assert.equal(unknown.diagnostics[0]?.code, "WIREFRAME101");
+  assert.match(unknown.diagnostics[0]?.message || "", /Unknown string escape/);
+});
+
+test("parses an optional spanning workbench footer and validates frame slots", () => {
+  const source = `diagram 1\ntype wireframe\n\nwireframe footer "Footer"\nviewport 800 600\nscreen home "Home" {\n  frame workbench inspector=300 {\n    main { text "Main" }\n    aside { text "Aside" }\n    footer { bar actions { start { text "Actions" } end { button save "Save" } } }\n  }\n}`;
+  const parsed = parseDiagramWithDiagnostics(source);
+  assert.deepEqual(parsed.diagnostics, []);
+  if (parsed.document.type !== "wireframe") assert.fail("Expected a wireframe.");
+  const frame = parsed.document.document.screens[0].frame;
+  assert.equal(frame.kind, "workbench");
+  assert.equal(frame.kind === "workbench" && frame.footer?.[0]?.kind, "bar");
+
+  const noFooter = parseDiagramWithDiagnostics(source.replace('    footer { bar actions { start { text "Actions" } end { button save "Save" } } }\n', ""));
+  assert.deepEqual(noFooter.diagnostics, []);
+  if (noFooter.document.type !== "wireframe") assert.fail("Expected a wireframe.");
+  const noFooterFrame = noFooter.document.document.screens[0].frame;
+  assert.equal(noFooterFrame.kind === "workbench" && noFooterFrame.footer, undefined);
+
+  const emptyFooter = parseDiagramWithDiagnostics(source.replace('  frame workbench', '  mark footer "Review the footer."\n  frame workbench').replace('    footer { bar actions { start { text "Actions" } end { button save "Save" } } }', '    footer { }'));
+  assert.equal(emptyFooter.diagnostics[0]?.code, "WIREFRAME101");
+  assert.match(emptyFooter.diagnostics[0]?.message || "", /Unknown mark target "footer"/);
+
+  const unknownWorkbench = parseDiagramWithDiagnostics(source.replace("    footer {", "    body {"));
+  assert.equal(unknownWorkbench.diagnostics[0]?.code, "WIREFRAME101");
+  assert.match(unknownWorkbench.diagnostics[0]?.message || "", /Unknown workbench frame slot/);
+
+  const unknownPage = parseDiagramWithDiagnostics(source.replace("frame workbench inspector=300", "frame page"));
+  assert.equal(unknownPage.diagnostics[0]?.code, "WIREFRAME101");
+  assert.match(unknownPage.diagnostics[0]?.message || "", /Unknown page frame slot/);
+
+  const duplicate = parseDiagramWithDiagnostics(source.replace("    footer {", "    main {\n      text \"Second main\"\n    }\n    footer {"));
+  assert.equal(duplicate.diagnostics[0]?.code, "WIREFRAME101");
+  assert.match(duplicate.diagnostics[0]?.message || "", /Duplicate workbench frame slot/);
 });
 
 test("parses semantic controls and rejects unsupported control vocabulary", () => {

@@ -1,0 +1,60 @@
+diagram 1
+type wireframe
+
+wireframe footer-proof "Workbench footer proof"
+viewport 1100 700
+
+screen review "Review draft" basis=proposed {
+  frame workbench inspector=320 {
+    header {
+      bar {
+        start {
+          text "Resume review" role=heading
+        }
+        end {
+          button help "Help"
+        }
+      }
+    }
+    top {
+      bar status {
+        start {
+          badge "Draft"
+          text "Review the proposed changes" role=caption
+        }
+      }
+    }
+    main {
+      stack document {
+        text "Evidence summary" role=title
+        card summary "Summary" detail="The draft keeps the strongest evidence.\nEach line remains readable as authored static copy."
+        card details "Open evidence" detail="Inspect the supporting details." goto=details
+      }
+    }
+    aside {
+      panel inspector {
+        text "Inspector" role=heading
+        text "Select a section to review its evidence."
+      }
+    }
+    footer {
+      bar actions {
+        start {
+          text "Changes ready for review" role=caption
+        }
+        end {
+          button approve "Approve draft"
+        }
+      }
+    }
+  }
+}
+
+screen details "Evidence details" basis=proposed {
+  frame page content=720 {
+    body {
+      text "Evidence details" role=title
+      text "This linked card proves normal gallery navigation." role=body
+    }
+  }
+}
