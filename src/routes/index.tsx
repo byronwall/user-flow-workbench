@@ -340,9 +340,10 @@ function WorkspaceShell(props: { catalog?: DiagramCatalog; loaded: LoadedDiagram
           </Show>
         </nav>
         <div class="workspace-current">
-          <span>{props.loaded.type} · {currentTitle()}</span>
+          <span>{currentTitle()}</span>
           <small>{props.loaded.path}</small>
         </div>
+        <Show when={props.loaded.type === "application"}><div id="workspace-actions" class="workspace-actions" /></Show>
         <Show when={props.returnContext}>
           {(context) => <div class="workspace-context" role="status"><span>Capability</span><strong>{context().capabilityTitle || context().capabilityId}</strong><Show when={context().viewTitle}><small>View · {context().viewTitle}</small></Show><Show when={context().notice}><em>{context().notice}</em></Show></div>}
         </Show>

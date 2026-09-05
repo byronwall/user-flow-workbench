@@ -12,7 +12,7 @@ export function Toolbar(props: { flowState: FlowWorkbenchState }) {
       </div>
       <div class="spacer" />
       <div class="toolbar" aria-label="Graph actions">
-        <span class="flow-source-status" role="status">{props.flowState.workingCopy ? (props.flowState.restoredLocalCopy ? "Restored browser-local copy." : "Using browser-local working copy.") : "Source-backed flow."}</span>
+        <span class="flow-source-status" role="status">{props.flowState.workingCopy ? (props.flowState.restoredLocalCopy ? "Restored local changes." : "Local changes.") : ""}</span>
         <button class="btn" id="exportBtn" type="button">Export JSON</button>
         <button class="btn" id="resetBtn" type="button">Reset file</button>
       </div>

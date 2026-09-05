@@ -120,7 +120,7 @@ function CapabilityButton(props: { capability: OverviewCapability; selected: boo
 function OverviewFlowShelf(props: { items: readonly OverviewFlowInventoryItem[]; overviewPath?: string; viewId?: string }) {
   return (
     <section class="overview-flow-shelf" aria-labelledby="overview-flow-shelf-title">
-      <div class="overview-flow-shelf-heading"><h2 id="overview-flow-shelf-title">Flows in this project · {props.items.length}</h2><span>Source-backed inventory</span></div>
+      <div class="overview-flow-shelf-heading"><h2 id="overview-flow-shelf-title">Flows in this project · {props.items.length}</h2><span>Project files</span></div>
       <Show when={props.items.length} fallback={<p class="overview-flow-shelf-empty">No valid flows found in this project or its linked capabilities.</p>}>
         <div class="overview-flow-list">
           <For each={props.items}>{(item) => {
@@ -138,7 +138,7 @@ function OverviewFlowShelf(props: { items: readonly OverviewFlowInventoryItem[];
 function OverviewWireframeShelf(props: { items: readonly OverviewWireframeInventoryItem[]; overviewPath?: string; viewId?: string }) {
   return (
     <section class="overview-flow-shelf" aria-labelledby="overview-wireframe-shelf-title">
-      <div class="overview-flow-shelf-heading"><h2 id="overview-wireframe-shelf-title">Wireframes in this project · {props.items.length}</h2><span>Source-backed inventory</span></div>
+      <div class="overview-flow-shelf-heading"><h2 id="overview-wireframe-shelf-title">Wireframes in this project · {props.items.length}</h2><span>Project files</span></div>
       <Show when={props.items.length} fallback={<p class="overview-flow-shelf-empty">No valid wireframes found in this project or its linked capabilities.</p>}>
         <div class="overview-flow-list">
           <For each={props.items}>{(item) => {
@@ -249,7 +249,7 @@ function OverviewInspector(props: { document: OverviewDocument; selected?: Overv
       </Show>
       <div class="overview-inspector-footer">
         <strong>{props.stale ? "Source needs attention" : "Source current"}</strong>
-        <span>{props.stale ? "Showing the last valid board." : "Agent-authored diagram source."}</span>
+        <span>{props.stale ? "Showing the last valid board." : "Diagram source."}</span>
       </div>
     </section>
   );
@@ -473,7 +473,7 @@ export function OverviewWorkbench(props: OverviewWorkbenchProps) {
   return (
     <div class="app overview-app" classList={{ "overview-app-with-variants": Boolean(currentDocument().variants?.length) }}>
       <header class="topbar overview-topbar">
-        <span class="overview-source-status" role="status">Source-backed overview</span>
+        <span class="overview-source-status" role="status">Overview</span>
         <div class="toolbar" aria-label="Overview actions"><button class="btn primary" type="button" onClick={() => void (window as FlowWorkbenchWindow).flowOverview?.refresh?.()}>Reload source</button></div>
         <div class="spacer" />
         <div class="toolbar" aria-label="Document actions"><button class="btn" type="button" disabled={!sourceText()} onClick={() => downloadSource(currentDocument(), sourceText())}>Export source</button></div>
@@ -503,7 +503,7 @@ export function OverviewWorkbench(props: OverviewWorkbenchProps) {
 
       <aside class="sidebar overview-sidebar" aria-label="Overview details and source"><div class="sidebar-tabs" role="tablist" aria-label="Overview sidebar views"><button class="sidebar-tab" id="overview-inspector-tab" type="button" role="tab" aria-controls="overview-inspector-panel" aria-selected={activeSidebarTab() === "inspector"} tabIndex={activeSidebarTab() === "inspector" ? 0 : -1} onClick={() => setActiveSidebarTab("inspector")} onKeyDown={handleTabKeyDown}>Inspector</button><button class="sidebar-tab" id="overview-source-tab" type="button" role="tab" aria-controls="overview-source-panel" aria-selected={activeSidebarTab() === "source"} tabIndex={activeSidebarTab() === "source" ? 0 : -1} onClick={() => setActiveSidebarTab("source")} onKeyDown={handleTabKeyDown}><span>Diagram DSL</span><small>Read only</small></button></div><div class="overview-sidebar-content">
         <section class="sidebar-panel overview-sidebar-panel" id="overview-inspector-panel" role="tabpanel" aria-labelledby="overview-inspector-tab" hidden={activeSidebarTab() !== "inspector"}><OverviewInspector document={viewDocument()} selected={selected()} stale={stale()} referenceStates={referenceStates()} wireframeStates={wireframeStates()} referenceWarnings={referenceWarnings()} overviewPath={props.documentPath} viewId={activeVariant() || undefined} onRetryReference={() => { const capability = selected(); if (capability) { loadFlowReferences(capability); loadWireframeReferences(capability); } }} /></section>
-        <section class="sidebar-panel overview-sidebar-panel" id="overview-source-panel" role="tabpanel" aria-labelledby="overview-source-tab" hidden={activeSidebarTab() !== "source"}><div class="overview-source-body" data-source-hash={acceptedSourceHash() || undefined}><p class="overview-panel-kicker">Read only</p><h2>Diagram DSL</h2><p class="overview-muted">Current canonical source from the selected diagram.</p><pre class="overview-source-code"><code>{sourceText() || "Source text is unavailable for this document."}</code></pre><p class="overview-source-note">The agent owns source edits. Reload after an edit to inspect the new document.</p></div></section>
+        <section class="sidebar-panel overview-sidebar-panel" id="overview-source-panel" role="tabpanel" aria-labelledby="overview-source-tab" hidden={activeSidebarTab() !== "source"}><div class="overview-source-body" data-source-hash={acceptedSourceHash() || undefined}><p class="overview-panel-kicker">Read only</p><h2>Diagram DSL</h2><p class="overview-muted">Source for this diagram.</p><pre class="overview-source-code"><code>{sourceText() || "Source text is unavailable for this document."}</code></pre><p class="overview-source-note">Edit the source file, then reload to see changes.</p></div></section>
       </div></aside>
     </div>
   );

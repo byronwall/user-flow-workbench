@@ -53,15 +53,7 @@ export function ApplicationPageGraph(props: { document: ApplicationDocument; net
     controls.setCamera(props.network ? fitCamera(layout().width || 1, layout().height || 1, viewport.clientWidth, viewport.clientHeight) : { x: 0, y: 0, scale: 1 });
   };
   onMount(() => {
-    const resize = () => {
-      if (!props.network) return;
-      const main = viewport.closest(".application-main")!;
-      const available = window.innerHeight - viewport.getBoundingClientRect().top - main.scrollTop - 24;
-      viewport.style.setProperty("--network-height", `${Math.max(240, available)}px`);
-    };
-    const observer = new ResizeObserver(() => { resize(); if (props.network) fit(); });
-    window.addEventListener("resize", resize);
-    onCleanup(() => window.removeEventListener("resize", resize));
+    const observer = new ResizeObserver(() => { if (props.network) fit(); });
     observer.observe(viewport);
     onCleanup(() => observer.disconnect());
     createEffect(() => {
@@ -71,7 +63,6 @@ export function ApplicationPageGraph(props: { document: ApplicationDocument; net
       onCleanup(() => { active = false; });
       props.onReady(false);
       setLayout(fallback());
-      resize();
       void (network ? layoutApplicationNetwork(document) : layoutApplicationPages(document)).then((result) => {
         if (active) { setLayout(result); fit(); }
       }).catch((error) => console.warn("Application layout failed; using authored order.", error))
@@ -84,7 +75,7 @@ export function ApplicationPageGraph(props: { document: ApplicationDocument; net
       <div class="application-network-zoom"><button class="btn" type="button" aria-label="Zoom out" onClick={() => controls.zoom(.8)}>−</button><button class="btn" type="button" onClick={fit}>Fit</button><button class="btn" type="button" aria-label="Zoom in" onClick={() => controls.zoom(1.25)}>+</button></div>
     </div></Show>
     <div ref={viewport} class="application-graph-scroll" classList={{ "application-network-viewport": props.network, panning: controls.panning() }} role="region" aria-label={props.network ? "Pages and objects network" : "Page graph, flows left to right"} tabIndex={0} aria-description={props.network ? "Drag the background to pan. Scroll or pinch to zoom. Arrow keys pan; plus and minus zoom; zero fits the graph." : undefined}>
-      <Show when={graph().nodes.length} fallback={<p class="application-muted">No pages authored yet.</p>}>
+      <Show when={graph().nodes.length} fallback={<p class="application-muted">No pages yet.</p>}>
       <div style={{ width: props.network ? "100%" : `${layout().width || 196}px`, height: props.network ? "100%" : `${layout().height || 104}px`, overflow: "hidden" }}>
       <div class="application-graph-scene" style={{ width: `${layout().width || 196}px`, height: `${layout().height || 104}px`, transform: `translate(${controls.camera().x}px, ${controls.camera().y}px) scale(${scale()})`, "transform-origin": "top left", "--graph-scale": scale() }}>
         <svg class="application-graph-edges" width={layout().width} height={layout().height} aria-hidden="true">

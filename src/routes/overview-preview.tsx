@@ -8,7 +8,7 @@ export default function OverviewPreview() {
   return (
     <main class="startup-state">
       <h1>User Flow Workbench</h1>
-      <p>Opening the source-backed overview…</p>
+      <p>Opening the overview…</p>
     </main>
   );
 }
