@@ -32,6 +32,29 @@ test("parses disclosure states and rejects broken references", async () => {
   assert.equal(panel?.kind === "panel" && panel.children[1]?.kind, "panel");
 });
 
+test("parses bounded shot value and state overlays", () => {
+  const source = `diagram 1\ntype wireframe\n\nwireframe shots "Shots"\nviewport 800 600\nscreen interview "Interview" {\n  shot rest\n  shot empty-answer {\n    set answer value=""\n    set save state=disabled\n  }\n  shot answered {\n    set answer value="A verified answer"\n  }\n  frame page {\n    body {\n      textarea answer "Answer" value="A saved answer"\n      button save "Save" state=selected\n    }\n  }\n}`;
+  const parsed = parseDiagramWithDiagnostics(source);
+  assert.deepEqual(parsed.diagnostics, []);
+  if (parsed.document.type !== "wireframe") assert.fail("Expected a wireframe.");
+  const shots = parsed.document.document.screens[0].shots;
+  assert.deepEqual(shots[1]?.overrides, [{ target: "answer", value: "" }, { target: "save", state: "disabled" }]);
+  assert.deepEqual(shots[2]?.overrides, [{ target: "answer", value: "A verified answer" }]);
+
+  for (const [line, message] of [
+    ["set missing value=\"x\"", /unknown override target/],
+    ["set save value=\"x\"", /does not support value/],
+    ["set answer state=disabled", /does not support state/],
+    ["set save state=loading", /Unsupported shot state/],
+  ] as const) {
+    const invalid = parseDiagramWithDiagnostics(source.replace("set answer value=\"\"\n    set save state=disabled", line));
+    assert.equal(invalid.diagnostics[0]?.code, "WIREFRAME101");
+    assert.match(invalid.diagnostics[0]?.message || "", message);
+  }
+  const duplicate = parseDiagramWithDiagnostics(source.replace("set save state=disabled", "set answer value=\"again\"\n    set save state=disabled"));
+  assert.match(duplicate.diagnostics[0]?.message || "", /Duplicate shot target/);
+});
+
 test("validates authored mark targets and shared part identities", () => {
   const source = `diagram 1\ntype wireframe\n\nwireframe marks "Marks"\nviewport 800 600\npart actions {\n  button save "Save" goto=home\n}\nscreen home "Home" {\n  mark main "Review the primary proposal."\n  mark aside "Review supporting detail."\n  mark actions-use "Review the shared actions."\n  mark save "Review the save action."\n  frame workbench {\n    main { text "Main" }\n    aside { use actions-use actions }\n  }\n}`;
   const parsed = parseDiagramWithDiagnostics(source);
@@ -122,6 +145,24 @@ test("parses semantic controls and rejects unsupported control vocabulary", () =
     assert.equal(invalid.diagnostics[0]?.code, "WIREFRAME101");
     assert.match(invalid.diagnostics[0]?.message || "", message);
   }
+});
+
+test("parses button variants and media action icons", () => {
+  const source = `diagram 1\ntype wireframe\n\nwireframe variants "Variants"\nviewport 800 600\nscreen home "Home" {\n  frame page {\n    body {\n      button primary "Primary" variant=primary\n      button quiet "Quiet" variant=quiet icon=download iconOnly=true\n      button destructive "Delete" variant=primary tone=destructive\n      button dictation "Dictate" icon=mic\n      button upload "Choose PDF" icon=upload\n      button default-action "Default"\n    }\n  }\n}`;
+  const parsed = parseDiagramWithDiagnostics(source);
+  assert.deepEqual(parsed.diagnostics, []);
+  if (parsed.document.type !== "wireframe") assert.fail("Expected a wireframe.");
+  const body = parsed.document.document.screens[0].frame.kind === "page" ? parsed.document.document.screens[0].frame.body : [];
+  assert.equal(body[0]?.kind === "button" && body[0].variant, "primary");
+  assert.equal(body[1]?.kind === "button" && body[1].variant, "quiet");
+  assert.equal(body[1]?.kind === "button" && body[1].icon, "download");
+  assert.equal(body[2]?.kind === "button" && body[2].tone, "destructive");
+  assert.equal(body[3]?.kind === "button" && body[3].icon, "mic");
+  assert.equal(body[4]?.kind === "button" && body[4].icon, "upload");
+  assert.equal(body[5]?.kind === "button" && body[5].variant, undefined);
+  const invalid = parseDiagramWithDiagnostics(source.replace("variant=primary", "variant=tertiary"));
+  assert.equal(invalid.diagnostics[0]?.code, "WIREFRAME101");
+  assert.match(invalid.diagnostics[0]?.message || "", /Unsupported button variant.*primary.*secondary.*quiet/);
 });
 
 test("parses configurable grid minimums and keeps the default", () => {

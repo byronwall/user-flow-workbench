@@ -298,7 +298,13 @@ function WorkspaceNavigator(props: { projection: WorkspaceNavigationProjection; 
     </div>
   );
   const capabilityGroup = (capability: WorkspaceNavigationCapability) => <li><a class="workspace-capability-link" classList={{ selected: props.activeCapabilityId === capability.id }} href={capabilityHref(capability)} rel="external"><span>{capability.title}</span><Show when={props.activeCapabilityId === capability.id}><span aria-hidden="true">Selected</span></Show></a><Show when={props.activeCapabilityId === capability.id}>{capabilityLinks(capability)}</Show></li>;
-  return <details ref={menu} class="workspace-project-menu">
+  const dismissOnEscape = (event: KeyboardEvent) => {
+    if (event.key === "Escape" && menu.open) {
+      event.preventDefault();
+      menu.open = false;
+    }
+  };
+  return <details ref={menu} class="workspace-project-menu" onKeyDown={dismissOnEscape}>
     <summary>Navigate</summary>
     <nav class="workspace-project-menu-panel" aria-label="Overview navigation">
       <div class="workspace-project-menu-heading"><span>Overview</span><strong>{props.projection.overview?.title || "Project capabilities"}</strong></div>

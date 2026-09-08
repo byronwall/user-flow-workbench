@@ -45,7 +45,7 @@ Use `stack` for ordinary grouping, `panel` for compound content, and `card` only
 
 Quoted copy supports `\n` for an authored line break. The viewer preserves these breaks and still wraps long lines. A card with `goto=SCREEN_ID` is a keyboard and pointer control; a card without `goto` is static content and is not in the tab order.
 
-Implemented elements include `text`, `badge`, `bar`, `form`, `field`, `textarea`, `select`, `toggle`, `checkbox`, `button`, `link`, `card`, `notice`, `tabs`, `list`, `rule`, `table`, and `diagram`. Controls need stable IDs. Use only themes `default` and `recipe`; the implemented button or field icons are `add`, `calendar-add`, `cart`, `chef-hat`, `chevron-left`, `chevron-right`, `copy`, `edit`, `search`, `sparkles`, and `trash`. Use only accepted states: button `selected|disabled`, select `disabled`, toggle `on|off|disabled`, checkbox `checked|unchecked|disabled`, card `selected`, tabs `active`, and checkable list items `checked|unchecked`. The only button tone is `destructive`.
+Implemented elements include `text`, `badge`, `bar`, `form`, `field`, `textarea`, `select`, `toggle`, `checkbox`, `button`, `link`, `card`, `notice`, `tabs`, `list`, `rule`, `table`, and `diagram`. Controls need stable IDs. Use only themes `default` and `recipe`; the implemented button or field icons are `add`, `calendar-add`, `cart`, `chef-hat`, `chevron-left`, `chevron-right`, `copy`, `download`, `edit`, `mic`, `search`, `sparkles`, `trash`, and `upload`. Buttons use `variant=primary|secondary|quiet` for action hierarchy and default to `secondary`; their only tone is `destructive`, which takes precedence over variant color. Use only accepted states: button `selected|disabled`, select `disabled`, toggle `on|off|disabled`, checkbox `checked|unchecked|disabled`, card `selected`, tabs `active`, and checkable list items `checked|unchecked`.
 
 ## Make interaction meaningful
 
@@ -58,11 +58,16 @@ button filter-trigger "Filters"
 popover filters trigger=filter-trigger {
   select category "Category" value="All"
 }
+
+shot empty-answer {
+  set answer value=""
+  set save state=disabled
+}
 ```
 
 Use `mark TARGET_ID "Reason"` for an authored change. Targets can be a valid frame slot (`body`, `header`, `top`, `main`, `aside`, or `footer`) or one rendered element ID. The viewer keeps the normal mockup clean; use `Show changes` to outline marked targets and read the reasons. Unknown or ambiguous targets are parse errors.
 
-The viewer supports click, keyboard activation, light dismiss, and Escape for the popover. Controls without `goto` or a popover trigger are illustrative. Use explicit local values and states to communicate the proposal; do not imply production behavior, bindings, handlers, or persistence.
+The viewer supports click, keyboard activation, light dismiss, and Escape for the popover. A shot may overlay only an existing stable ID's `value` or control-specific `state`; use `set ID value="..."` or `set ID state=...` inside a shot block. The viewer applies these overlays at render time and leaves the base screen unchanged. Unknown or ambiguous IDs, duplicate targets, incompatible properties, and unsupported states are errors. Controls without `goto` or a popover trigger are illustrative. Use explicit local values and states to communicate the proposal; do not imply production behavior, bindings, handlers, or persistence.
 
 Wireframe views are source-backed and read-only. Screen, shot, reference, comparison, sizing, and interaction state do not write `.diagram` source.
 

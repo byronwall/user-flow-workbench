@@ -40,6 +40,10 @@ part ID {
 screen ID "Title" basis=observed|source|proposed [reference=ID] {
   mark TARGET_ID "Reason"
   shot ID [hover=ELEMENT_ID] [open=POPOVER_ID]
+  shot ID {
+    set ELEMENT_ID value="..."
+    set ELEMENT_ID state=STATE
+  }
   FRAME
 }
 ```
@@ -56,7 +60,7 @@ Evidence basis means:
 
 Require a reference for `basis=observed`. Permit references for the other bases. A reference is evidence, not an assertion of pixel equality.
 
-Parts contain elements only. They cannot contain screens, frames, references, marks, diagrams, or uses at any depth. Expansion is exact. No parameters or overrides exist.
+Parts contain elements only. They cannot contain screens, frames, references, marks, diagrams, or uses at any depth. Expansion is exact. Parts have no parameters or overrides; screen shots may overlay rendered IDs.
 
 Panels are containers and require an ID. They accept normal element children. Cards remain leaves and cannot contain child elements.
 
@@ -64,9 +68,9 @@ To change one use, replace it with explicit elements and assign IDs valid in tha
 
 Marks may repeat. They target an existing frame slot or an explicit direct-child ID in that slot. They do not target nested descendants or alter selected state.
 
-Shots are named review states of one screen. A screen can omit them. If it declares shots, one plain shot represents the resting state. Other shots can force one hover target and one open popover.
+Shots are named review states of one screen. A screen can omit them. If it declares shots, one plain shot represents the resting state. Other shots can force one hover target and one open popover, or overlay an existing stable ID's `value` or control-specific `state` with `set ID value="..."` or `set ID state=...`.
 
-Shots do not copy or patch the screen. The live viewer starts at rest, uses real interaction, and provides a compact per-screen state selector for declared shots.
+Shot overlays apply only at render time. They never mutate the base screen. Unknown or ambiguous IDs, duplicate targets, incompatible properties, and unsupported states are errors. The live viewer starts at rest, uses real interaction, and provides a compact per-screen state selector for declared shots.
 
 ## Frames
 
@@ -106,7 +110,7 @@ grid [ID] columns=N [min=PX] { ELEMENTS }
 
 text [ID] "Content" [role=title|heading|body|caption]
 badge [ID] "Label"
-button ID "Label" [goto=SCREEN_ID] [icon=add|calendar-add|cart|chef-hat|chevron-left|chevron-right|copy|edit|search|sparkles|trash] [iconOnly=true] [tone=destructive] [state=selected|disabled]
+button ID "Label" [goto=SCREEN_ID] [icon=add|calendar-add|cart|chef-hat|chevron-left|chevron-right|copy|download|edit|mic|search|sparkles|trash|upload] [iconOnly=true] [variant=primary|secondary|quiet] [tone=destructive] [state=selected|disabled]
 link ID "Label" [goto=SCREEN_ID]
 field ID "Label" [value="Example"]
 textarea ID "Label" value="Text"
@@ -138,7 +142,7 @@ A bar has optional start and end groups, each at most once. Its leaves are text,
 
 Text defaults to body. Notice defaults to info. An omitted state means ordinary appearance. Cards remain leaves. Use a stack for compound content.
 
-Fields and textareas show sample values. Selects, toggles, and checkboxes show explicit local state. These controls do not run application behavior. `goto` changes the gallery screen; a disabled button does not navigate. Button `icon`, `tone`, and `state` values are finite. Unknown values are errors.
+Fields and textareas show sample values. Selects, toggles, and checkboxes show explicit local state. These controls do not run application behavior. `goto` changes the gallery screen; a disabled button does not navigate. Button `icon`, `variant`, `tone`, and `state` values are finite. Buttons default to the `secondary` variant. Destructive tone remains distinct from hierarchy and takes precedence over variant color. Unknown values are errors.
 
 A popover is screen-local progressive disclosure. Its trigger is a button in the same screen. The browser opens it on click and keyboard activation, supports light dismiss and Escape, and returns to the rest state when dismissed.
 
@@ -252,7 +256,7 @@ The optional URL is capture context only. Do not fetch or navigate it during ren
 | `layout.json` | Measured boxes and line boxes; computed evidence, never authoring input. |
 | `index.html` | Gallery with source links, actual screenshot, clean/annotated switch, and navigation. |
 
-When a screen declares shots, the viewer provides a compact per-screen state selector. The manifest records the shot ID and forced hover/open targets.
+When a screen declares shots, the viewer provides a compact per-screen state selector. The manifest records the shot ID and forced hover/open targets plus bounded value/state overlays.
 
 The proof must retain source-map and layout output. Later routine captures may omit debug files. The manifest remains required.
 

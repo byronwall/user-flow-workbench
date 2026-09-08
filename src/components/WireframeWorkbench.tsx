@@ -7,7 +7,7 @@ const EMBED_CAPTURE_WAIT_MS = 15_000;
 
 const iconGlyph: Record<WireframeIcon, string> = {
   add: "+", "calendar-add": "▣+", cart: "🛒", "chef-hat": "♨", "chevron-left": "‹", "chevron-right": "›",
-  copy: "⧉", edit: "✎", search: "⌕", sparkles: "✦", trash: "⌫",
+  copy: "⧉", download: "⇩", edit: "✎", mic: "●", search: "⌕", sparkles: "✦", trash: "⌫", upload: "⇧",
 };
 
 function Icon(props: { name: WireframeIcon }) {
@@ -109,8 +109,42 @@ function placePopover(id: string | undefined, trigger: HTMLElement) {
   target.style.setProperty("--wf-popover-top", `${Math.min(rect.bottom + 8, window.innerHeight - 260)}px`);
 }
 
+function shotOverride(shot: WireframeShot | undefined, id: string) {
+  return shot?.overrides?.find(override => override.target === id);
+}
+
+function overlayElement(element: WireframeElement, shot: WireframeShot | undefined): WireframeElement {
+  const override = "id" in element && element.id ? shotOverride(shot, element.id) : undefined;
+  if (!override) return element;
+  if ("value" in override && (element.kind === "field" || element.kind === "select" || element.kind === "textarea")) return { ...element, value: override.value };
+  if ("state" in override) {
+    if (element.kind === "button") return { ...element, state: override.state as "selected" | "disabled" };
+    if (element.kind === "link") return { ...element, disabled: override.state === "disabled" };
+    if (element.kind === "select") return { ...element, state: override.state as "disabled" };
+    if (element.kind === "toggle") return { ...element, state: override.state as "on" | "off" | "disabled" };
+    if (element.kind === "checkbox") return { ...element, state: override.state as "checked" | "unchecked" | "disabled" };
+    if (element.kind === "card") return { ...element, selected: override.state === "selected" };
+  }
+  return element;
+}
+
+function overlayListItem(item: Extract<WireframeElement, { kind: "list" }>['items'][number], shot: WireframeShot | undefined) {
+  const override = shotOverride(shot, item.id);
+  return override && "state" in override ? { ...item, state: override.state as "checked" | "unchecked" | "selected" } : item;
+}
+
+function overlayTab(tab: Extract<WireframeElement, { kind: "tabs" }>['tabs'][number], shot: WireframeShot | undefined) {
+  const override = shotOverride(shot, tab.id);
+  return override && "state" in override ? { ...tab, active: override.state === "active" } : tab;
+}
+
+function overlayRow(row: Extract<WireframeElement, { kind: "table" }>['rows'][number], shot: WireframeShot | undefined) {
+  const override = shotOverride(shot, row.id);
+  return override && "state" in override ? { ...row, state: override.state as "parent" | "child" | "selected" | "error" } : row;
+}
+
 function ElementView(props: ElementViewProps): any {
-  const element = () => props.element;
+  const element = () => overlayElement(props.element, props.shot);
   const marked = (id?: string) => Boolean(id && props.markedTargets.has(id));
   const goto = (id?: string) => id && props.interactive ? props.onGoto(id) : undefined;
   const children = (items: WireframeElement[]) => <For each={items}>{(item) => <ElementView {...props} element={item} />}</For>;
@@ -135,7 +169,7 @@ function ElementView(props: ElementViewProps): any {
       const actionable = !disabled && Boolean(control.goto || popover);
       const icon = control.kind === "button" ? control.icon : undefined;
       const iconOnly = control.kind === "button" && control.iconOnly;
-      return <button class={`wf-control wf-${control.kind}`} classList={{ "wf-sim-hover": props.shot?.hoverId === control.id, "wf-marked": marked(control.id), selected: control.kind === "button" && control.state === "selected", destructive: control.kind === "button" && control.tone === "destructive", "icon-only": Boolean(iconOnly) }} type="button" disabled={disabled || !actionable} aria-disabled={!actionable} aria-label={iconOnly ? control.label : undefined} popovertarget={props.interactive && actionable ? targetId : undefined} onClick={(event) => { placePopover(targetId, event.currentTarget); goto(control.goto); }} data-wf-id={control.id}>{icon ? <Icon name={icon} /> : undefined}<span classList={{ "wf-control-label": true, "wf-visually-hidden": Boolean(iconOnly) }}>{control.label}</span></button>;
+      return <button class={`wf-control wf-${control.kind}`} classList={{ "wf-sim-hover": props.shot?.hoverId === control.id, "wf-marked": marked(control.id), selected: control.kind === "button" && control.state === "selected", "variant-primary": control.kind === "button" && (control.variant || "secondary") === "primary", "variant-secondary": control.kind === "button" && (control.variant || "secondary") === "secondary", "variant-quiet": control.kind === "button" && control.variant === "quiet", destructive: control.kind === "button" && control.tone === "destructive", "icon-only": Boolean(iconOnly) }} type="button" disabled={disabled || !actionable} aria-disabled={!actionable} aria-label={iconOnly ? control.label : undefined} popovertarget={props.interactive && actionable ? targetId : undefined} onClick={(event) => { placePopover(targetId, event.currentTarget); goto(control.goto); }} data-wf-id={control.id}>{icon ? <Icon name={icon} /> : undefined}<span classList={{ "wf-control-label": true, "wf-visually-hidden": Boolean(iconOnly) }}>{control.label}</span></button>;
     }
     case "field": { const field = element() as Extract<WireframeElement, { kind: "field" }>; return <label class="wf-field" classList={{ "wf-marked": marked(field.id) }} data-wf-id={field.id}><span>{field.label}</span><span class="wf-field-control">{field.icon ? <Icon name={field.icon} /> : undefined}<input value={field.value || ""} aria-label={field.label} readOnly /></span></label>; }
     case "select": { const select = element() as Extract<WireframeElement, { kind: "select" }>; return <label class="wf-field wf-select" classList={{ disabled: select.state === "disabled", "wf-marked": marked(select.id) }} data-wf-id={select.id}><span>{select.label}</span><select value={select.value} aria-label={select.label} disabled><option>{select.value}</option></select></label>; }
@@ -155,14 +189,14 @@ function ElementView(props: ElementViewProps): any {
       return <div id={`${props.prefix}-${popover.id}`} class="wf-popover" classList={{ "force-open": props.shot?.openPopoverId === popover.id, "wf-marked": marked(popover.id) }} popover={props.interactive ? "auto" : undefined} data-wf-id={popover.id}>{children(popover.children)}</div>;
     }
     case "rule": return <hr class="wf-rule" />;
-    case "tabs": { const tabs = element() as Extract<WireframeElement, { kind: "tabs" }>; return <div class="wf-tabs" role="tablist" classList={{ "wf-marked": marked(tabs.id) }} data-wf-id={tabs.id}><For each={tabs.tabs}>{tab => <button type="button" role="tab" disabled={!tab.goto} aria-disabled={!tab.goto} aria-selected={tab.active} classList={{ active: tab.active, "wf-marked": marked(tab.id) }} data-wf-id={tab.id} onClick={() => goto(tab.goto)}>{tab.label}</button>}</For></div>; }
+    case "tabs": { const tabs = element() as Extract<WireframeElement, { kind: "tabs" }>; return <div class="wf-tabs" role="tablist" classList={{ "wf-marked": marked(tabs.id) }} data-wf-id={tabs.id}><For each={tabs.tabs}>{baseTab => { const tab = overlayTab(baseTab, props.shot); return <button type="button" role="tab" disabled={!tab.goto} aria-disabled={!tab.goto} aria-selected={tab.active} classList={{ active: tab.active, "wf-marked": marked(tab.id) }} data-wf-id={tab.id} onClick={() => goto(tab.goto)}>{tab.label}</button>; }}</For></div>; }
     case "list": {
       const list = element() as Extract<WireframeElement, { kind: "list" }>;
       const itemContent = (item: (typeof list.items)[number]) => <><span class="wf-list-copy"><strong>{item.label}</strong><Show when={item.detail}><span>{item.detail}</span></Show></span><Show when={item.state === "checked" || item.state === "unchecked"}><span class="wf-list-check" aria-hidden="true">{item.state === "checked" ? "✓" : ""}</span></Show><Show when={item.action === "remove"}><span class="wf-list-remove" role="img" aria-label={`Remove ${item.label}`}>×</span></Show></>;
-      const items = () => <For each={list.items}>{item => <li classList={{ selected: item.state === "selected" || item.state === "checked", "wf-marked": marked(item.id) }} data-wf-id={item.id}><Show when={item.goto} fallback={<div class="wf-list-item">{itemContent(item)}</div>}><button type="button" class="wf-list-item" onClick={() => goto(item.goto)}>{itemContent(item)}</button></Show></li>}</For>;
+      const items = () => <For each={list.items}>{baseItem => { const item = overlayListItem(baseItem, props.shot); return <li classList={{ selected: item.state === "selected" || item.state === "checked", "wf-marked": marked(item.id) }} data-wf-id={item.id}><Show when={item.goto} fallback={<div class="wf-list-item">{itemContent(item)}</div>}><button type="button" class="wf-list-item" onClick={() => goto(item.goto)}>{itemContent(item)}</button></Show></li>; }}</For>;
       return list.mode === "ordered" ? <ol class="wf-list wf-list-ordered" classList={{ "wf-marked": marked(list.id) }} data-wf-id={list.id}>{items()}</ol> : <ul class="wf-list" classList={{ "wf-list-checkable": list.mode === "checkable", "wf-marked": marked(list.id) }} data-wf-id={list.id}>{items()}</ul>;
     }
-    case "table": { const table = element() as Extract<WireframeElement, { kind: "table" }>; return <div class="wf-table-wrap" classList={{ "wf-marked": marked(table.id) }} data-wf-id={table.id}><table class="wf-table"><thead><tr><For each={table.columns}>{column => <th scope="col">{column.label}</th>}</For></tr></thead><tbody><For each={table.rows}>{row => <tr classList={{ [`wf-row-${row.state}`]: Boolean(row.state), "wf-row-linked": Boolean(row.goto), "wf-marked": marked(row.id) }} data-wf-id={row.id} onClick={() => goto(row.goto)}><For each={table.columns}>{column => { const cell = row.cells[column.id]; if (typeof cell !== "object") return <td>{cell || "—"}</td>; const popover = findPopover(props.document, props.screen, cell.actionId); const targetId = popover ? `${props.prefix}-${popover.id}` : undefined; return <td class="wf-table-action"><button type="button" classList={{ "wf-marked": marked(cell.actionId) }} data-wf-id={cell.actionId} disabled={!targetId} aria-label={`Actions for ${row.id}`} popovertarget={props.interactive ? targetId : undefined} onClick={(event) => { event.stopPropagation(); placePopover(targetId, event.currentTarget); }}>•••</button></td>; }}</For></tr>}</For></tbody></table></div>; }
+    case "table": { const table = element() as Extract<WireframeElement, { kind: "table" }>; return <div class="wf-table-wrap" classList={{ "wf-marked": marked(table.id) }} data-wf-id={table.id}><table class="wf-table"><thead><tr><For each={table.columns}>{column => <th scope="col">{column.label}</th>}</For></tr></thead><tbody><For each={table.rows}>{baseRow => { const row = overlayRow(baseRow, props.shot); return <tr classList={{ [`wf-row-${row.state}`]: Boolean(row.state), "wf-row-linked": Boolean(row.goto), "wf-marked": marked(row.id) }} data-wf-id={row.id} onClick={() => goto(row.goto)}><For each={table.columns}>{column => { const cell = row.cells[column.id]; if (typeof cell !== "object") return <td>{cell || "—"}</td>; const popover = findPopover(props.document, props.screen, cell.actionId); const targetId = popover ? `${props.prefix}-${popover.id}` : undefined; return <td class="wf-table-action"><button type="button" classList={{ "wf-marked": marked(cell.actionId) }} data-wf-id={cell.actionId} disabled={!targetId} aria-label={`Actions for ${row.id}`} popovertarget={props.interactive ? targetId : undefined} onClick={(event) => { event.stopPropagation(); placePopover(targetId, event.currentTarget); }}>•••</button></td>; }}</For></tr>; }}</For></tbody></table></div>; }
     case "use": { const use = element() as Extract<WireframeElement, { kind: "use" }>; const part = props.document.parts.find(candidate => candidate.id === use.partId); return <div class="wf-use" classList={{ "wf-marked": marked(use.id) }} data-wf-id={use.id}>{children(part?.children || [])}</div>; }
     case "diagram": { const diagram = element() as Extract<WireframeElement, { kind: "diagram" }>; return <DiagramEmbed element={diagram} marked={marked(diagram.id)} />; }
   }
@@ -190,7 +224,7 @@ function findPopover(document: WireframeDocument, screen: WireframeScreen, trigg
 function ScreenView(props: { document: WireframeDocument; screen: WireframeScreen; shot?: WireframeShot; prefix: string; interactive: boolean; contentFit?: boolean; showInteractions?: boolean; showMarks?: boolean; markedTargets: Set<string>; rootRef?: (element: HTMLDivElement) => void; onGoto: (id: string) => void }) {
   const render = (items: WireframeElement[]) => <For each={items}>{element => <ElementView element={element} {...props} />}</For>;
   const frame = props.screen.frame;
-  return <div ref={props.rootRef} class={`wf-screen wf-frame-${frame.kind}`} classList={{ "wf-content-fit": Boolean(props.contentFit && frame.kind === "page"), "wf-show-interactions": props.showInteractions, "wf-show-marks": props.showMarks, "has-footer": frame.kind === "workbench" && Boolean(frame.footer?.length) }} style={{ width: `${props.document.viewport.width}px`, height: props.contentFit && frame.kind === "page" ? "auto" : `${props.document.viewport.height}px`, ...(frame.kind === "workbench" ? { "grid-template-columns": `minmax(560px, 1fr) ${frame.inspector}px` } : {}) }}>
+  return <div ref={props.rootRef} class={`wf-screen wf-frame-${frame.kind}`} classList={{ "wf-content-fit": Boolean(props.contentFit), "wf-show-interactions": props.showInteractions, "wf-show-marks": props.showMarks, "has-footer": frame.kind === "workbench" && Boolean(frame.footer?.length) }} style={{ width: `${props.document.viewport.width}px`, height: props.contentFit ? "auto" : `${props.document.viewport.height}px`, ...(frame.kind === "workbench" ? { "grid-template-columns": `minmax(560px, 1fr) ${frame.inspector}px` } : {}) }}>
     <Show when={frame.kind === "page"} fallback={
       <><header class="wf-region-header" classList={{ "wf-marked": props.markedTargets.has("header") }} data-wf-id="header">{render((frame as Extract<typeof frame, { kind: "workbench" }>).header)}</header><div class="wf-region-top" classList={{ "wf-marked": props.markedTargets.has("top") }} data-wf-id="top">{render((frame as Extract<typeof frame, { kind: "workbench" }>).top)}</div><main class="wf-region-main" classList={{ "wf-marked": props.markedTargets.has("main") }} data-wf-id="main">{render((frame as Extract<typeof frame, { kind: "workbench" }>).main)}</main><aside class="wf-region-aside" classList={{ "wf-marked": props.markedTargets.has("aside") }} data-wf-id="aside">{render((frame as Extract<typeof frame, { kind: "workbench" }>).aside)}</aside><Show when={(frame as Extract<typeof frame, { kind: "workbench" }>).footer?.length}><footer class="wf-region-footer" classList={{ "wf-marked": props.markedTargets.has("footer") }} data-wf-id="footer">{render((frame as Extract<typeof frame, { kind: "workbench" }>).footer || [])}</footer></Show></>
     }><main class="wf-page" classList={{ "wf-marked": props.markedTargets.has("body") }} data-wf-id="body"><div class="wf-page-panel" style={{ "max-width": `${(frame as Extract<typeof frame, { kind: "page" }>).content}px` }}>{render((frame as Extract<typeof frame, { kind: "page" }>).body)}</div></main></Show>
@@ -202,7 +236,6 @@ export function WireframeWorkbench(props: { document: WireframeDocument }) {
   const screen = createMemo(() => props.document.screens.find(candidate => candidate.id === screenId()) || props.document.screens[0]);
   const reference = createMemo(() => props.document.references.find(candidate => candidate.id === screen()?.referenceId));
   const [shotId, setShotId] = createSignal("rest");
-  const shot = createMemo(() => screen()?.shots.find(candidate => candidate.id === shotId()));
   const [scale, setScale] = createSignal(1);
   const [displayMode, setDisplayMode] = createSignal<"content" | "viewport">("content");
   const [showInteractions, setShowInteractions] = createSignal(false);
@@ -210,9 +243,10 @@ export function WireframeWorkbench(props: { document: WireframeDocument }) {
   const [referenceMode, setReferenceMode] = createSignal<"mockup" | "actual" | "compare">("mockup");
   const [screenNotice, setScreenNotice] = createSignal<string>();
   const [renderHeight, setRenderHeight] = createSignal(props.document.viewport.height);
+  let app!: HTMLElement;
   let viewport!: HTMLDivElement;
   let sceneElement!: HTMLDivElement;
-  const measure = () => setRenderHeight(displayMode() === "content" && screen()?.frame.kind === "page" ? sceneElement?.scrollHeight || props.document.viewport.height : props.document.viewport.height);
+  const measure = () => setRenderHeight(displayMode() === "content" ? sceneElement?.scrollHeight || props.document.viewport.height : props.document.viewport.height);
   const fit = () => { setScale(Math.min(1, Math.max(.2, (viewport.clientWidth - 2) / props.document.viewport.width))); requestAnimationFrame(measure); };
   onMount(() => {
     const syncLocation = () => {
@@ -243,20 +277,20 @@ export function WireframeWorkbench(props: { document: WireframeDocument }) {
       readyWindow.__flowWorkbenchReady = { status: "ready", layoutEngine: "css-board" };
     })();
   });
-  createEffect(() => { screenId(); setShotId(screen()?.shots[0]?.id || "rest"); setShowInteractions(false); setShowMarks(false); requestAnimationFrame(measure); });
+  createEffect(() => { screenId(); setShotId(screen()?.shots[0]?.id || "rest"); setShowInteractions(false); setShowMarks(false); requestAnimationFrame(() => { if (app) { app.scrollTop = 0; app.scrollLeft = 0; } if (viewport) { viewport.scrollTop = 0; viewport.scrollLeft = 0; } measure(); }); });
   createEffect(() => { displayMode(); requestAnimationFrame(measure); });
   createEffect(() => { if (!reference()) setReferenceMode("mockup"); });
   createEffect(() => { referenceMode(); requestAnimationFrame(() => viewport && fit()); });
   const navigate = (id: string) => { if (!props.document.screens.some((candidate) => candidate.id === id)) return; setScreenId(id); const url = new URL(window.location.href); url.searchParams.delete("screen"); url.hash = id; window.history.pushState(null, "", url); };
-  return <main class="wireframe-app" classList={{ "wireframe-theme-default": props.document.theme === "default", "wireframe-theme-recipe": props.document.theme === "recipe" }}>
+  return <main ref={app} class="wireframe-app" classList={{ "wireframe-theme-default": props.document.theme === "default", "wireframe-theme-recipe": props.document.theme === "recipe" }}>
     <header class="wireframe-toolbar"><span class="wireframe-source-status">Wireframe</span><nav aria-label="Wireframe screens"><For each={props.document.screens}>{item => <button type="button" aria-pressed={item.id === screen()?.id} onClick={() => navigate(item.id)}>{item.title}</button>}</For></nav></header>
     <Show when={screen()} keyed>{current => <>
-      <section class="wireframe-statebar"><div><strong>{current.title}</strong><span>{current.basis} · {props.document.viewport.width} × {props.document.viewport.height}</span></div><div class="wireframe-view-controls"><Show when={reference()}><div class="wireframe-shots" aria-label="Reference view"><For each={(["mockup", "actual", "compare"] as const)}>{mode => <button type="button" aria-pressed={referenceMode() === mode} onClick={() => setReferenceMode(mode)}>{mode}</button>}</For></div></Show><Show when={current.frame.kind === "page" && referenceMode() !== "actual"}><div class="wireframe-shots" aria-label="Canvas sizing"><button type="button" aria-pressed={displayMode() === "content"} onClick={() => setDisplayMode("content")}>Content fit</button><button type="button" aria-pressed={displayMode() === "viewport"} onClick={() => setDisplayMode("viewport")}>Full viewport</button></div></Show><Show when={referenceMode() !== "actual"}><button class="wireframe-interactions" type="button" aria-pressed={showInteractions()} onClick={() => setShowInteractions(value => !value)}>{showInteractions() ? "Hide interactions" : "Highlight interactions"}</button><Show when={current.marks.length}><button class="wireframe-annotations" type="button" aria-pressed={showMarks()} onClick={() => setShowMarks(value => !value)}>{showMarks() ? "Hide changes" : "Show changes"}</button></Show></Show><Show when={current.shots.length && referenceMode() !== "actual"}><div class="wireframe-shots" aria-label="Disclosure state"><For each={current.shots}>{item => <button type="button" aria-pressed={shotId() === item.id} onClick={() => setShotId(item.id)}>{item.id.replaceAll("-", " ")}</button>}</For></div></Show></div></section>
+      <section class="wireframe-statebar"><div><strong>{current.title}</strong><span>{current.basis} · {props.document.viewport.width} × {props.document.viewport.height}</span></div><div class="wireframe-view-controls"><Show when={reference()}><div class="wireframe-shots" aria-label="Reference view"><For each={(["mockup", "actual", "compare"] as const)}>{mode => <button type="button" aria-pressed={referenceMode() === mode} onClick={() => setReferenceMode(mode)}>{mode}</button>}</For></div></Show><Show when={referenceMode() !== "actual"}><div class="wireframe-shots" aria-label="Canvas sizing"><button type="button" aria-pressed={displayMode() === "content"} onClick={() => setDisplayMode("content")}>Content fit</button><button type="button" aria-pressed={displayMode() === "viewport"} onClick={() => setDisplayMode("viewport")}>Full viewport</button></div></Show><Show when={referenceMode() !== "actual"}><button class="wireframe-interactions" type="button" aria-pressed={showInteractions()} onClick={() => setShowInteractions(value => !value)}>{showInteractions() ? "Hide interactions" : "Highlight interactions"}</button><Show when={current.marks.length}><button class="wireframe-annotations" type="button" aria-pressed={showMarks()} onClick={() => setShowMarks(value => !value)}>{showMarks() ? "Hide changes" : "Show changes"}</button></Show></Show><Show when={current.shots.length && referenceMode() !== "actual"}><div class="wireframe-shots" aria-label="Disclosure state"><For each={current.shots}>{item => <button type="button" aria-pressed={shotId() === item.id} onClick={() => setShotId(item.id)}>{item.id.replaceAll("-", " ")}</button>}</For></div></Show></div></section>
       <Show when={screenNotice()}><div class="wireframe-screen-notice" role="status">{screenNotice()}</div></Show>
       <Show when={showMarks() && referenceMode() !== "actual"}><section class="wireframe-mark-review" aria-label="Authored changes"><strong>Authored changes</strong><ol><For each={current.marks}>{mark => <li><code>{mark.target}</code><span>{mark.reason}</span></li>}</For></ol></section></Show>
       <div class="wireframe-stage" classList={{ "with-reference": Boolean(reference() && referenceMode() === "compare"), "reference-only": Boolean(reference() && referenceMode() === "actual") }}>
         <Show when={referenceMode() !== "mockup" ? reference() : undefined}>{actual => <figure class="wireframe-reference"><figcaption><strong>Actual site</strong><span>{actual().state || actual().captured || "Reference"}</span></figcaption><a href={`/api/reference?path=${encodeURIComponent(actual().image)}`} target="_blank" rel="noreferrer"><img src={`/api/reference?path=${encodeURIComponent(actual().image)}`} width={actual().width} height={actual().height} alt={`Actual site reference for ${current.title}`} /></a></figure>}</Show>
-        <Show when={referenceMode() !== "actual"}><div class="wireframe-viewport" ref={viewport}><div class="wireframe-scaled" style={{ width: `${props.document.viewport.width * scale()}px`, height: `${renderHeight() * scale()}px` }}><div class="wireframe-transform" style={{ transform: `scale(${scale()})`, "transform-origin": "top left" }}><ScreenView document={props.document} screen={current} shot={shot()} prefix="live" interactive contentFit={displayMode() === "content"} showInteractions={showInteractions()} showMarks={showMarks()} markedTargets={new Set(current.marks.map(mark => mark.target))} rootRef={element => { sceneElement = element; requestAnimationFrame(measure); }} onGoto={navigate} /></div></div></div></Show>
+        <Show when={referenceMode() !== "actual"}><div class="wireframe-viewport" ref={viewport}><div class="wireframe-scaled" style={{ width: `${props.document.viewport.width * scale()}px`, height: `${renderHeight() * scale()}px` }}><div class="wireframe-transform" style={{ transform: `scale(${scale()})`, "transform-origin": "top left" }}><Show when={shotId()} keyed>{selectedShotId => <ScreenView document={props.document} screen={current} shot={current.shots.find(candidate => candidate.id === selectedShotId)} prefix="live" interactive contentFit={displayMode() === "content"} showInteractions={showInteractions()} showMarks={showMarks()} markedTargets={new Set(current.marks.map(mark => mark.target))} rootRef={element => { sceneElement = element; requestAnimationFrame(measure); }} onGoto={navigate} />}</Show></div></div></div></Show>
       </div>
     </>}</Show>
   </main>;

@@ -1,7 +1,7 @@
-import { WIREFRAME_ICONS, type WireframeDocument, type WireframeElement, type WireframeFrame, type WireframeIcon, type WireframeScreen, type WireframeTheme } from "../types/wireframe.ts";
+import { WIREFRAME_ICONS, type WireframeDocument, type WireframeElement, type WireframeFrame, type WireframeIcon, type WireframeScreen, type WireframeShot, type WireframeShotOverride, type WireframeShotState, type WireframeTheme } from "../types/wireframe.ts";
 
 export interface WireframeDslDiagnostic { code: string; category: string; message: string; line: number; column: number; length: number }
-interface Token { value: string; line: number; column: number }
+interface Token { value: string; line: number; column: number; emptyQuoted?: boolean }
 
 function tokenize(source: string): Token[] {
   const tokens: Token[] = [];
@@ -25,7 +25,7 @@ function tokenize(source: string): Token[] {
           else value += line[column++];
         }
         if (line[column] === '"') column += 1;
-        tokens.push({ value: `${key}=${value}`, line: lineIndex + 1, column: start + 1 });
+        tokens.push({ value: `${key}=${value}`, line: lineIndex + 1, column: start + 1, ...(value === "" ? { emptyQuoted: true } : {}) });
       } else if (line[column] === '"') {
         column += 1;
         let value = "";
@@ -84,7 +84,8 @@ class Parser {
       if (split < 1) break;
       this.index += 1;
       const key = token.value.slice(0, split);
-      result[key] = token.value.slice(split + 1) || this.take().value;
+      const inline = token.value.slice(split + 1);
+      result[key] = inline || (token.emptyQuoted ? "" : this.take().value);
     }
     return result;
   }
@@ -143,7 +144,7 @@ class Parser {
     this.take("screen"); const id = this.take().value; const title = this.take().value; const options = this.options(); this.take("{");
     const screen: Partial<WireframeScreen> = { id, title, basis: (options.basis as WireframeScreen["basis"]) || "proposed", ...(options.reference ? { referenceId: options.reference } : {}), shots: [], marks: [] };
     while (!this.peek("}")) {
-      if (this.peek("shot")) { this.take(); const shotId = this.take().value; const shot = this.options(); screen.shots!.push({ id: shotId, ...(shot.hover ? { hoverId: shot.hover } : {}), ...(shot.open ? { openPopoverId: shot.open } : {}) }); }
+      if (this.peek("shot")) screen.shots!.push(this.shot());
       else if (this.peek("mark")) { this.take(); screen.marks!.push({ target: this.take().value, reason: this.take().value }); }
       else if (this.peek("frame")) screen.frame = this.frame();
       else throw this.fail(this.peek(), `Unknown screen command "${this.peek()!.value}".`);
@@ -151,6 +152,25 @@ class Parser {
     this.take("}");
     if (!screen.frame) throw this.fail(this.peek(), `Screen "${id}" needs a frame.`);
     return screen as WireframeScreen;
+  }
+  private shot(): WireframeShot {
+    this.take("shot"); const id = this.take().value; const options = this.options();
+    this.controlOptions(options, ["hover", "open"], "shot");
+    const shot: WireframeShot = { id, ...(options.hover ? { hoverId: options.hover } : {}), ...(options.open ? { openPopoverId: options.open } : {}) };
+    if (!this.peek("{")) return shot;
+    this.take("{"); const overrides: WireframeShotOverride[] = [];
+    const targets = new Set<string>();
+    while (!this.peek("}")) {
+      this.take("set"); const target = this.take().value; const values = this.options();
+      if (targets.has(target)) throw this.fail(this.tokens[this.index - 1], `Duplicate shot target "${target}".`);
+      targets.add(target);
+      const keys = Object.keys(values);
+      if (keys.length !== 1 || !keys.every(key => key === "value" || key === "state")) throw this.fail(this.tokens[this.index - 1], `Shot set for "${target}" must provide exactly one of value or state.`);
+      if (keys[0] === "value") overrides.push({ target, value: values.value });
+      else overrides.push({ target, state: values.state as WireframeShotState });
+    }
+    this.take("}");
+    return { ...shot, ...(overrides.length ? { overrides } : {}) };
   }
   private frame(): WireframeFrame {
     this.take("frame"); const kind = this.take().value; const options = this.options(); this.take("{");
@@ -201,13 +221,15 @@ class Parser {
     if (kind === "badge") return { kind, text: this.take().value };
     if (kind === "button") {
       const id = this.take().value; const label = this.take().value;
-      const options = this.controlOptions(this.options(), ["goto", "icon", "iconOnly", "tone", "state"], "button");
+      const options = this.controlOptions(this.options(), ["goto", "icon", "iconOnly", "variant", "tone", "state"], "button");
       const icon = this.icon(options.icon, "button");
       const state = this.state(options.state, ["selected", "disabled"], "button");
+      const variant = options.variant;
+      if (variant !== undefined && variant !== "primary" && variant !== "secondary" && variant !== "quiet") throw this.fail(this.tokens[this.index - 1], `Unsupported button variant "${variant}". Use primary, secondary, or quiet.`);
       if (options.tone !== undefined && options.tone !== "destructive") throw this.fail(this.tokens[this.index - 1], `Unsupported button tone "${options.tone}".`);
       if (options.iconOnly !== undefined && options.iconOnly !== "true") throw this.fail(this.tokens[this.index - 1], 'button iconOnly must be "true".');
       if (options.iconOnly === "true" && !icon) throw this.fail(this.tokens[this.index - 1], "button iconOnly requires an icon.");
-      return { kind, id, label, ...(options.goto ? { goto: options.goto } : {}), ...(icon ? { icon } : {}), ...(options.iconOnly === "true" ? { iconOnly: true } : {}), ...(options.tone ? { tone: "destructive" as const } : {}), ...(state ? { state: state as "selected" | "disabled" } : {}) };
+      return { kind, id, label, ...(options.goto ? { goto: options.goto } : {}), ...(icon ? { icon } : {}), ...(options.iconOnly === "true" ? { iconOnly: true } : {}), ...(variant ? { variant: variant as "primary" | "secondary" | "quiet" } : {}), ...(options.tone ? { tone: "destructive" as const } : {}), ...(state ? { state: state as "selected" | "disabled" } : {}) };
     }
     if (kind === "link") { const id = this.take().value; const label = this.take().value; const options = this.options(); return { kind, id, label, ...(options.goto ? { goto: options.goto } : {}), ...(options.state === "disabled" ? { disabled: true } : {}) }; }
     if (kind === "field") { const id = this.take().value; const label = this.take().value; const options = this.controlOptions(this.options(), ["value", "icon"], "field"); const icon = this.icon(options.icon, "field"); return { kind, id, label, ...(options.value !== undefined ? { value: options.value } : {}), ...(icon ? { icon } : {}) }; }
@@ -288,40 +310,57 @@ class Parser {
   private validate(document: WireframeDocument) {
     const screenIds = new Set(document.screens.map(screen => screen.id));
     const partIds = new Set(document.parts.map(part => part.id));
-    const visit = (elements: WireframeElement[], ids: Map<string, number>, screen: WireframeScreen, partStack = new Set<string>()) => {
+    type ShotTarget = { count: number; value: boolean; states: Set<string> };
+    const visit = (elements: WireframeElement[], ids: Map<string, number>, targets: Map<string, ShotTarget>, screen: WireframeScreen, partStack = new Set<string>()) => {
       const addId = (id: string) => ids.set(id, (ids.get(id) || 0) + 1);
+      const addTarget = (id: string, states: string[] = [], value = false) => {
+        addId(id);
+        const target = targets.get(id) || { count: 0, value: false, states: new Set<string>() };
+        target.count += 1; target.value ||= value; states.forEach(state => target.states.add(state)); targets.set(id, target);
+      };
       for (const element of elements) {
-        if ("id" in element && element.id) addId(element.id);
+        if ("id" in element && element.id) {
+          const states = element.kind === "button" ? ["selected", "disabled"] : element.kind === "link" ? ["disabled"] : element.kind === "select" ? ["disabled"] : element.kind === "toggle" ? ["on", "off", "disabled"] : element.kind === "checkbox" ? ["checked", "unchecked", "disabled"] : element.kind === "card" ? ["selected"] : [];
+          addTarget(element.id, states, element.kind === "field" || element.kind === "select" || element.kind === "textarea");
+        }
         if ((element.kind === "button" || element.kind === "link" || element.kind === "card") && element.goto && !screenIds.has(element.goto)) throw this.fail(undefined, `Unknown screen "${element.goto}".`);
         if (element.kind === "list") {
           for (const item of element.items) {
-            addId(item.id);
+            addTarget(item.id, element.mode === "checkable" ? ["checked", "unchecked"] : element.mode === "plain" ? ["selected"] : []);
             if (item.goto && !screenIds.has(item.goto)) throw this.fail(undefined, `List "${element.id}" links to an unknown screen.`);
           }
         }
-        if (element.kind === "tabs") for (const tab of element.tabs) addId(tab.id);
+        if (element.kind === "tabs") for (const tab of element.tabs) addTarget(tab.id, ["active"]);
         if (element.kind === "table") {
           if (element.rows.some(row => row.goto && !screenIds.has(row.goto))) throw this.fail(undefined, `Table "${element.id}" links to an unknown screen.`);
-          for (const row of element.rows) { addId(row.id); for (const cell of Object.values(row.cells)) if (typeof cell !== "string") addId(cell.actionId); }
+          for (const row of element.rows) { addTarget(row.id, ["parent", "child", "selected", "error"]); for (const cell of Object.values(row.cells)) if (typeof cell !== "string") addTarget(cell.actionId); }
         }
         if (element.kind === "use" && !partIds.has(element.partId)) throw this.fail(undefined, `Unknown part "${element.partId}".`);
-        if (element.kind === "popover") visit(element.children, ids, screen, partStack);
-        if (element.kind === "stack" || element.kind === "grid" || element.kind === "form" || element.kind === "panel") visit(element.children, ids, screen, partStack);
-        if (element.kind === "bar") { visit(element.start, ids, screen, partStack); visit(element.end, ids, screen, partStack); }
+        if (element.kind === "popover") visit(element.children, ids, targets, screen, partStack);
+        if (element.kind === "stack" || element.kind === "grid" || element.kind === "form" || element.kind === "panel") visit(element.children, ids, targets, screen, partStack);
+        if (element.kind === "bar") { visit(element.start, ids, targets, screen, partStack); visit(element.end, ids, targets, screen, partStack); }
         if (element.kind === "use" && !partStack.has(element.partId)) {
           const part = document.parts.find(candidate => candidate.id === element.partId);
-          if (part) visit(part.children, ids, screen, new Set(partStack).add(element.partId));
+          if (part) visit(part.children, ids, targets, screen, new Set(partStack).add(element.partId));
         }
       }
     };
     for (const screen of document.screens) {
-      const ids = new Map<string, number>(); const frame = screen.frame;
+      const ids = new Map<string, number>(); const targets = new Map<string, ShotTarget>(); const frame = screen.frame;
       const slotNames = frame.kind === "page" ? ["body"] : ["header", "top", "main", "aside", ...(frame.footer ? ["footer"] : [])];
-      slotNames.forEach(slot => ids.set(slot, (ids.get(slot) || 0) + 1));
-      const slots = frame.kind === "page" ? [frame.body] : [frame.header, frame.top, frame.main, frame.aside, ...(frame.footer ? [frame.footer] : [])]; slots.forEach(slot => visit(slot, ids, screen));
+      slotNames.forEach(slot => { ids.set(slot, (ids.get(slot) || 0) + 1); targets.set(slot, { count: 1, value: false, states: new Set() }); });
+      const slots = frame.kind === "page" ? [frame.body] : [frame.header, frame.top, frame.main, frame.aside, ...(frame.footer ? [frame.footer] : [])]; slots.forEach(slot => visit(slot, ids, targets, screen));
       for (const shot of screen.shots) {
         if (shot.hoverId && !ids.has(shot.hoverId)) throw this.fail(undefined, `Shot "${shot.id}" has unknown hover target "${shot.hoverId}".`);
         if (shot.openPopoverId && !ids.has(shot.openPopoverId)) throw this.fail(undefined, `Shot "${shot.id}" has unknown popover "${shot.openPopoverId}".`);
+        for (const override of shot.overrides || []) {
+          const target = targets.get(override.target);
+          if (!target) throw this.fail(undefined, `Shot "${shot.id}" has unknown override target "${override.target}".`);
+          if (target.count > 1) throw this.fail(undefined, `Shot "${shot.id}" has ambiguous override target "${override.target}".`);
+          if ("value" in override && !target.value) throw this.fail(undefined, `Shot target "${override.target}" does not support value overrides.`);
+          if ("state" in override && !target.states.size) throw this.fail(undefined, `Shot target "${override.target}" does not support state overrides.`);
+          if ("state" in override && !target.states.has(override.state)) throw this.fail(undefined, `Unsupported shot state "${override.state}" for target "${override.target}".`);
+        }
       }
       for (const mark of screen.marks) {
         const count = ids.get(mark.target) || 0;

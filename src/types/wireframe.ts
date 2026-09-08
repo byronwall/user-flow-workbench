@@ -6,7 +6,7 @@ export type WireframeElement =
   | { kind: "bar"; id?: string; start: WireframeElement[]; end: WireframeElement[] }
   | { kind: "text"; text: string; role: "title" | "heading" | "body" | "caption" }
   | { kind: "badge"; text: string }
-  | { kind: "button"; id: string; label: string; goto?: string; icon?: WireframeIcon; iconOnly?: boolean; tone?: "destructive"; state?: "selected" | "disabled" }
+  | { kind: "button"; id: string; label: string; goto?: string; icon?: WireframeIcon; iconOnly?: boolean; variant?: "primary" | "secondary" | "quiet"; tone?: "destructive"; state?: "selected" | "disabled" }
   | { kind: "link"; id: string; label: string; goto?: string; disabled?: boolean }
   | { kind: "field"; id: string; label: string; value?: string; icon?: WireframeIcon }
   | { kind: "select"; id: string; label: string; value: string; state?: "disabled" }
@@ -25,14 +25,18 @@ export type WireframeElement =
 
 export type WireframeTheme = "default" | "recipe";
 
-export const WIREFRAME_ICONS = ["add", "calendar-add", "cart", "chef-hat", "chevron-left", "chevron-right", "copy", "edit", "search", "sparkles", "trash"] as const;
+export const WIREFRAME_ICONS = ["add", "calendar-add", "cart", "chef-hat", "chevron-left", "chevron-right", "copy", "download", "edit", "mic", "search", "sparkles", "trash", "upload"] as const;
 export type WireframeIcon = (typeof WIREFRAME_ICONS)[number];
 
 export type WireframeFrame =
   | { kind: "page"; content: number; body: WireframeElement[] }
   | { kind: "workbench"; inspector: number; header: WireframeElement[]; top: WireframeElement[]; main: WireframeElement[]; aside: WireframeElement[]; footer?: WireframeElement[] };
 
-export interface WireframeShot { id: string; hoverId?: string; openPopoverId?: string }
+export type WireframeShotState = "selected" | "disabled" | "on" | "off" | "checked" | "unchecked" | "active" | "parent" | "child" | "error";
+export type WireframeShotOverride =
+  | { target: string; value: string }
+  | { target: string; state: WireframeShotState };
+export interface WireframeShot { id: string; hoverId?: string; openPopoverId?: string; overrides?: WireframeShotOverride[] }
 export interface WireframeScreen {
   id: string;
   title: string;
