@@ -77,14 +77,14 @@ references after the capability:
 ```text
 capability tailor "Tailor a resume" detail="Draft focused changes."
   flow "src/data/flows/resume-alignment.diagram"
-  flow "src/data/flows/resume-alignment.diagram" variant="per-job-resume"
-  wireframe "src/data/wireframes/resume-workbench.diagram" screen="capability"
+  flow "src/data/flows/resume-alignment.diagram" variant=per-job-resume
+  wireframe "src/data/wireframes/resume-workbench.diagram" screen=capability
 ```
 
 Flow targets must be `type flow` documents. Wireframe targets must be `type
 wireframe` documents, and an optional screen ID must exist in the target.
-Missing, unsafe, wrong-type, unknown-variant, and removed-screen targets produce
-warnings while the overview stays loadable.
+Unsafe paths are parse errors. Missing, wrong-type, unknown-variant, and
+removed-screen safe targets produce warnings while the overview stays loadable.
 Ungrouped capabilities keep their order after groups. Preserve stable IDs and
 add detail only when it clarifies the idea.
 

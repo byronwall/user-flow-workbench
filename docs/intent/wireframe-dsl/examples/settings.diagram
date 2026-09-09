@@ -1,14 +1,14 @@
 diagram 1
 type wireframe
+
 wireframe account-settings "Account settings"
 viewport 1280 720
-
 screen settings "Profile and delivery" basis=proposed {
-  frame page content=720 {
+  frame page {
     body {
       text "Account settings" role=title
       text "Choose the name and address used for project updates."
-      grid fields columns=2 {
+      grid fields {
         field name "Display name" value="Byron"
         field email "Email address" value="byron@example.com"
       }

@@ -4,17 +4,14 @@ type wireframe
 wireframe recipe-site "Recipe planning website"
 viewport 1440 900
 theme recipe
-
 reference recipes-site image="src/data/wireframes/recipe-site/references/recipes.png" width=1864 height=1424 state="Recipe library"
 reference plan-site image="src/data/wireframes/recipe-site/references/plan.png" width=1978 height=1230 state="Planned meals"
 reference shopping-site image="src/data/wireframes/recipe-site/references/shopping-list.png" width=1480 height=1498 state="Shopping list"
 reference ai-site image="src/data/wireframes/recipe-site/references/ai.png" width=1802 height=1510 state="AI recipe generator"
 reference recipe-details-site image="src/data/wireframes/recipe-site/references/recipe-details.png" width=1826 height=1504 state="Apple Pie recipe details"
-
 screen recipes "Recipe library" basis=observed reference=recipes-site {
   shot rest
   shot create-open open=new-recipe-popover
-
   frame page content=1320 {
     body {
       bar navigation {
@@ -31,7 +28,7 @@ screen recipes "Recipe library" basis=observed reference=recipes-site {
           button sign-out "sign out"
         }
       }
-      grid filters columns=2 {
+      grid filters {
         panel search-filters {
           text "SEARCH" role=heading
           field recipe-search "Search" value="Search recipes"
@@ -40,7 +37,7 @@ screen recipes "Recipe library" basis=observed reference=recipes-site {
         panel type-filters {
           text "TYPE" role=heading
           grid meal-types columns=3 {
-            button all "All"  state=selected
+            button all "All" state=selected
             button breakfast "BREAKFAST"
             button lunch "LUNCH"
             button dinner "DINNER"
@@ -123,7 +120,6 @@ screen recipes "Recipe library" basis=observed reference=recipes-site {
     }
   }
 }
-
 screen plan "Planned meals" basis=observed reference=plan-site {
   frame page content=1320 {
     body {
@@ -268,7 +264,6 @@ screen plan "Planned meals" basis=observed reference=plan-site {
     }
   }
 }
-
 screen shopping "Shopping list" basis=observed reference=shopping-site {
   frame page content=1320 {
     body {
@@ -287,7 +282,7 @@ screen shopping "Shopping list" basis=observed reference=shopping-site {
         }
       }
       text "Shopping list" role=title
-      list included-recipes mode=plain {
+      list included-recipes {
         item potato "baked potato bar" action=remove
         item guacamole "Guacamole" action=remove
         item cowboy "Cowboy Caviar" action=remove
@@ -303,7 +298,7 @@ screen shopping "Shopping list" basis=observed reference=shopping-site {
           button copy-notes "Copy for Notes" icon=copy
         }
         end {
-          button group-recipe "Recipe"  state=selected
+          button group-recipe "Recipe" state=selected
           button group-aisle "Aisle"
         }
       }
@@ -321,7 +316,6 @@ screen shopping "Shopping list" basis=observed reference=shopping-site {
     }
   }
 }
-
 screen ai "AI recipe generator" basis=observed reference=ai-site {
   frame page content=1240 {
     body {
@@ -353,10 +347,10 @@ screen ai "AI recipe generator" basis=observed reference=ai-site {
         }
         end {
           button select-all "□ Select all"
-          button save-selected "Save selected (0)"  state=disabled
+          button save-selected "Save selected (0)" state=disabled
         }
       }
-      list generated-recipes mode=plain {
+      list generated-recipes {
         item chicken-bake "Gluten-Free Chicken and Vegetable Bake" detail="45 min · kid-friendly · gluten-free · one-pan meal"
         item beef-bowls "Peanut-Free Beef and Rice Bowls" detail="35 min · family-style · dairy-free"
         item taco-bar "Build-Your-Own Chicken Taco Bar" detail="40 min · gluten-free · serves a crowd"
@@ -364,7 +358,6 @@ screen ai "AI recipe generator" basis=observed reference=ai-site {
     }
   }
 }
-
 screen recipe-details "Recipe details" basis=observed reference=recipe-details-site {
   frame page content=1320 {
     body {
@@ -385,11 +378,11 @@ screen recipe-details "Recipe details" basis=observed reference=recipe-details-s
       panel recipe-header {
         text "Apple Pie" role=title
         text "DESSERT · + Tag" role=caption
-        text "A classic apple pie with a crisp crust and warm cinnamon filling." role=body
+        text "A classic apple pie with a crisp crust and warm cinnamon filling."
       }
       panel recipe-actions {
         text "ACTIONS" role=heading
-        grid action-buttons columns=2 {
+        grid action-buttons {
           button plan-recipe "Plan" icon=calendar-add
           button list-recipe "List" icon=cart
           button touch-up "Touch up" icon=sparkles
@@ -397,10 +390,10 @@ screen recipe-details "Recipe details" basis=observed reference=recipe-details-s
         }
         button delete-recipe "Delete" icon=trash tone=destructive
       }
-      grid recipe-content columns=2 {
+      grid recipe-content {
         panel ingredients-panel {
           text "ingredients" role=heading
-          list ingredients-list mode=plain {
+          list ingredients-list {
             item cinnamon "1 1/2 tsp cinnamon"
             item butter "8 Tbsp unsalted butter"
             item flour "3 Tbsp all-purpose flour"

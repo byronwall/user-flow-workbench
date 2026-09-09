@@ -62,3 +62,37 @@ page home "Home" primary=missing {
   assert.ok(result.diagnostics.some((diagnostic) => diagnostic.code === "APPLICATION410"));
   assert.ok(result.diagnostics.some((diagnostic) => diagnostic.code === "APPLICATION402"));
 });
+
+test("accepts only named cardinalities and trigger options", () => {
+  const result = parseApplicationDslWithDiagnostics(`application app "App"
+object item "Item"
+owns owns app item 1
+page home "Home" {
+}
+nav go home -> home label="Open"
+`);
+  assert.equal(result.diagnostics.filter((diagnostic) => diagnostic.code === "APPLICATION300").length, 1);
+  assert.equal(result.diagnostics.filter((diagnostic) => diagnostic.code === "APPLICATION104").length, 1);
+});
+
+test("rejects duplicate options, quoted identifiers, and unsupported escapes", () => {
+  const quotedIdentifier = parseApplicationDslWithDiagnostics(`application app "App"
+page home "Home" primary="item" {
+}
+`);
+  const duplicate = parseApplicationDslWithDiagnostics(`application app "App"
+page home "Home" route="/home" route="/again" {
+}
+`);
+  const unsupportedEscape = parseApplicationDslWithDiagnostics(`application app "App\\t"\n`);
+  assert.ok(quotedIdentifier.diagnostics.some((diagnostic) => diagnostic.code === "APPLICATION200"));
+  assert.ok(duplicate.diagnostics.some((diagnostic) => diagnostic.code === "APPLICATION104"));
+  assert.ok(unsupportedEscape.diagnostics.some((diagnostic) => diagnostic.code === "APPLICATION103"));
+});
+
+test("offsets unterminated quoted-string diagnostics through the envelope", () => {
+  const result = parseApplicationDslWithDiagnostics(`application app "App"
+object item "Unterminated
+`, 2);
+  assert.equal(result.diagnostics.find((diagnostic) => diagnostic.code === "APPLICATION103")?.line, 4);
+});

@@ -17,7 +17,7 @@ type wireframe
 
 wireframe example "Example wireframe"
 viewport 800 600
-screen home "Home" {
+screen home "Home" basis=proposed {
   frame page {
     body {
       text "Home"
@@ -182,7 +182,7 @@ test("application coverage checks only explicit artifacts and pages", async () =
   const root = await mkdtemp(join(tmpdir(), "application-coverage-"));
   await writeFile(join(root, "flow.diagram"), `diagram 1\ntype flow\n\ngraph flow "Flow"\nnode start actor "Start"\nnode extra deliverable "Extra"\nedge start-extra start -> extra\n`);
   await writeFile(join(root, "overview.diagram"), `diagram 1\ntype overview\n\noverview app "App"\ncapability owned "Owned"\ncapability extra "Extra"\n`);
-  await writeFile(join(root, "wireframe.diagram"), `diagram 1\ntype wireframe\n\nwireframe app "App"\nviewport 800 600\nscreen home "Home" {\n  frame page {\n    body {\n      text "Home"\n    }\n  }\n}\nscreen extra "Extra" {\n  frame page {\n    body {\n      text "Extra"\n    }\n  }\n}\n`);
+  await writeFile(join(root, "wireframe.diagram"), `diagram 1\ntype wireframe\n\nwireframe app "App"\nviewport 800 600\nscreen home "Home" basis=proposed {\n  frame page {\n    body {\n      text "Home"\n    }\n  }\n}\nscreen extra "Extra" basis=proposed {\n  frame page {\n    body {\n      text "Extra"\n    }\n  }\n}\n`);
   await writeFile(join(root, "unrelated.diagram"), VALID_FLOW);
   const application = parseApplicationDsl(`application app "App"\npage home "Home" {\n  flow "flow.diagram" node=start\n  overview "overview.diagram" capability=owned\n  wireframe "wireframe.diagram" screen=home\n}\npage settings "Settings" {\n}`);
   const warnings = await resolveApplicationCoverage(application, root);
@@ -213,7 +213,7 @@ type overview
 
 overview app "App"
 capability one "One"
-  flow "flow.diagram" variant="missing"
+  flow "flow.diagram" variant=missing
   flow "missing.diagram"
 capability two "Two"
   flow "overview-target.diagram"
@@ -271,8 +271,8 @@ type overview
 
 overview app "App"
 capability one "One"
-  wireframe "wireframe.diagram" screen="home"
-  wireframe "wireframe.diagram" screen="removed"
+  wireframe "wireframe.diagram" screen=home
+  wireframe "wireframe.diagram" screen=removed
   wireframe "flow.diagram"
   wireframe "missing.diagram"
 `);

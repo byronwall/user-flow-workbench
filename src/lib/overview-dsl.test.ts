@@ -23,7 +23,7 @@ test("parses many-to-many flow references and preserves them in canonical format
 group work "Work" {
   capability tailor "Tailor" detail="Draft"
     flow "flows/resume.diagram"
-    flow "flows/resume.diagram" variant="focused"
+    flow "flows/resume.diagram" variant=focused
 }
 `;
   const document = parseOverviewDsl(source);
@@ -32,7 +32,7 @@ group work "Work" {
     { path: "flows/resume.diagram" },
     { path: "flows/resume.diagram", variant: "focused" },
   ]);
-  assert.match(overviewToDsl(document), /flow "flows\/resume\.diagram" variant="focused"/);
+  assert.match(overviewToDsl(document), /flow "flows\/resume\.diagram" variant=focused/);
 });
 
 test("materializes a pure base-derived overview and rejects dangling groups", () => {
@@ -43,7 +43,7 @@ group work "Work" {
 variant focused "Focused" {
   set capability tailor title="Focus"
   add group review "Review"
-  add capability approve "Approve" group="review"
+  add capability approve "Approve" group=review
 }
 `);
   const view = materializeOverview(document, "focused");
@@ -89,10 +89,10 @@ test("preserves typed wireframe references through parse, format, clone, and var
   const document = parseOverviewDsl(`overview app "App"
 capability c "Capability"
   flow "flows/a.diagram"
-  wireframe "wireframes/a.diagram" screen="home"
-  wireframe "wireframes/a.diagram" screen="details"
+  wireframe "wireframes/a.diagram" screen=home
+  wireframe "wireframes/a.diagram" screen=details
 variant focused "Focused" {
-  set capability c wireframe="wireframes/b.diagram" screen="home"
+  set capability c wireframe="wireframes/b.diagram" screen=home
   unset capability c wireframes
 }
 `);
@@ -120,4 +120,67 @@ capability c "Capability"
 capability c "Capability"
   flow "bad\\u0000.diagram"
 `));
+});
+
+test("keeps base references on child lines and formats identifiers bare", () => {
+  const document = parseOverviewDsl(`overview app "App"
+group work "Work" {
+  capability c "Capability"
+    flow "flows/a.diagram" variant=focused
+    wireframe "wireframes/a.diagram" screen=home
+}
+variant focused "Focused" {
+  add capability extra "Extra" group=work flow="flows/b.diagram" variant=other wireframe="wireframes/b.diagram" screen=details
+}
+`);
+  const formatted = overviewToDsl(document);
+  assert.match(formatted, /variant=focused/);
+  assert.match(formatted, /screen=home/);
+  assert.doesNotMatch(formatted, /variant="/);
+  assert.doesNotMatch(formatted, /screen="/);
+  assert.equal(overviewToDsl(parseOverviewDsl(formatted)), formatted);
+});
+
+test("preserves the empty group operation while keeping identifier options bare", () => {
+  const document = parseOverviewDsl(`overview app "App"
+group work "Work" {
+  capability c "Capability"
+}
+variant focused "Focused" {
+  set capability c group=""
+}
+`);
+  const view = materializeOverview(document, "focused");
+  assert.equal(view.groups[0]?.capabilities.length, 0);
+  assert.equal(view.capabilities?.[0]?.groupId, undefined);
+  assert.match(overviewToDsl(document), /group=""/);
+});
+
+test("preserves an explicitly empty variant description", () => {
+  const document = parseOverviewDsl(`overview app "App"
+variant focused "Focused" {
+  description ""
+}
+`);
+  const formatted = overviewToDsl(document);
+  assert.match(formatted, /description ""/);
+  assert.equal(overviewToDsl(parseOverviewDsl(formatted)), formatted);
+});
+
+test("rejects inline base references, quoted identifiers, duplicates, and unsupported escapes", () => {
+  const inline = parseOverviewDslWithDiagnostics(`overview app "App"
+capability c "Capability" flow="flows/a.diagram"
+`);
+  const quotedIdentifier = parseOverviewDslWithDiagnostics(`overview app "App"
+capability c "Capability"
+  wireframe "wireframes/a.diagram" screen="home"
+`);
+  const duplicate = parseOverviewDslWithDiagnostics(`overview app "App"
+capability c "Capability" detail="one" detail="two"
+`);
+  const unsupportedEscape = parseOverviewDslWithDiagnostics(`overview app "App\\t"\n`);
+  assert.ok(inline.diagnostics.some((diagnostic) => diagnostic.code === "OVERVIEW122"));
+  assert.ok(quotedIdentifier.diagnostics.some((diagnostic) => diagnostic.code === "OVERVIEW202"));
+  assert.ok(duplicate.diagnostics.some((diagnostic) => diagnostic.code === "OVERVIEW122"));
+  assert.ok(unsupportedEscape.diagnostics.some((diagnostic) => diagnostic.code === "OVERVIEW124"));
 });

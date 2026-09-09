@@ -1,0 +1,1218 @@
+Source artifact: diagram-dsl-concision-evaluation.md
+Conversation: https://chatgpt.com/c/6a9f405d-64b0-83ea-baa6-470b1f33d565
+Retrieved: 2026-09-08
+
+Diagram DSL concision and usability evaluation
+
+Evaluation basis: accessible repository material at main / cbf10c63df6fdcbebdd26929736672ae4a082a87, the uploaded parser/specification sources, and the uploaded checkout.diagram, workbench.diagram, and resume-studio.diagram.
+
+Evaluation mode: the prompt's original NO-GO corpus gate is intentionally waived for this pass at the user's direction. Missing production flow/overview files are treated as an evidence limitation rather than a stop condition.
+
+1. Access status and execution record
+
+Repository identity and the pinned commit were previously verified through the connected GitHub reader. The accessible sources include the common dispatcher, all four body parsers or uploaded equivalents, type definitions, core tests, authoring guidance, prior wireframe review material, the current sharing-disclosure wireframe, and the three uploaded representative diagrams.
+
+The pinned repository does not expose the production src/data/flows/ and src/data/overviews/ corpus described by the specification. This review therefore uses:
+
+checkout.diagram as the nontrivial flow/variant/position case;
+
+a synthetic overview case derived directly from the normative overview grammar;
+
+workbench.diagram plus repository src/data/wireframes/sharing-disclosure.diagram for reuse, marks, shots, references, navigation, and nesting;
+
+resume-studio.diagram for application pages, states, objects, navigation, and typed artifact links.
+
+Local environment checks:
+
+node: v22.16.0
+pnpm: not installed
+tsc: Version 5.8.3
+chromium: /usr/bin/chromium
+
+The repository declares Node >=22.18 and pnpm 11.9.0, so the four requested repository commands were not represented as passing. No repository checkout was modified.
+
+Checks/experiments actually performed:
+
+source inspection of the uploaded specification and parser implementations;
+
+source inspection of the pinned repository rules, product context, workflow, tests, prior wireframe review, feedback integration, and current wireframe fixture;
+
+baseline corpus size measurement;
+
+a disposable, non-production candidate evaluator that rewrote the same four-type semantic micro-corpus and measured physical lines, non-whitespace characters, approximate lexical tokens, syntax-form count, and nesting depth;
+
+common-edit locality analysis and invalid-input analysis;
+
+primary-source prior-art review of Graphviz DOT, D2, HCL, and Structurizr DSL.
+
+No parser or renderer behavior is claimed from commands that were not executed.
+
+2. Executive decision
+
+Keep the current language family and semantic models. Do not replace it.
+
+Fix the lexical/canonical layer now: one identifier rule, one string escape rule, bare identifier-valued options, and strict unknown/duplicate-option diagnostics across all body types.
+
+Replace the wireframe source-retention “formatter” with a real AST formatter.
+
+Shrink public surface by removing duplicate/hidden forms, especially inline overview base references and undocumented application aliases.
+
+Keep explicit IDs. Their cost is justified by edit locality, stable references, diagnostics, and human review.
+
+Keep braces rather than indentation-sensitive structure.
+
+Do not move to JSON/HCL or a universal block model.
+
+Candidate A (“Narrow canonical”) is the only candidate that clears the “better” gate.
+
+Its win comes from reliability and surface reduction, not character count: only ~1–2% shorter on the shared micro-corpus.
+
+The next step should be a small executable parser/formatter proof, not another broad language redesign.
+
+3. Current language map and real authoring costs
+
+The common envelope is sound:
+
+diagram 1
+type <flow|overview|wireframe|application>
+
+The dispatcher uses the explicit type line and does not infer document type. For flow documents it inserts the private legacy flow 3 marker only in memory before calling the graph parser; this is implementation plumbing, not author-facing syntax (src/lib/diagram-dsl.ts, parseDiagramWithDiagnostics).
+
+3.1 Essential semantic detail — keep
+
+These tokens are not accidental verbosity:
+
+Explicit graph/node/edge/variant IDs. The flow parser validates references and variant mutations by stable ID (graph-dsl.ts, parseGraphDslWithDiagnostics, materializeVariant).
+
+Typed flow node kinds and relation kinds. The parser enforces endpoint semantics for flow, addresses, supports, and appears-at (graph-dsl.ts, edgeRelationError).
+
+Typed application reference target keys (capability=, node=, screen=). They make the cross-document target type inspectable without consulting the destination file.
+
+Ordered variant verbs (add, remove, set, unset, clear, position). They make destructive changes explicit and preserve small diffs.
+
+Wireframe use-site IDs. use header-controls flow-header looks repetitive, but the use-site identity is necessary when marks or review tooling must distinguish instances of a shared part.
+
+Shot IDs, screen IDs, state IDs, and navigation IDs. These participate in navigation, capture state, URLs, diagnostics, or future review references.
+
+Quoted human text and paths. Explicit string boundaries are valuable because titles, prose, routes, and paths frequently contain whitespace and punctuation.
+
+The uploaded checkout example demonstrates why explicit semantic lines remain useful: eight typed nodes, eight directed/semantic edges, a variant with ordered structural changes, and separate optional positions stay inspectable without mixing layout into node semantics.
+
+3.2 Accidental syntax cost — fix
+A. Identifier-valued options are inconsistent
+
+The language has a clean distinction available but does not apply it consistently:
+
+application IDs are bare: primary=posting, capability=home, node=payment, screen=sharing;
+
+wireframe IDs are mostly bare: goto=picker, reference=current, view=base;
+
+overview reference IDs are quoted: variant="focused", screen="review";
+
+overview variant formatting also quotes some identifier values such as group="review".
+
+This is needless recall cost. Identifiers should be bare everywhere; text and paths should be quoted everywhere.
+
+B. String escape behavior differs by body parser
+
+This is a more serious cross-type defect than source length:
+
+flow explicitly accepts only \", \\, and \n (graph-dsl.ts, validateQuotedEscapes);
+
+wireframe accepts the same narrow set (wireframe-dsl.ts, tokenize);
+
+overview uses JSON.parse for quoted strings, which accepts a wider JSON escape language;
+
+application accepts \n, \r, \t, and effectively drops the backslash for other escapes (application-dsl.ts, tokenize).
+
+The same quoted spelling can therefore mean “diagnostic”, “accepted escape”, or “backslash discarded” depending on the type. That directly harms agent reliability.
+
+C. Overview has two base reference spellings
+
+The specification permits both:
+
+capability c "Capability" flow="flows/a.diagram" wireframe="wireframes/a.diagram"
+
+and:
+
+capability c "Capability"
+  flow "flows/a.diagram"
+  wireframe "wireframes/a.diagram" screen="home"
+
+Both preserve ordered references. The second form is clearer for repeated links and produces cleaner line diffs. Two base forms create documentation and parser surface without enabling a new semantic distinction.
+
+D. Application parser accepts hidden aliases
+
+application-dsl.ts accepts cardinalities 1, *, 0..1, and 1..* in addition to the documented words, and accepts label= as an alias for navigation trigger=. The formatter emits only the canonical word forms and trigger=.
+
+These aliases do not help ordinary authoring enough to justify being accepted language.
+
+E. Default-bearing wireframe syntax is not canonicalized
+
+The wireframe parser already has defaults such as:
+
+theme default;
+
+form labels=top;
+
+page content=720;
+
+workbench inspector=346.
+
+A real formatter could omit stable presentation defaults. This is a safe place to gain some concision because these are renderer-owned defaults, not identity or evidence semantics.
+
+basis, however, is different: it records whether a screen is observed, source-derived, or proposed. That provenance should remain explicit in authored screens even though the parser currently defaults it to proposed.
+
+3.3 Complexity caused by the product model — do not “simplify” away
+
+Wireframes are nested because screens contain frame slots, groups, controls, popovers, reusable parts, and embedded diagrams. workbench.diagram reaches five levels of nesting because the represented UI itself has that structure, not because braces are unusually expensive.
+
+Applications are verbose because a page can own purpose, authored states, primary objects, and several typed artifact links.
+
+Flow variants are verbose when they make many changes because they intentionally encode an ordered patch against the shared base graph.
+
+Overview references must distinguish a path from an optional target variant/screen. This is semantic, not punctuation overhead.
+
+The previous dedicated wireframe review had already converged on a deliberately small renderer-owned language with fixed frames, constrained semantic elements, exact shared parts, and no CSS/coordinate escape hatch. Later feedback integration preserved that boundary. Reopening wireframe as a generic component/layout language would reverse evidence-backed scope decisions.
+
+3.4 Problems that belong in tools, formatter, docs, or diagnostics
+
+These should not trigger a new grammar:
+
+wireframe parser currently stores sourceText and wireframeToDsl returns it unchanged; the fallback only emits declaration + viewport (wireframe-dsl.ts, wireframeToDsl);
+
+wireframe options() overwrites duplicate keys, and several element parsers consume a generic option map without rejecting every unknown option;
+
+the normative specification says unsafe overview paths remain warnings, while the supplied overview parser rejects unsafe paths as parse/validation errors (overview-dsl.ts, validateFlowReference/validateWireframeReference);
+
+the absence of a full production flow/overview corpus is an evidence/corpus problem, not a grammar problem.
+
+4. Evaluation method
+4.1 Shared semantic micro-corpus
+
+Every candidate was required to express the same semantics:
+
+Flow
+
+actor → process → deliverable;
+
+need and UX nodes;
+
+three semantic relations;
+
+a named variant with description and two property changes.
+
+Overview
+
+one group;
+
+one grouped capability;
+
+one ungrouped capability;
+
+one flow reference;
+
+one wireframe/screen reference.
+
+Application
+
+one object;
+
+two pages;
+
+two states;
+
+overview and wireframe links;
+
+conditional navigation.
+
+Wireframe
+
+one reusable part;
+
+two fields;
+
+one screen;
+
+rest/hover/open shots;
+
+one form;
+
+a use site;
+
+buttons;
+
+a popover.
+
+The larger uploaded corpus was used as a realism check, not rewritten six times. Its baseline measurements are:
+
+File	Physical lines	Non-whitespace chars	Approx lexical tokens	Max nesting
+checkout.diagram	49	2,296	282	1
+workbench.diagram	153	3,389	489	5
+resume-studio.diagram	52	2,799	240	1
+Total	254	8,484	1,011	5
+
+The three uploaded files contain about 93 declaration IDs by command-shape counting. This is useful context: IDs are a visible source cost, but removing them would affect a large portion of the semantic/reference model.
+
+4.2 Descriptive measures
+
+Approximate lexical tokens are counted consistently across candidates by treating quoted strings, operators/punctuation, and non-whitespace atoms as tokens. This is not an LLM tokenizer estimate.
+
+“Distinct forms” counts command heads plus option names in the micro-corpus. It approximates author vocabulary, not parser productions.
+
+Design	Lines	Non-WS chars	Approx lexical tokens	Distinct command/option forms	Max nesting
+Baseline	70	1641	250	44	5
+A Narrow canonical	69	1617	245	42	5
+B Contextual variants	69	1611	243	41	5
+C Uniform blocks	109	1614	257	40	6
+D Indentation-led	57	1543	226	49	4
+E JSON	269	2681	682	56	12
+F Derived IDs	56	1046	146	39	4
+
+The important result is that Candidate A barely changes raw size. Its value is fewer rules and safer defaults.
+
+4.3 Weights
+
+Weights range from 2 to 5. The highest weight (5) is assigned to:
+
+semantic fidelity;
+
+agent first-pass reliability;
+
+edit locality;
+
+diff clarity/merge behavior;
+
+diagnostic precision/recovery;
+
+inspectability by agents/tools.
+
+Stable identity, static validation, round-trip safety, ambiguity resistance, accessibility/render semantics, and path safety receive weight 4. Raw source concision and implementation/migration cost receive weight 2. Everything else is weight 3.
+
+A candidate with a fatal identity or semantic defect is excluded regardless of weighted score.
+
+5. Baseline results
+Strengths
+
+Flat flow nodes/edges are highly scan-friendly.
+
+One physical command per line gives strong recovery boundaries.
+
+Explicit IDs make edits and diagnostics deterministic.
+
+Flow variant operations are explicit and local.
+
+Application reference lines are unusually good: path plus a typed target key is easy to inspect.
+
+Wireframe parts and use sites provide real reuse without parameters or component inheritance.
+
+The common envelope is small, boring, and sufficient.
+
+Path validation is explicit in overview/application implementations.
+
+Source layout state remains separate from semantic graph data.
+
+Weaknesses
+
+Lexical inconsistency across parsers raises first-pass error probability.
+
+Equivalent overview reference forms enlarge the language.
+
+Hidden parser aliases enlarge the accepted surface beyond the documented surface.
+
+Wireframe lacks a true semantic formatter and therefore cannot currently demonstrate the same round-trip guarantees as flow/application/overview.
+
+Wireframe option validation is inconsistent.
+
+The overview unsafe-path contract is internally inconsistent between spec and parser/product guidance.
+
+The baseline is good enough that a replacement language must clear a high bar.
+
+6. Candidate designs
+B0 — Current language (control)
+
+No changes.
+
+graph signup "New user signup"
+node visitor actor "Visitor"
+node form process "Complete form"
+node account deliverable "Account"
+edge visitor-form visitor -> form
+edge form-account form -> account label="creates"
+
+variant assisted "Assisted signup" {
+  set node form title="Complete form with support"
+}
+group review "Review" {
+  capability inspect "Inspect evidence"
+    flow "flows/review.diagram"
+    wireframe "wireframes/review.diagram" screen="review"
+}
+page home "Projects" route="/projects" primary=project {
+  state ready "Project selected"
+  overview "scope.diagram" capability=home
+  wireframe "studio.diagram" screen=home
+}
+part account-fields {
+  field name "Name" value="Ada Lovelace"
+}
+screen account "Account" basis=proposed {
+  frame page content=720 {
+    body {
+      form account-form labels=top {
+        use fields account-fields
+      }
+    }
+  }
+}
+
+Control score: 83.2/100.
+
+A — Narrow canonical language (recommended)
+
+Design rules:
+
+Keep envelope, commands, braces, explicit IDs, and four separate semantic models.
+
+Use one shared ASCII identifier grammar across all types.
+
+Human text and paths are always quoted.
+
+Identifier-valued options are always bare.
+
+Use one shared string escape set: \", \\, \n.
+
+Remove hidden aliases from the accepted language.
+
+Base overview references canonicalize to child lines.
+
+Keep mutation verbs explicit.
+
+Omit stable renderer defaults in canonical wireframe output.
+
+Require wireframe basis= explicitly because it is provenance, not presentation.
+
+Grammar sketch:
+
+identifier-option = key "=" id
+string-option     = key "=" quoted-string
+quoted-string     = '"' (text | '\"' | '\\' | '\n')* '"'
+
+capability-ref    = ("flow" path ["variant=" id])
+                  | ("wireframe" path ["screen=" id])
+
+Flow stays the same:
+
+variant assisted "Assisted signup" {
+  set node form title="Complete form with support"
+}
+
+Overview:
+
+group review "Review" {
+  capability inspect "Inspect evidence"
+    flow "flows/review.diagram"
+    wireframe "wireframes/review.diagram" screen=review
+}
+capability export "Export approved result"
+
+Application remains essentially current:
+
+page home "Projects" route="/projects" primary=project {
+  state ready "Project selected"
+  overview "scope.diagram" capability=home
+  wireframe "studio.diagram" screen=home
+}
+nav home-review home -> review trigger="Open review" condition="Project is selected"
+
+Wireframe:
+
+wireframe settings "Account settings"
+viewport 1280 800
+
+part account-fields {
+  field name "Name" value="Ada Lovelace"
+  field email "Email" value="ada@example.com"
+}
+
+screen account "Account" basis=proposed {
+  shot rest
+  frame page {
+    body {
+      form account-form {
+        use fields account-fields
+      }
+    }
+  }
+}
+
+What improves:
+
+fewer lexical rules across types;
+
+fewer equivalent spellings;
+
+smaller canonical source;
+
+stricter typo handling;
+
+a real cross-type formatter contract;
+
+no lost semantics.
+
+Classification: better.
+Weighted score: 88.9/100.
+
+B — Contextual variant mutation shorthand
+
+Candidate A plus a special rule inside flow variants:
+
+variant assisted "Assisted signup" {
+  node form title="Complete form with support"
+  edge form-account label="creates with support"
+}
+
+Inside a variant, node <existing-id> <options> means set node; edge <existing-id> <options> means set edge.
+
+This saves only the repeated set token. It makes declaration-looking commands mean mutation based on context. The same shorthand has no clean analogue for application or wireframe, and overview variants would gain another contextual meaning for capability.
+
+Classification: not-better.
+
+C — Uniform block grammar
+graph signup "New user signup" {
+  node form process "Complete form"
+  edge form-account form -> account {
+    label "creates"
+  }
+  variant assisted "Assisted signup" {
+    node form {
+      title "Complete form with support"
+    }
+  }
+}
+overview studio "Evidence Studio" {
+  group review "Review" {
+    capability inspect "Inspect evidence" {
+      flow "flows/review.diagram"
+      wireframe "wireframes/review.diagram" {
+        screen review
+      }
+    }
+  }
+}
+application studio "Evidence Studio" {
+  page home "Projects" {
+    route "/projects"
+    primary project
+    state ready "Project selected"
+  }
+}
+
+Wireframe already resembles this design.
+
+Benefits: cross-type structural consistency.
+Costs: micro-corpus grows from 70 to 109 lines; simple edges become nested structures; flow loses its compact line-oriented strength.
+
+Classification: not-better.
+
+D — Indentation-led concise DSL
+graph signup "New user signup":
+  visitor actor "Visitor"
+  form process "Complete form"
+  account deliverable "Account"
+  visitor-form: visitor -> form
+  form-account: form -> account label="creates"
+  variant assisted "Assisted signup":
+    node form title="Complete form with support"
+overview studio "Evidence Studio":
+  group review "Review":
+    inspect "Inspect evidence":
+      flow "flows/review.diagram"
+      wireframe "wireframes/review.diagram" screen=review
+application studio "Evidence Studio":
+  page home "Projects" route="/projects" primary=project:
+    state ready "Project selected"
+screen account "Account":
+  frame page:
+    form account-form:
+      use fields account-fields
+
+This is shorter (57 lines versus 70), but whitespace edits can reparent declarations, recovery must track indentation state, and moving a nested block causes indentation churn.
+
+Classification: not-better.
+
+E — JSON AST
+{
+  "diagram": 1,
+  "type": "flow",
+  "graph": {
+    "id": "signup",
+    "nodes": [
+      { "id": "visitor", "type": "actor", "title": "Visitor" },
+      { "id": "form", "type": "process", "title": "Complete form" }
+    ]
+  }
+}
+
+Equivalent JSON structures can represent all four semantic models.
+
+Benefits: commodity parser, exact data representation, strong schema validation.
+Costs: 269 lines and ~682 lexical tokens for the shared micro-corpus, punctuation-heavy diffs, poor partial recovery, and weaker domain-command readability.
+
+Classification: not-better.
+
+F — Derived/optional IDs
+graph "New user signup"
+actor "Visitor"
+process "Complete form"
+deliverable "Account"
+"Visitor" -> "Complete form"
+"Complete form" -> "Account" label="creates"
+
+This is the largest concision win. It is also invalid for this product.
+
+A title rename changes the implied reference key. Parallel edges lack durable source identity. Variant operations cannot safely target an entity independent of display text. Generated ordinal IDs are worse because insertion/reordering changes identities.
+
+Classification: invalid and excluded from winner selection.
+
+7. Shared-corpus measurement table
+Design	Lines	Non-WS chars	Approx lexical tokens	Distinct command/option forms	Max nesting
+Baseline	70	1641	250	44	5
+A Narrow canonical	69	1617	245	42	5
+B Contextual variants	69	1611	243	41	5
+C Uniform blocks	109	1614	257	40	6
+D Indentation-led	57	1543	226	49	4
+E JSON	269	2681	682	56	12
+F Derived IDs	56	1046	146	39	4
+
+Interpretation:
+
+F is shortest because it deletes a required semantic guarantee.
+
+D saves meaningful surface but pays in parser recovery and edit safety.
+
+A barely changes character count yet meaningfully reduces the number of author rules.
+
+C shows why cross-type consistency is not automatically good.
+
+JSON shows that parser simplicity and source-language simplicity are different.
+
+8. Score tables
+
+Scoring is evidence-based expert judgment, not a measured multi-agent benchmark. The score is used as a decision aid; fatal candidates cannot win by average.
+
+Design	Classification	Weighted score / 100	Main reason
+B0 Current	control	83.2	Strong explicit semantics and locality; some avoidable lexical/formatter surface.
+A Narrow canonical	better	88.9	Improves reliability/consistency/diagnostics without changing the semantic model.
+B Contextual variants	not-better	84.5	Small variant savings do not repay contextual grammar and migration cost.
+C Uniform blocks	not-better	80.6	More regular but substantially more vertical structure and diff noise.
+D Indentation-led	not-better	74.9	Shorter, but recovery and partial editing become indentation-sensitive.
+E JSON	not-better	73.7	Excellent parser/round-trip properties, poor authoring/readability/locality.
+F Derived IDs	invalid	57.4	Drops required stable identity and makes renames structurally unsafe.
+8.1 B0/A/B/C raw scores
+Dimension (weight)	B0	A	B	C
+Semantic fidelity (5)	10	10	10	10
+Agent first-pass reliability (5)	8	9	8	7.5
+Human readability (3)	8	9	8.5	7.5
+Learnability/recall (3)	7	8	7	8
+Source concision (2)	7	8	8	5
+Edit locality (5)	9	9	9.5	8
+Diff clarity/merge behavior (5)	9	9	9	7
+Explicit identity/stable refs (4)	10	10	10	10
+Cross-type grammar consistency (3)	7	9	8	10
+Composability/reuse (3)	8	8	8	8
+Useful defaults/no hidden behavior (3)	8	9	9	8
+Parser simplicity (3)	7	8	7	7
+Formatter simplicity/idempotence (3)	6	9	8	8
+Diagnostic precision/recovery (5)	8	9	8	8
+Static validation strength (4)	9	9	9	9
+Round-trip safety (4)	7	9	9	9
+Typo resistance/ambiguity (4)	8	9	8	8
+Partial/iterative authoring (3)	8	8	7.5	8
+Discoverability from examples (3)	8	9	8	8
+Inspectability by agents/tools (5)	9	9	9	8
+Public language surface size (3)	7	9	8	8
+Implementation cost (2)	10	7	6	5
+Maintenance cost (3)	8	9	8	7
+Migration cost (2)	10	8	7	4
+Future extension pressure (3)	8	9	8	9
+Accessibility/render semantics (4)	9	9	9	9
+Path/reference safety (4)	9	9	9	9
+Large-file behavior (2)	9	9	9	7
+8.2 D/E/F raw scores
+Dimension (weight)	D	E	F
+Semantic fidelity (5)	10	10	4
+Agent first-pass reliability (5)	7	8	7
+Human readability (3)	8	5	9
+Learnability/recall (3)	7	9	8
+Source concision (2)	9	2	10
+Edit locality (5)	7.5	6	3
+Diff clarity/merge behavior (5)	7	5	3
+Explicit identity/stable refs (4)	10	10	2
+Cross-type grammar consistency (3)	8	10	8
+Composability/reuse (3)	8	8	7
+Useful defaults/no hidden behavior (3)	8	5	5
+Parser simplicity (3)	5	10	7
+Formatter simplicity/idempotence (3)	6	10	7
+Diagnostic precision/recovery (5)	6	7	6
+Static validation strength (4)	9	10	5
+Round-trip safety (4)	8	10	4
+Typo resistance/ambiguity (4)	7	6	5
+Partial/iterative authoring (3)	5.5	2	7
+Discoverability from examples (3)	8	7	8
+Inspectability by agents/tools (5)	8	6	5
+Public language surface size (3)	7	6	8
+Implementation cost (2)	4	6	5
+Maintenance cost (3)	6	8	6
+Migration cost (2)	3	3	2
+Future extension pressure (3)	7	8	5
+Accessibility/render semantics (4)	9	9	8
+Path/reference safety (4)	9	9	5
+Large-file behavior (2)	8	5	9
+9. Common edit-task results
+Task	Current / A	B contextual variants	C blocks	D indentation	E JSON	F derived IDs
+Create minimal flow	direct	same	more braces	shortest	much longer	short but invalid identity
+Insert process between nodes	add node, edit edge, add edge	same	more structural lines	local but indentation-sensitive	several object lines	derived refs fragile
+Add need + UX relations	one line/item	same	block scaffolding	compact	verbose	identity weak
+Add/revise flow variant	explicit patch	fewer chars only	block-heavy	compact	nested operation objects	unsafe targeting
+Group + ungroup overview caps	direct	direct	longer	concise	verbose	anonymous cap refs weak
+Link capability to flow/wireframe	2 child lines	same	nested target blocks	2 lines	nested objects	target identity weak
+Add app page/states/links	one page block	same	more property blocks	compact	large object edit	page/state rename hazards
+Add nav condition	1 line	same	1 property	1 line	1 value + punctuation	1 line
+Simple form wireframe	small subtree	same	similar	shorter	much longer	control refs weak
+Extract repeated part	local part + use edits	same	same	same idea	verbose object move	use identity weak
+Add rest/hover/open shots	3 lines	same	more block syntax	3 lines	3 objects	state IDs missing
+One-screen copy change	1 line	1 line	1 line	1 line	1 value line	1 line
+Diagnose malformed source	strong except wireframe gaps	contextual branch	potentially strong	weaker recovery	schema/path diagnostics, poor partial syntax recovery	missing-ID class disappears
+Locality example: insert a process
+ node form process "Complete form"
++node verify process "Verify details"
+ node account deliverable "Account"
+-edge form-account form -> account label="creates"
++edge form-account form -> verify label="submits"
++edge verify-account verify -> account label="creates"
+
+Three semantic lines change. No generated identifier and no unrelated reindent.
+
+Variant edit
+
+Current:
+
+ variant assisted "Assisted signup" {
+-  set node form title="Complete form with support"
++  set node form title="Complete form with guided support"
+ }
+
+Candidate B removes one token but not one declaration or file touch. That does not justify the contextual rule.
+
+10. Diagnostic trials
+Unknown option
+node form process "Complete form" boddy="..."
+
+The flow parser can report FLOW152 and suggest body. Candidate A should make equivalent strictness uniform across all four body parsers.
+
+Missing ID / unknown reference
+edge form-account form -> acccount
+
+The existing flow parser uses stable diagnostic FLOW203, includes the unknown ID, and can suggest the nearest known node. Keep this model.
+
+Unsafe path
+wireframe "../outside.diagram" screen=review
+
+Candidate A keeps path rejection/diagnostics. It does not trade safety for a shorter grammar.
+
+The current evidence conflicts on unsafe overview paths: the supplied parser rejects them; diagram-dsl-spec.md says missing/unsafe/wrong-type targets remain loadable warnings. Correct the contract before claiming diagnostic equivalence.
+
+Invalid external target
+wireframe "wireframes/review.diagram" screen=missing
+
+This stays a typed cross-document validation problem. Candidate A keeps the path and target kind explicit.
+
+Wireframe option strictness
+
+Some wireframe elements use controlOptions, while others consume generic options() and then ignore keys they do not recognize. Candidate A requires every element parser to reject unknown and duplicate options.
+
+11. Prior art findings
+
+Only primary official sources were used for these comparisons.
+
+Graphviz DOT
+
+Official DOT grammar uses compact node/edge statements plus optional attributes. This supports keeping flow edges flat rather than forcing each edge into a block.
+
+Graphviz's output id attribute is optional and internally generated IDs are unpredictable to the graph writer. That is acceptable for rendering but not for source-level variants/references.
+
+Borrow: flat edges and named attributes.
+Reject: generated edge identity.
+
+Primary sources:
+
+Graphviz DOT Language: https://graphviz.org/doc/info/lang.html
+
+Graphviz id attribute: https://graphviz.org/docs/attrs/id/
+
+D2
+
+D2 can auto-create an undeclared shape when a connection references it, and labels can default from keys.
+
+That is attractive for tiny diagrams but is the wrong failure mode here: a typo can create a new node instead of an unknown-reference diagnostic.
+
+Borrow: compact a -> b visual form.
+Reject: implicit declaration from references.
+
+Primary sources:
+
+D2 Connections: https://d2lang.com/tour/connections/
+
+D2 Shapes: https://d2lang.com/tour/shapes/
+
+Structurizr DSL
+
+Structurizr permits anonymous elements until they need to be referenced, then allows identifiers. Its documentation also warns that generated view keys are not guaranteed stable and may lose manual layout information.
+
+User Flow Workbench has enough cross-file and variant references that optional identity would become contextual authoring knowledge. Mandatory IDs are simpler.
+
+Borrow: explicit relationships and domain-owned nested blocks.
+Reject: optional identity for likely reference targets.
+
+Primary sources:
+
+Structurizr DSL Identifiers: https://docs.structurizr.com/dsl/identifiers
+
+Structurizr DSL Language Reference: https://docs.structurizr.com/dsl/language
+
+HCL
+
+HCL is based on blocks and name = expression attributes. A restricted subset would regularize structure, but the uniform-block experiment shows the cost: flow's concise graph lines become scaffolding.
+
+Borrow: strict block schemas and attribute uniqueness.
+Reject: adopting HCL or its expression/template system.
+
+Primary source:
+
+HCL native syntax specification: https://github.com/hashicorp/hcl/blob/main/hclsyntax/spec.md
+
+12. Candidate ledger
+Candidate	Result	Keep from it	Reject from it
+B0 current	control	explicit semantics, IDs, flat flow, typed refs	inconsistent lexical rules, duplicate/hidden forms
+A narrow canonical	better	all, subject to executable proof	none material
+B contextual variants	not-better	nothing beyond A	declaration-looking mutation shorthand
+C uniform blocks	not-better	schema regularity as implementation idea	blockifying flow
+D indentation-led	not-better	concise examples	indentation-significant hierarchy
+E JSON	not-better	AST/schema as derived representation	JSON as author source
+F derived IDs	invalid	none for persisted source	generated/optional identity
+13. Final recommended DSL shape
+
+The recommendation is the current grammar with a narrower canonical contract, not a replacement language.
+
+Envelope — Keep
+diagram 1
+type flow
+
+Do not merge to diagram 1 flow; the saved line is not worth weakening the dispatch/recovery boundary.
+
+Quoting and escaping — Fix now
+
+Rule:
+
+quoted: human text, routes/paths, arbitrary strings;
+
+bare: identifiers, enums, booleans, numbers;
+
+one escape set: \", \\, \n.
+
+Before:
+
+wireframe "wireframes/review.diagram" screen="review"
+
+After:
+
+wireframe "wireframes/review.diagram" screen=review
+IDs — Keep
+
+Do not generate semantic IDs.
+
+edge payment-to-result payment -> payment-result
+
+The visible repetition is intentional.
+
+Command/option order — Keep
+
+Canonical option order produces convergent diffs. Extend it to every body type.
+
+Blocks/indentation — Keep
+
+Braces delimit structure; indentation is formatting only.
+
+References — Fix now / prototype canonical base form
+
+Keep typed application target options:
+
+overview "scope.diagram" capability=home
+flow "alignment.diagram" node=start
+wireframe "studio.diagram" screen=review
+
+Overview canonical base references:
+
+capability inspect "Inspect evidence"
+  flow "flows/review.diagram" variant=focused
+  wireframe "wireframes/review.diagram" screen=review
+
+Stop emitting inline base flow=/wireframe= options. Variant add/set capability operations can retain compact option syntax because they are atomic mutations rather than declarations.
+
+Flow/overview variants — Keep
+
+Keep add/remove/set/unset/clear/position. Candidate B does not earn a shorthand.
+
+Wireframe parts/uses/shots/marks/controls — Keep
+
+Do not expand the vocabulary.
+
+Canonical formatter may omit stable presentation defaults:
+
+Before:
+
+theme default
+form details labels=top {
+
+After:
+
+form details {
+
+Do not omit basis=proposed; provenance should remain explicit.
+
+Application — Keep; remove aliases
+
+Canonical cardinalities:
+
+one
+many
+optional
+one-or-many
+
+Do not accept 1, *, 0..1, 1..*.
+
+Canonical navigation:
+
+nav a-b a -> b trigger="Open"
+
+Do not accept undocumented label=.
+
+Canonical formatting — Replace wireframe behavior
+
+Flow, overview, and application already serialize semantic ASTs. Wireframe currently returns stored source text.
+
+Implement a full wireframe AST formatter and require for all four body types:
+
+parse(format(ast)) == ast
+format(parse(format(parse(source)))) == format(parse(source))
+Diagnostics — Fix now
+
+shared identifier validation;
+
+shared quoted-string decoding;
+
+strict unknown option rejection;
+
+strict duplicate option rejection;
+
+body-specific stable diagnostic codes;
+
+preserve newline-oriented recovery where possible;
+
+typed target diagnostics.
+
+14. Exact before/after examples
+Flow
+
+Before and after are intentionally identical:
+
+variant express "Express checkout" {
+  set node payment title="Confirm saved payment"
+  set edge shopper-provides-payment label="selects"
+}
+Overview
+
+Before:
+
+capability inspect "Inspect evidence"
+  flow "flows/review.diagram" variant="focused"
+  wireframe "wireframes/review.diagram" screen="review"
+
+After:
+
+capability inspect "Inspect evidence"
+  flow "flows/review.diagram" variant=focused
+  wireframe "wireframes/review.diagram" screen=review
+Application
+
+Current parser accepts an undocumented alias:
+
+nav home-review home -> review label="Open review"
+
+Canonical:
+
+nav home-review home -> review trigger="Open review"
+Wireframe
+
+Before:
+
+theme default
+
+screen account "Account" basis=proposed {
+  frame page content=720 {
+    body {
+      form account-form labels=top {
+        field name "Name" value="Ada Lovelace"
+      }
+    }
+  }
+}
+
+After:
+
+screen account "Account" basis=proposed {
+  frame page {
+    body {
+      form account-form {
+        field name "Name" value="Ada Lovelace"
+      }
+    }
+  }
+}
+15. Recommendation register
+Keep — common envelope
+
+affected task: every diagram creation/edit;
+
+evidence: shared dispatcher and all supplied examples;
+
+benefit: explicit type boundary and clean diagnostics;
+
+cost: two lines/file;
+
+confidence: high;
+
+cheap rejection check: compare recovery for missing/mistyped type;
+
+acceptance check: dispatcher tests and mixed-directory checks.
+
+Keep — explicit IDs
+
+affected task: later edits, variants, cross-document refs;
+
+evidence: graph mutations/references and application state/page selection;
+
+benefit: stable diffs and precise diagnostics;
+
+cost: repeated source tokens;
+
+confidence: very high;
+
+cheap rejection check: rename a node involved in three refs;
+
+acceptance check: mutation/reorder/rename suite.
+
+Fix now — shared lexical core
+
+affected task: cross-type authoring;
+
+evidence: four parser implementations disagree on string escapes and identifier-valued options;
+
+exact change: one ID lexer, one quoted-string decoder, bare ID options;
+
+benefit: fewer rules and first-pass failures;
+
+cost: small parser refactor/source rewrite;
+
+confidence: high;
+
+cheap rejection check: cross-type matrix of screen=review, variant=focused, \n, \t, \q;
+
+acceptance check: all parser suites + corpus round trip.
+
+Fix now — real wireframe formatter
+
+affected task: canonical diffs and machine edits;
+
+evidence: wireframeToDsl returns stored sourceText;
+
+benefit: real round-trip proof and stable canonical output;
+
+cost: formatter implementation/tests;
+
+confidence: very high;
+
+cheap rejection check: mutate one parsed AST field, format, parse;
+
+acceptance check: all wireframe fixtures satisfy both round-trip invariants.
+
+Fix now — strict wireframe options
+
+affected task: typo repair;
+
+evidence: option strictness varies by element;
+
+exact change: per-element allowed-key schemas plus duplicate detection;
+
+benefit: repair-grade diagnostics;
+
+confidence: high;
+
+cheap rejection check: typo one option for each element kind;
+
+acceptance check: table-driven invalid-option suite.
+
+Prototype — canonical overview base refs
+
+affected task: overview artifact linking;
+
+evidence: two equivalent base forms;
+
+exact change: emit only nested child references;
+
+benefit: smaller public grammar and cleaner repeated links;
+
+confidence: medium-high;
+
+cheap rejection check: capability with 0/1/3 refs;
+
+acceptance check: parser/formatter/materialization/reference-warning tests.
+
+Avoid
+
+contextual variant shorthand;
+
+indentation-significant rewrite;
+
+universal block grammar;
+
+JSON/HCL authoring source;
+
+generated IDs;
+
+arbitrary wireframe layout/style escape syntax.
+
+Remove or replace
+
+hidden application aliases;
+
+wireframe source-retention formatter.
+
+16. Compatibility and migration
+
+The language is early enough that a permanent compatibility layer is not justified.
+
+Recommended policy:
+
+implement the new canonical parser/formatter behavior;
+
+rewrite the repository corpus once;
+
+verify semantic AST equality before/after;
+
+remove hidden aliases immediately if no source uses them;
+
+after source rewrite, remove legacy quoted identifier/reference forms rather than carrying them indefinitely.
+
+If external consumers already author .diagram files, keep a short deprecation window. Otherwise a one-time source rewrite is cheaper.
+
+17. Bounded proof plan
+Phase 1 — lexical/canonical proof
+
+Implement only:
+
+shared identifier parser;
+
+shared string decoder;
+
+bare identifier options;
+
+strict option schemas;
+
+real wireframe formatter.
+
+GO when:
+
+all four body types pass a valid/invalid lexical matrix;
+
+every current accessible source parses;
+
+parse/format AST equality holds;
+
+canonical formatting is idempotent;
+
+diagnostic locations are retained or improved;
+
+Candidate A remains local on all common edit tasks.
+
+REVISE when:
+
+a current source needs an exception that can be replaced by a clearer general rule;
+
+one body has a real semantic need for an additional string escape.
+
+NO-GO when:
+
+shared lexical rules require hidden type-specific interpretation;
+
+canonical formatting changes semantic ASTs;
+
+stable IDs or typed targets must be weakened.
+
+Phase 2 — corpus proof
+
+Once the missing production flow/overview corpus is available:
+
+run the existing repository suites;
+
+rewrite the corpus with the canonical formatter;
+
+compare semantic ASTs;
+
+rerun the 13 edit tasks;
+
+measure total source delta, diagnostics, and declarations touched.
+
+Stop condition
+
+Stop language redesign after Candidate A passes unless a concrete corpus failure demonstrates a grammar problem. Do not invent more dialects to improve source-size metrics.
+
+18. Open questions requiring Byron's decision
+
+Should wireframe basis remain optional?
+Recommendation: require it. It is provenance, not presentation.
+
+Should unsafe overview paths be parse errors or loadable warnings?
+Parser/product guidance and specification disagree.
+
+Are external consumers already authoring .diagram files?
+This determines whether migration is a one-time rewrite or needs a short deprecation window.
+
+No other unresolved choice found would change the winning language shape.
+
+19. Final classification
+
+Keep: envelope; explicit IDs; flat flow nodes/edges; typed relations; ordered variants; braces; typed application target keys; wireframe parts/uses/shots/marks/controls.
+
+Fix now: shared lexical rules; bare identifier options; strict wireframe option validation; full wireframe formatter; overview unsafe-path contract; remove hidden application aliases.
+
+Prototype: one canonical base-overview reference form.
+
+Avoid: contextual set shorthand; indentation-significant grammar; universal block grammar; JSON/HCL authoring source; generated IDs.
+
+Remove or replace: wireframe source-retention formatter and undocumented accepted aliases.
+
+Status
+Field	Result
+Access status	GO by user override: sufficient evidence for semantic comparison; production flow/overview corpus still missing
+Inspected ref	main at cbf10c63df6fdcbebdd26929736672ae4a082a87
+Uploaded corpus	checkout.diagram, workbench.diagram, resume-studio.diagram
+Core source basis	spec + flow/overview/wireframe/application parsers + dispatcher/types/tests/guidance
+Prior wireframe evidence	prior Pro review, feedback integration, content-fidelity shape brief
+Repository checks	not run; pnpm unavailable and Node below repository minimum
+Disposable experiments	shared-corpus rewrites, metrics, scoring, edit/diagnostic analysis
+Winner	A — Narrow canonical
+Recommendation	Keep the DSL; make a few canonical/lexical fixes rather than replace it
+Repository writes	none
+Remaining evidence gap	missing production flow/overview corpus and executable full repository checks

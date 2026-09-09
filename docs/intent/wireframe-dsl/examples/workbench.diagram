@@ -1,11 +1,9 @@
 diagram 1
 type wireframe
+
 wireframe resume-workbench "Resume workbench: current and proposed screens"
 viewport 1280 720
-
 reference current image="docs/intent/wireframe-dsl/reference/current-ui.jpg" width=1280 height=720 captured="2026-08-30" state="Historical base resume flow; node list open in the right inspector"
-
-# Exact shared parts. Changing one affects every use.
 part flow-header {
   bar {
     start {
@@ -19,7 +17,6 @@ part flow-header {
     }
   }
 }
-
 part overview-header {
   bar {
     start {
@@ -32,14 +29,12 @@ part overview-header {
     }
   }
 }
-
 part inspector-tabs {
   tabs sections {
     tab inspect "Inspector" state=active
     tab source "Diagram DSL"
   }
 }
-
 part flow-inspector {
   tabs sections {
     tab inspect "Inspector" state=active
@@ -49,10 +44,8 @@ part flow-inspector {
   text "Select a node to inspect its details."
   notice scope "Simplified inspector" detail="This sketch omits the full node list."
 }
-
-# Source-based reconstruction, not a pixel trace or fresh screenshot.
 screen current "Current structure: simplified reference" basis=source reference=current {
-  frame workbench inspector=346 {
+  frame workbench {
     header {
       use header-controls flow-header
     }
@@ -69,11 +62,10 @@ screen current "Current structure: simplified reference" basis=source reference=
     }
   }
 }
-
 screen overview "Capability overview" basis=proposed reference=current {
   mark main "Show the canonical capability overview."
   mark header-controls "Use source actions instead of graph editing."
-  frame workbench inspector=346 {
+  frame workbench {
     header {
       use header-controls overview-header
     }
@@ -90,10 +82,9 @@ screen overview "Capability overview" basis=proposed reference=current {
     }
   }
 }
-
 screen capability "Selected capability" basis=proposed reference=current {
   mark aside "Show capability detail and its related flow."
-  frame workbench inspector=346 {
+  frame workbench {
     header {
       use header-controls overview-header
     }
@@ -113,10 +104,9 @@ screen capability "Selected capability" basis=proposed reference=current {
     }
   }
 }
-
 screen linked-flow "Flow opened from a capability" basis=proposed reference=current {
   mark return-context "Return to the selected capability and overview."
-  frame workbench inspector=346 {
+  frame workbench {
     header {
       use header-controls flow-header
     }
@@ -135,8 +125,6 @@ screen linked-flow "Flow opened from a capability" basis=proposed reference=curr
     }
   }
 }
-
-# No matching picker capture exists. Do not imply visual evidence.
 screen picker "Choose a diagram" basis=proposed {
   frame page content=790 {
     body {

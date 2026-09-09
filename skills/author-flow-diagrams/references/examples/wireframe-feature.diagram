@@ -4,11 +4,9 @@ type wireframe
 wireframe recipe-feature "Quick add to meal plan"
 viewport 1280 720
 theme recipe
-
 screen recipes "Recipe library" basis=proposed {
   shot rest
   shot filters-open open=filters-popover
-
   frame page content=960 {
     body {
       bar navigation {
@@ -18,7 +16,7 @@ screen recipes "Recipe library" basis=proposed {
         }
         end {
           button filter-trigger "Filters" icon=search
-          button add-trigger "Add to plan" icon=add goto=plan
+          button add-trigger "Add to plan" goto=plan icon=add
         }
       }
       popover filters-popover trigger=filter-trigger {
@@ -30,7 +28,7 @@ screen recipes "Recipe library" basis=proposed {
       }
       text "Recipe library" role=title
       field search "Search recipes" value="Search by name"
-      grid recipe-grid columns=2 min=240 {
+      grid recipe-grid min=240 {
         panel apple-panel {
           card apple "Apple Pie" detail="Dessert · 45 min" goto=plan
           text "Add this recipe to a planned meal." role=caption
@@ -43,12 +41,11 @@ screen recipes "Recipe library" basis=proposed {
     }
   }
 }
-
 screen plan "Planned meals" basis=proposed {
-  frame page content=720 {
+  frame page {
     body {
       text "Planned meals" role=title
-      text "Your selected recipe is ready to schedule." role=body
+      text "Your selected recipe is ready to schedule."
       panel selected-recipe {
         card planned-apple "Apple Pie" detail="Tuesday dinner" state=selected
         toggle hide-made "Hide completed meals" state=off

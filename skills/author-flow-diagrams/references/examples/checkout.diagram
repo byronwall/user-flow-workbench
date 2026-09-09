@@ -1,7 +1,6 @@
 diagram 1
 type flow
 
-# Semantic graph
 graph checkout "Online checkout"
 description "Show the path from purchase intent to a confirmed order."
 
@@ -14,7 +13,6 @@ node payment-result handoff "Payment result" body="Send the authorization result
 node receipt deliverable "Order receipt" body="Record the purchased items, total, payment state, and delivery promise."
 node recovery ux "Explain payment recovery" body="Show what failed and preserve the order before another attempt."
 
-# Directed relationships
 edge shopper-provides-payment shopper -> payment-details label="provides"
 edge review-to-payment review -> payment label="approve total"
 edge details-to-payment payment-details -> payment label="consumed by"
@@ -24,7 +22,6 @@ edge review-addresses-purchase review -> complete-purchase relation=addresses
 edge recovery-at-payment recovery -> payment relation=appears-at
 edge recovery-supports-purchase recovery -> complete-purchase relation=supports
 
-# A variant stores ordered differences from the shared graph.
 variant express "Express checkout" {
   description "Use saved details for a returning shopper."
 
@@ -36,11 +33,6 @@ variant express "Express checkout" {
   add edge express-payment review -> payment label="use saved details"
 }
 
-# Optional semantic layout hints
-# Add layout=<column>,<row> to any node line when automatic placement needs guidance.
-
-# Optional manual positions
-# Delete these lines to request a fresh automatic layout.
 position shopper 88,236
 position payment-details 354,318
 position review 620,154

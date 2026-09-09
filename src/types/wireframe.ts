@@ -55,5 +55,4 @@ export interface WireframeDocument {
   references: Array<{ id: string; image: string; width: number; height: number; captured?: string; state?: string; url?: string }>;
   parts: Array<{ id: string; children: WireframeElement[] }>;
   screens: WireframeScreen[];
-  sourceText?: string;
 }

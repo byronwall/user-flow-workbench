@@ -48,13 +48,13 @@ Keep titles short because the canvas shows titles only. Put qualifications, evid
 
 ## Author an overview
 
-Keep the overview declaration, optional purpose and status, ordered groups, and capabilities easy to scan. Use short capability titles and add `detail` only when it clarifies the idea. Ungrouped capabilities keep their order after groups. An empty draft is valid. Overview capabilities do not need flow links, wireframe links, goals, or detail. Each can have many safe relative `.diagram` flow references with optional target variants and wireframe references with optional stable screen IDs. Unsafe references are parse errors and prevent loading. Missing, wrong-type, unknown-variant, or removed-screen safe targets produce warnings while the overview remains loadable.
+Keep the overview declaration, optional purpose and status, ordered groups, and capabilities easy to scan. Use short capability titles and add `detail` only when it clarifies the idea. Ungrouped capabilities keep their order after groups. An empty draft is valid. Overview capabilities do not need flow links, wireframe links, goals, or detail. Each can have many safe relative `.diagram` flow references with optional target variants and wireframe references with optional stable screen IDs. Base references use indented child `flow` and `wireframe` lines; compact `flow=` and `wireframe=` options are for variant operations only. Unsafe paths are parse errors and prevent loading. Missing, wrong-type, unknown-variant, or removed-screen safe targets produce warnings while the overview remains loadable.
 
 The overview flow and wireframe shelves are source inventories, not relationship models. Each shows the union of valid same-folder files and valid explicit references in the active view, deduplicated by source path. Folder-only rows do not invent capability links; explicit rows retain their capability and optional screen context. Same-folder discovery does not create a recursive folder project. A linked flow or wireframe can return through a validated overview path, capability ID, and view ID; wireframe links may also include a stable screen ID.
 
 ## Author an application map
 
-Use `type application` for a read-only crosswalk of application pages, authored states, conceptual objects, ownership/cardinality, and page navigation. Keep the map explicit and compact. A page can reference an overview capability, flow node, wireframe screen, or planning document with a safe relative path.
+Use `type application` for a read-only crosswalk of application pages, authored states, conceptual objects, ownership/cardinality, and page navigation. Keep the map explicit and compact. Ownership cardinalities are the bare words `one`, `many`, `optional`, or `one-or-many`. A page can reference an overview capability, flow node, wireframe screen, or planning document with a safe relative path.
 
 ```text
 diagram 1
@@ -74,6 +74,10 @@ Missing, wrong-type, and missing-target links remain non-blocking warnings. Cove
 ## Keep flow layout useful
 
 Do not add exact positions to a new flow. Add `layout=<column>,<row>` only when stage order or parallel grouping needs guidance. Keep each operational stage later than its flow predecessors. Preserve authored positions during a semantic edit unless the user asks for a new layout.
+
+## Canonical lexical contract
+
+Keep identifiers and enums bare. Quote human text and paths, including one-word values. The only quoted escapes are `\"`, `\\`, and `\n`; reject every other escape. Wireframe screens must state `basis=observed`, `basis=source`, or `basis=proposed`.
 
 ## Make flow variants explicit
 

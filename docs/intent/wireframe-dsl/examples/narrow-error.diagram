@@ -1,15 +1,15 @@
 diagram 1
 type wireframe
+
 wireframe narrow-settings "Narrow settings with an error"
 viewport 390 640
-
 screen error "Long labels and failed delivery" basis=proposed {
   mark body "Check wrapping and readable overflow on a narrow screen."
-  frame page content=720 {
+  frame page {
     body {
       text "Notification delivery preferences for this workspace" role=title
       field destination "Address used for all project delivery notifications" value="a-very-long-unbroken-address@example.invalid"
-      notice delivery-error "We could not confirm this address" kind=error detail="Check the spelling, then send a new confirmation message. Your current setting has not changed."
+      notice delivery-error "We could not confirm this address" detail="Check the spelling, then send a new confirmation message. Your current setting has not changed." kind=error
       list history {
         item empty "No confirmed deliveries yet" detail="A confirmed address is required before messages can be sent."
       }

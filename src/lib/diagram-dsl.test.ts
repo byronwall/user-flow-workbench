@@ -29,6 +29,19 @@ page home "Home" {
   state ready "Ready"
 }
 `;
+const WIREFRAME = `diagram 1
+type wireframe
+
+wireframe sketch "A \\\"sketch\\\""
+viewport 800 600
+screen home "Home" basis=proposed {
+  frame page {
+    body {
+      text "Line 1\\nLine 2"
+    }
+  }
+}
+`;
 
 test("dispatches flow documents and preserves body semantics", () => {
   const parsed = parseDiagram(FLOW);
@@ -53,6 +66,17 @@ test("dispatches and formats application documents", () => {
   assert.equal((parsed.document as import("../types/application.ts").ApplicationDocument).pages[0]?.states[0]?.id, "ready");
   const formatted = diagramToDsl(parsed);
   assert.equal(diagramToDsl(parseDiagram(formatted)), formatted);
+});
+
+test("dispatches wireframes with the narrow lexical contract", () => {
+  const parsed = parseDiagram(WIREFRAME);
+  assert.equal(parsed.type, "wireframe");
+  const formatted = diagramToDsl(parsed);
+  assert.match(formatted, /basis=proposed/);
+  assert.match(formatted, /text "Line 1\\nLine 2"/);
+  assert.equal(diagramToDsl(parseDiagram(formatted)), formatted);
+  const missingBasis = parseDiagramWithDiagnostics(WIREFRAME.replace(" basis=proposed", ""));
+  assert.ok(missingBasis.diagnostics.some(diagnostic => diagnostic.code === "WIREFRAME101"));
 });
 
 test("reports envelope errors and located body errors", () => {

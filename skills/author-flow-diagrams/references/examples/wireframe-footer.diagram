@@ -3,7 +3,6 @@ type wireframe
 
 wireframe footer-proof "Workbench footer proof"
 viewport 1100 700
-
 screen review "Review draft" basis=proposed {
   frame workbench inspector=320 {
     header {
@@ -49,12 +48,11 @@ screen review "Review draft" basis=proposed {
     }
   }
 }
-
 screen details "Evidence details" basis=proposed {
-  frame page content=720 {
+  frame page {
     body {
       text "Evidence details" role=title
-      text "This linked card proves normal gallery navigation." role=body
+      text "This linked card proves normal gallery navigation."
     }
   }
 }

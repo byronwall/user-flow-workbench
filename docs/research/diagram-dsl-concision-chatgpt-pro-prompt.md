@@ -225,7 +225,7 @@ overview studio "Evidence Studio"
 group review "Review" {
   capability inspect "Inspect evidence"
     flow "flows/review.diagram"
-    wireframe "wireframes/review.diagram" screen="review"
+    wireframe "wireframes/review.diagram" screen=review
 }
 capability export "Export approved result"
 ```

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { parseDiagramWithDiagnostics } from "./diagram-dsl.ts";
+import { parseWireframeDslWithDiagnostics, wireframeToDsl } from "./wireframe-dsl.ts";
 
 test("parses disclosure states and rejects broken references", async () => {
   const source = await readFile("src/data/wireframes/sharing-disclosure.diagram", "utf8");
@@ -23,7 +24,7 @@ test("parses disclosure states and rejects broken references", async () => {
   if (withForm.document.type !== "wireframe") assert.fail("Expected a wireframe.");
   assert.equal(withForm.document.document.screens[0].frame.kind === "page" && withForm.document.document.screens[0].frame.body[0].kind === "form" ? withForm.document.document.screens[0].frame.body[0].labels : undefined, "left");
 
-  const withPanel = parseDiagramWithDiagnostics(`diagram 1\ntype wireframe\n\nwireframe panel-proof "Panel proof"\nviewport 800 600\nscreen home "Home" {\n  frame page {\n    body {\n      panel details {\n        text "Nested content"\n        panel inner {\n          button action "Action"\n        }\n      }\n    }\n  }\n}`);
+  const withPanel = parseDiagramWithDiagnostics(`diagram 1\ntype wireframe\n\nwireframe panel-proof "Panel proof"\nviewport 800 600\nscreen home "Home" basis=proposed {\n  frame page {\n    body {\n      panel details {\n        text "Nested content"\n        panel inner {\n          button action "Action"\n        }\n      }\n    }\n  }\n}`);
   assert.deepEqual(withPanel.diagnostics, []);
   if (withPanel.document.type !== "wireframe") assert.fail("Expected a wireframe.");
   const panel = withPanel.document.document.screens[0].frame.kind === "page" ? withPanel.document.document.screens[0].frame.body[0] : undefined;
@@ -32,8 +33,114 @@ test("parses disclosure states and rejects broken references", async () => {
   assert.equal(panel?.kind === "panel" && panel.children[1]?.kind, "panel");
 });
 
+test("formats wireframe AST fields canonically and ignores source text", () => {
+  const source = [
+    'wireframe complete "Complete sketch"',
+    "viewport 1024 768",
+    "theme recipe",
+    'reference capture image="images/current.png" width=1200 height=800 captured="2026-09-08" state="Current" url="https://example.test/current"',
+    "part shared {",
+    "  button shared-save \"Save\" icon=download variant=primary",
+    "}",
+    'screen home "Home" basis=observed reference=capture {',
+    "  shot rest hover=shared-save open=menu",
+    "  shot filled {",
+    '    set query value="A \\\"quoted\\\" answer"',
+    "    set shared-save state=disabled",
+    "  }",
+    '  mark main "Review \\\"this\\\" change."',
+    "  frame workbench inspector=400 {",
+    "    header { use shared shared }",
+    "    top { tabs tabs { tab overview \"Overview\" state=active goto=home } }",
+    "    main {",
+    "      grid cards columns=3 min=160 { text \"Heading\" role=heading card card \"Card\" detail=\"Details\" state=selected goto=home }",
+    "      table data {",
+    '        columns label="Label" action="Action"',
+    '        row first label="One" action=@save state=selected goto=home',
+    "      }",
+    '      diagram flow source="src/data/flows/example.diagram" view=variant focus=target',
+    "    }",
+    "    aside {",
+    '      form details labels=left { field query "Query" value="" textarea notes "Notes" value="Line 1\\nLine 2" select mode "Mode" value="All" state=disabled toggle enabled "Enabled" state=on checkbox checked "Checked" state=checked }',
+    '      list tasks mode=checkable { item task "Task" detail="Detail" state=unchecked action=remove }',
+    '      notice warning "Warning" detail="Be careful" kind=warning',
+    '      popover menu trigger=save { link help "Help" goto=home state=disabled }',
+    "      rule",
+    "    }",
+    '    footer { text "Footer" }',
+    "  }",
+    "}",
+  ].join("\n");
+  const parsed = parseWireframeDslWithDiagnostics(source);
+  assert.deepEqual(parsed.diagnostics, []);
+  const formatted = wireframeToDsl(parsed.document);
+  assert.match(formatted, /basis=observed/);
+  assert.doesNotMatch(formatted, /sourceText/);
+  assert.doesNotMatch(formatted, /content=720|inspector=346|labels=top|role=body|columns=2|mode=plain|kind=info/);
+  const reparsed = parseWireframeDslWithDiagnostics(formatted);
+  assert.deepEqual(reparsed.diagnostics, []);
+  assert.deepEqual(reparsed.document, parsed.document);
+  assert.equal(wireframeToDsl(reparsed.document), formatted);
+  assert.notEqual(wireframeToDsl({ ...parsed.document, title: "Changed" }), formatted);
+});
+
+test("requires basis and rejects unknown or duplicate options while keeping table keys dynamic", () => {
+  const base = 'wireframe strict "Strict"\nviewport 800 600\nscreen home "Home" basis=proposed { frame page { body { table rows { columns first="First" row one first="One" } } } }';
+  assert.equal(parseWireframeDslWithDiagnostics(base.replace("basis=proposed ", "")).diagnostics.length, 1);
+  for (const source of [
+    base.replace("basis=proposed", "basis=proposed mystery=true"),
+    base.replace("basis=proposed", "basis=proposed basis=source"),
+    base.replace('first="One"', 'first="One" first="Two"'),
+  ]) assert.equal(parseWireframeDslWithDiagnostics(source).diagnostics[0]?.code, "WIREFRAME101");
+});
+
+test("enforces quoted copy, bare identifiers, and located unterminated strings", () => {
+  const valid = 'wireframe 7 "Sketch"\nviewport 800 600\ntheme recipe\nscreen 2 "Home" basis=proposed { frame page { body { button 3 "Go" goto=2 field 4 "Query" value="x" diagram 5 source="src/example.diagram" view=base } } }';
+  assert.deepEqual(parseWireframeDslWithDiagnostics(valid).diagnostics, []);
+  for (const invalid of [
+    valid.replace('button 3 "Go"', 'button 3 Go'),
+    valid.replace('goto=2', 'goto="2"'),
+    valid.replace('basis=proposed', 'basis="proposed"'),
+    valid.replace('value="x"', 'value=x'),
+    valid.replace('source="src/example.diagram"', 'source=src/example.diagram'),
+    valid.replace('theme recipe', 'theme "recipe"'),
+  ]) assert.equal(parseWireframeDslWithDiagnostics(invalid).diagnostics[0]?.code, "WIREFRAME101");
+  const unterminated = parseWireframeDslWithDiagnostics('wireframe sketch "Sketch"\nviewport 800 600\nscreen home "Home" basis=proposed { frame page { body { text "unfinished } } }');
+  assert.match(unterminated.diagnostics[0]?.message || "", /Unterminated quoted string/);
+});
+
+test("keeps quoted at-text distinct from bare table action cells", () => {
+  const source = 'wireframe table "Table"\nviewport 800 600\nscreen home "Home" basis=proposed { frame page { body { button save "Save" table rows { columns text="Text" action="Action" row first text="@mention" action=@save } } } }';
+  const parsed = parseWireframeDslWithDiagnostics(source);
+  assert.deepEqual(parsed.diagnostics, []);
+  if (parsed.document.screens[0]?.frame.kind !== "page") assert.fail("Expected a page frame.");
+  const table = parsed.document.screens[0].frame.body[1];
+  assert.equal(table.kind, "table");
+  if (table.kind !== "table") assert.fail("Expected a table.");
+  assert.deepEqual(table.rows[0]?.cells, { text: "@mention", action: { actionId: "save" } });
+  const formatted = wireframeToDsl(parsed.document);
+  assert.match(formatted, /text="@mention" action=@save/);
+  assert.deepEqual(parseWireframeDslWithDiagnostics(formatted).document, parsed.document);
+});
+
+test("omits empty optional slots and keeps one trailing newline", () => {
+  const source = 'wireframe slots "Slots"\nviewport 800 600\nscreen page "Page" basis=proposed { frame page { body { bar empty { start { } end { } } } } }\nscreen work "Workbench" basis=proposed { frame workbench { header { } top { } main { } aside { } footer { } } }';
+  const parsed = parseWireframeDslWithDiagnostics(source);
+  assert.deepEqual(parsed.diagnostics, []);
+  const formatted = wireframeToDsl(parsed.document);
+  assert.equal(formatted.endsWith("\n"), true);
+  assert.equal(formatted.endsWith("\n\n"), false);
+  assert.doesNotMatch(formatted, /start \{|end \{|header \{|top \{|footer \{/);
+  assert.match(formatted, /    main \{/);
+  assert.match(formatted, /    aside \{/);
+  const reparsed = parseWireframeDslWithDiagnostics(formatted);
+  assert.deepEqual(reparsed.diagnostics, []);
+  assert.deepEqual(reparsed.document, parsed.document);
+  assert.equal(wireframeToDsl(reparsed.document), formatted);
+});
+
 test("parses bounded shot value and state overlays", () => {
-  const source = `diagram 1\ntype wireframe\n\nwireframe shots "Shots"\nviewport 800 600\nscreen interview "Interview" {\n  shot rest\n  shot empty-answer {\n    set answer value=""\n    set save state=disabled\n  }\n  shot answered {\n    set answer value="A verified answer"\n  }\n  frame page {\n    body {\n      textarea answer "Answer" value="A saved answer"\n      button save "Save" state=selected\n    }\n  }\n}`;
+  const source = `diagram 1\ntype wireframe\n\nwireframe shots "Shots"\nviewport 800 600\nscreen interview "Interview" basis=proposed {\n  shot rest\n  shot empty-answer {\n    set answer value=""\n    set save state=disabled\n  }\n  shot answered {\n    set answer value="A verified answer"\n  }\n  frame page {\n    body {\n      textarea answer "Answer" value="A saved answer"\n      button save "Save" state=selected\n    }\n  }\n}`;
   const parsed = parseDiagramWithDiagnostics(source);
   assert.deepEqual(parsed.diagnostics, []);
   if (parsed.document.type !== "wireframe") assert.fail("Expected a wireframe.");
@@ -56,7 +163,7 @@ test("parses bounded shot value and state overlays", () => {
 });
 
 test("validates authored mark targets and shared part identities", () => {
-  const source = `diagram 1\ntype wireframe\n\nwireframe marks "Marks"\nviewport 800 600\npart actions {\n  button save "Save" goto=home\n}\nscreen home "Home" {\n  mark main "Review the primary proposal."\n  mark aside "Review supporting detail."\n  mark actions-use "Review the shared actions."\n  mark save "Review the save action."\n  frame workbench {\n    main { text "Main" }\n    aside { use actions-use actions }\n  }\n}`;
+  const source = `diagram 1\ntype wireframe\n\nwireframe marks "Marks"\nviewport 800 600\npart actions {\n  button save "Save" goto=home\n}\nscreen home "Home" basis=proposed {\n  mark main "Review the primary proposal."\n  mark aside "Review supporting detail."\n  mark actions-use "Review the shared actions."\n  mark save "Review the save action."\n  frame workbench {\n    main { text "Main" }\n    aside { use actions-use actions }\n  }\n}`;
   const parsed = parseDiagramWithDiagnostics(source);
   assert.deepEqual(parsed.diagnostics, []);
 
@@ -68,7 +175,7 @@ test("validates authored mark targets and shared part identities", () => {
 });
 
 test("parses wireframe themes and rejects unknown names", () => {
-  const source = `diagram 1\ntype wireframe\n\nwireframe recipe "Recipe"\nviewport 800 600\ntheme recipe\nscreen home "Home" {\n  frame page {\n    body {\n      text "Hello"\n    }\n  }\n}`;
+  const source = `diagram 1\ntype wireframe\n\nwireframe recipe "Recipe"\nviewport 800 600\ntheme recipe\nscreen home "Home" basis=proposed {\n  frame page {\n    body {\n      text "Hello"\n    }\n  }\n}`;
   const parsed = parseDiagramWithDiagnostics(source);
   assert.deepEqual(parsed.diagnostics, []);
   if (parsed.document.type !== "wireframe") assert.fail("Expected a wireframe.");
@@ -82,7 +189,7 @@ test("parses wireframe themes and rejects unknown names", () => {
 });
 
 test("decodes newline escapes and rejects unknown quoted-copy escapes", () => {
-  const source = `diagram 1\ntype wireframe\n\nwireframe copy "Copy"\nviewport 800 600\nscreen home "Home" {\n  frame page {\n    body {\n      text "First paragraph\\nSecond paragraph"\n      card static "Summary" detail="Line one\\nLine two\\q"\n    }\n  }\n}`;
+  const source = `diagram 1\ntype wireframe\n\nwireframe copy "Copy"\nviewport 800 600\nscreen home "Home" basis=proposed {\n  frame page {\n    body {\n      text "First paragraph\\nSecond paragraph"\n      card static "Summary" detail="Line one\\nLine two\\q"\n    }\n  }\n}`;
   const parsed = parseDiagramWithDiagnostics(source.replace("\\q", " safe"));
   assert.deepEqual(parsed.diagnostics, []);
   if (parsed.document.type !== "wireframe") assert.fail("Expected a wireframe.");
@@ -95,7 +202,7 @@ test("decodes newline escapes and rejects unknown quoted-copy escapes", () => {
 });
 
 test("parses an optional spanning workbench footer and validates frame slots", () => {
-  const source = `diagram 1\ntype wireframe\n\nwireframe footer "Footer"\nviewport 800 600\nscreen home "Home" {\n  frame workbench inspector=300 {\n    main { text "Main" }\n    aside { text "Aside" }\n    footer { bar actions { start { text "Actions" } end { button save "Save" } } }\n  }\n}`;
+  const source = `diagram 1\ntype wireframe\n\nwireframe footer "Footer"\nviewport 800 600\nscreen home "Home" basis=proposed {\n  frame workbench inspector=300 {\n    main { text "Main" }\n    aside { text "Aside" }\n    footer { bar actions { start { text "Actions" } end { button save "Save" } } }\n  }\n}`;
   const parsed = parseDiagramWithDiagnostics(source);
   assert.deepEqual(parsed.diagnostics, []);
   if (parsed.document.type !== "wireframe") assert.fail("Expected a wireframe.");
@@ -127,7 +234,7 @@ test("parses an optional spanning workbench footer and validates frame slots", (
 });
 
 test("parses semantic controls and rejects unsupported control vocabulary", () => {
-  const source = `diagram 1\ntype wireframe\n\nwireframe controls "Controls"\nviewport 800 600\nscreen home "Home" {\n  frame page {\n    body {\n      field search "Search" value="Recipes" icon=search\n      select sort "Sort" value="Newest" state=disabled\n      toggle alerts "Alerts" state=on\n      checkbox saved "Saved" state=checked\n      button add "Add recipe" icon=add tone=destructive state=selected\n      button menu "Menu" icon=chevron-right iconOnly=true\n    }\n  }\n}`;
+  const source = `diagram 1\ntype wireframe\n\nwireframe controls "Controls"\nviewport 800 600\nscreen home "Home" basis=proposed {\n  frame page {\n    body {\n      field search "Search" value="Recipes" icon=search\n      select sort "Sort" value="Newest" state=disabled\n      toggle alerts "Alerts" state=on\n      checkbox saved "Saved" state=checked\n      button add "Add recipe" icon=add tone=destructive state=selected\n      button menu "Menu" icon=chevron-right iconOnly=true\n    }\n  }\n}`;
   const parsed = parseDiagramWithDiagnostics(source);
   assert.deepEqual(parsed.diagnostics, []);
   if (parsed.document.type !== "wireframe") assert.fail("Expected a wireframe.");
@@ -148,7 +255,7 @@ test("parses semantic controls and rejects unsupported control vocabulary", () =
 });
 
 test("parses button variants and media action icons", () => {
-  const source = `diagram 1\ntype wireframe\n\nwireframe variants "Variants"\nviewport 800 600\nscreen home "Home" {\n  frame page {\n    body {\n      button primary "Primary" variant=primary\n      button quiet "Quiet" variant=quiet icon=download iconOnly=true\n      button destructive "Delete" variant=primary tone=destructive\n      button dictation "Dictate" icon=mic\n      button upload "Choose PDF" icon=upload\n      button default-action "Default"\n    }\n  }\n}`;
+  const source = `diagram 1\ntype wireframe\n\nwireframe variants "Variants"\nviewport 800 600\nscreen home "Home" basis=proposed {\n  frame page {\n    body {\n      button primary "Primary" variant=primary\n      button quiet "Quiet" variant=quiet icon=download iconOnly=true\n      button destructive "Delete" variant=primary tone=destructive\n      button dictation "Dictate" icon=mic\n      button upload "Choose PDF" icon=upload\n      button default-action "Default"\n    }\n  }\n}`;
   const parsed = parseDiagramWithDiagnostics(source);
   assert.deepEqual(parsed.diagnostics, []);
   if (parsed.document.type !== "wireframe") assert.fail("Expected a wireframe.");
@@ -166,7 +273,7 @@ test("parses button variants and media action icons", () => {
 });
 
 test("parses configurable grid minimums and keeps the default", () => {
-  const source = `diagram 1\ntype wireframe\n\nwireframe grid-proof "Grid proof"\nviewport 800 600\nscreen home "Home" {\n  frame page {\n    body {\n      grid wide columns=7 min=120 {\n        text "Configured"\n      }\n      grid legacy columns=7 {\n        text "Default"\n      }\n    }\n  }\n}`;
+  const source = `diagram 1\ntype wireframe\n\nwireframe grid-proof "Grid proof"\nviewport 800 600\nscreen home "Home" basis=proposed {\n  frame page {\n    body {\n      grid wide columns=7 min=120 {\n        text "Configured"\n      }\n      grid legacy columns=7 {\n        text "Default"\n      }\n    }\n  }\n}`;
   const parsed = parseDiagramWithDiagnostics(source);
   assert.deepEqual(parsed.diagnostics, []);
   if (parsed.document.type !== "wireframe") assert.fail("Expected a wireframe.");
@@ -178,7 +285,7 @@ test("parses configurable grid minimums and keeps the default", () => {
 });
 
 test("rejects invalid grid minimums", () => {
-  const source = `diagram 1\ntype wireframe\n\nwireframe invalid-grid "Invalid grid"\nviewport 800 600\nscreen home "Home" {\n  frame page {\n    body {\n      grid cards columns=7 min=120 {\n        text "Cards"\n      }\n    }\n  }\n}`;
+  const source = `diagram 1\ntype wireframe\n\nwireframe invalid-grid "Invalid grid"\nviewport 800 600\nscreen home "Home" basis=proposed {\n  frame page {\n    body {\n      grid cards columns=7 min=120 {\n        text "Cards"\n      }\n    }\n  }\n}`;
   for (const min of ["119", "120.5", "-1"]) {
     const parsed = parseDiagramWithDiagnostics(source.replace("min=120", `min=${min}`));
     assert.equal(parsed.diagnostics[0]?.code, "WIREFRAME101");
@@ -190,14 +297,14 @@ test("rejects invalid grid minimums", () => {
 });
 
 test("rejects non-integer grid columns", () => {
-  const source = `diagram 1\ntype wireframe\n\nwireframe invalid-grid "Invalid grid"\nviewport 800 600\nscreen home "Home" {\n  frame page {\n    body {\n      grid cards columns=2.5 {\n        text "Cards"\n      }\n    }\n  }\n}`;
+  const source = `diagram 1\ntype wireframe\n\nwireframe invalid-grid "Invalid grid"\nviewport 800 600\nscreen home "Home" basis=proposed {\n  frame page {\n    body {\n      grid cards columns=2.5 {\n        text "Cards"\n      }\n    }\n  }\n}`;
   const parsed = parseDiagramWithDiagnostics(source);
   assert.equal(parsed.diagnostics[0]?.code, "WIREFRAME101");
   assert.match(parsed.diagnostics[0]?.message || "", /grid columns must be an integer of at least 1/);
 });
 
 test("parses textarea and list modes with strict item options", () => {
-  const source = `diagram 1\ntype wireframe\n\nwireframe fields "Fields"\nviewport 800 600\nscreen home "Home" {\n  frame page {\n    body {\n      form details labels=left {\n        textarea notes "Notes" value="A long read-only note"\n      }\n      list plain {\n        item one "One" detail="First" action=remove\n        item two "Two" goto=home\n      }\n      list ordered mode=ordered {\n        item first "First"\n      }\n      list checks mode=checkable {\n        item done "Done" state=checked\n        item next "Next" state=unchecked\n      }\n    }\n  }\n}`;
+  const source = `diagram 1\ntype wireframe\n\nwireframe fields "Fields"\nviewport 800 600\nscreen home "Home" basis=proposed {\n  frame page {\n    body {\n      form details labels=left {\n        textarea notes "Notes" value="A long read-only note"\n      }\n      list plain {\n        item one "One" detail="First" action=remove\n        item two "Two" goto=home\n      }\n      list ordered mode=ordered {\n        item first "First"\n      }\n      list checks mode=checkable {\n        item done "Done" state=checked\n        item next "Next" state=unchecked\n      }\n    }\n  }\n}`;
   const parsed = parseDiagramWithDiagnostics(source);
   assert.deepEqual(parsed.diagnostics, []);
   if (parsed.document.type !== "wireframe") assert.fail("Expected a wireframe.");
@@ -211,7 +318,7 @@ test("parses textarea and list modes with strict item options", () => {
   assert.equal(body[3]?.kind === "list" && body[3].mode, "checkable");
   assert.equal(body[1]?.kind === "list" && body[1].items[0]?.action, "remove");
 
-  const invalidSource = (bodyText: string) => `diagram 1\ntype wireframe\n\nwireframe invalid "Invalid"\nviewport 800 600\nscreen home "Home" {\n  frame page {\n    body {\n      ${bodyText}\n    }\n  }\n}`;
+  const invalidSource = (bodyText: string) => `diagram 1\ntype wireframe\n\nwireframe invalid "Invalid"\nviewport 800 600\nscreen home "Home" basis=proposed {\n  frame page {\n    body {\n      ${bodyText}\n    }\n  }\n}`;
   for (const [bodyText, message] of [
     [`list items mode=unknown { item one "One" }`, /Unsupported list mode/],
     [`list items { item one "One" state=checked }`, /plain lists do not support/],

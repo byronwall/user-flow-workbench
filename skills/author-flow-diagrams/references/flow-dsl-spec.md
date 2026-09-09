@@ -271,19 +271,19 @@ status "Intended"
 group drafting "Drafting" {
   capability tailor "Tailor a resume to a role" detail="Draft focused changes."
     flow "src/data/flows/resume-alignment.diagram"
-    flow "src/data/flows/resume-alignment.diagram" variant="per-job-resume"
+    flow "src/data/flows/resume-alignment.diagram" variant=per-job-resume
 }
 capability open-ended "An ungrouped idea"
 ```
 
-Each `flow` reference follows its capability and may be repeated. Its path is
-relative to the configured diagram root, must be a safe relative `.diagram`
-path, and must resolve to a document with `type flow`. An optional `variant`
-selects a flow variant. Missing, unsafe, wrong-type, or unknown-variant links
-produce warnings while the overview remains loadable. A `wireframe` reference
-uses the same safe path rules and may include an optional stable `screen` ID.
-Missing, unsafe, wrong-type, or removed-screen targets produce warnings while
-the overview remains loadable.
+Each base `flow` reference follows its capability on an indented child line and
+may be repeated. Its path is relative to the configured diagram root, must be a
+safe relative `.diagram` path, and must resolve to a document with `type flow`.
+An optional bare `variant` selects a flow variant. Base `wireframe` references
+use the same child-line form and may include an optional bare `screen` ID.
+Unsafe paths are parse errors and prevent the overview from loading. Missing,
+wrong-type, unknown-variant, or removed-screen safe targets produce warnings
+while the overview remains loadable.
 
 Overview variants are ordered operations over the shared base. They do not
 inherit from another variant. The materializer clones the base before applying
@@ -294,9 +294,9 @@ variant focused "Focused scope" {
   description "A smaller first release."
   set capability tailor title="Tailor one resume for one role"
   add group review "Review"
-  add capability approve "Approve the result" group="review"
-  set capability tailor flow="src/data/flows/resume-alignment.diagram" variant="per-job-resume"
-  set capability tailor wireframe="src/data/wireframes/resume-workbench.diagram" screen="capability"
+  add capability approve "Approve the result" group=review
+  set capability tailor flow="src/data/flows/resume-alignment.diagram" variant=per-job-resume
+  set capability tailor wireframe="src/data/wireframes/resume-workbench.diagram" screen=capability
   unset capability open-ended detail
 }
 ```
@@ -307,9 +307,9 @@ Supported overview operations are:
 add group <group-id> "<title>"
 remove group <group-id>
 set group <group-id> title="<title>"
-add capability <capability-id> "<title>" [detail="<text>"] [group="<group-id>"] [flow="<path.diagram>" [variant="<id>"]]... [wireframe="<path.diagram>" [screen="<id>"]]...
+add capability <capability-id> "<title>" [detail="<text>"] [group=<group-id>] [flow="<path.diagram>" [variant=<id>]]... [wireframe="<path.diagram>" [screen=<id>]]...
 remove capability <capability-id>
-set capability <capability-id> [title="<title>"] [detail="<text>"] [group="<group-id>"] [flow="<path.diagram>" [variant="<id>"]]... [wireframe="<path.diagram>" [screen="<id>"]]...
+set capability <capability-id> [title="<title>"] [detail="<text>"] [group=<group-id>] [flow="<path.diagram>" [variant=<id>]]... [wireframe="<path.diagram>" [screen=<id>]]...
 unset capability <capability-id> detail|group|flows|wireframes
 ```
 
@@ -340,11 +340,11 @@ overview <overview-id> "<title>"
 purpose "<text>"
 status "Current"|"Intended"
 group <group-id> "<title>" {
-  capability <capability-id> "<title>" [detail="<text>"] [flow="<path.diagram>"]... [wireframe="<path.diagram>"]...
-    flow "<path.diagram>" [variant="<flow-variant-id>"]
-    wireframe "<path.diagram>" [screen="<wireframe-screen-id>"]
+  capability <capability-id> "<title>" [detail="<text>"]
+    flow "<path.diagram>" [variant=<flow-variant-id>]
+    wireframe "<path.diagram>" [screen=<wireframe-screen-id>]
 }
-capability <capability-id> "<title>" [detail="<text>"] [flow="<path.diagram>"]... [wireframe="<path.diagram>"]...
+capability <capability-id> "<title>" [detail="<text>"]
 variant <variant-id> "<title>" {
   description "<purpose>"
   <overview operation>
@@ -393,7 +393,8 @@ page <id> "<title>" [route="<path>"] [primary=<object-id>] {
 nav <id> <from-page-id> -> <to-page-id> trigger="<text>" [condition="<text>"]
 ```
 
-Paths must be safe relative paths below the selected project root. Diagram
+Cardinality values are the bare enums `one`, `many`, `optional`, and
+`one-or-many`; symbolic cardinalities are not valid. Paths must be safe relative paths below the selected project root. Diagram
 references must resolve to their declared type and target ID. Planning links
 must resolve to an allowed document, and an authored heading must exist when
 one is supplied. Missing, wrong-type, missing-ID, and missing-heading links
@@ -411,9 +412,9 @@ renderer ready flag. Source exports are browser downloads, and automated
 browser checks do not verify the browser download destination.
 ```
 
-Capability `flow="<path.diagram>"` options are a compact form for a reference
-on the same line. A separate indented `flow` line follows the preceding
-capability and supports an optional `variant` option. Both forms preserve
+Variant `flow="<path.diagram>"` and `wireframe="<path.diagram>"` options are
+compact forms for references inside variant operations. Base capabilities use
+separate indented child `flow` and `wireframe` lines. Both forms preserve
 reference order, and a capability may have many references.
 
 ## Node-type semantics
@@ -462,9 +463,16 @@ Identifiers are case-sensitive. They cannot contain spaces or Unicode letters.
 
 Keep identifiers stable. Do not derive them from positions or source-line numbers.
 
+Identifiers and enums are always bare. Human text and paths are always quoted,
+including one-word values such as `recipe`, `home`, and `one`. Option values
+that name an identifier use the same bare form, for example `screen=home` and
+`variant=focused`.
+
 ### Strings
 
-All string values use double quotes. This applies even when a value contains one word.
+All text and path values use double quotes. This applies even when a value
+contains one word. Wireframe screens require an explicit bare
+`basis=observed`, `basis=source`, or `basis=proposed` option.
 
 Supported escapes:
 
@@ -474,7 +482,7 @@ Supported escapes:
 | `\\` | Backslash |
 | `\n` | Line break |
 
-Unknown escapes are errors.
+Only `\"`, `\\`, and `\n` are valid escapes. Unknown escapes are errors.
 
 ### Numbers
 
@@ -704,12 +712,13 @@ A canonical document must meet these rules:
 - Each body uses the command order for its declared type.
 - Every node, edge, group, capability, and variant ID is unique within its scope.
 - Every edge and position reference resolves.
-- Every flow reference is safe, relative, and points to a flow diagram.
-- Every wireframe reference is safe, relative, and points to a wireframe diagram; an optional screen ID is stable.
+- Every base flow and wireframe reference uses its indented child line. Variant operations may use compact inline references.
+- Every reference path is safe, relative, and ends in `.diagram`. Unsafe paths are parse errors; missing, wrong-type, unknown-variant, and removed-screen safe targets are non-blocking warnings during catalog resolution.
+- Every wireframe screen states an explicit `basis` enum.
 - Every node uses an allowed node type.
 - Every edge relation uses the required endpoint types.
 - Every option uses `key=value`.
-- Every string uses double quotes.
+- Every human text and path value uses double quotes; identifiers and enums are bare.
 - Tags are non-empty, unique strings.
 - Numeric pairs contain exactly two valid numbers.
 - Unknown commands, options, and escapes are errors.

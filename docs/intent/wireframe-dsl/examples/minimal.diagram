@@ -1,10 +1,9 @@
 diagram 1
 type wireframe
+
 wireframe resume-review "Resume review screen"
 viewport 1280 720
-
 reference current image="docs/intent/wireframe-dsl/reference/current-ui.jpg" width=1280 height=720 captured="2026-08-30" state="Historical workbench capture; base resume flow and node inspector"
-
 part appbar {
   bar {
     start {
@@ -16,10 +15,9 @@ part appbar {
     }
   }
 }
-
 screen review "Flow with review guidance" basis=proposed reference=current {
   mark aside "Explain what to check before building."
-  frame workbench inspector=346 {
+  frame workbench {
     header {
       use toolbar appbar
     }

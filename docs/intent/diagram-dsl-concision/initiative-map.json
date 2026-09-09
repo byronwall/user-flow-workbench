@@ -1,0 +1,403 @@
+{
+  "schema_version": "0.4.0",
+  "initiative": {
+    "title": "Diagram DSL concision",
+    "slug": "diagram-dsl-concision",
+    "scale": "feature",
+    "current_phase": "plan",
+    "last_updated": "2026-09-08",
+    "summary": "Make the four diagram DSLs easier to predict and edit through one narrow canonical syntax."
+  },
+  "artifacts": {
+    "intent_brief": {
+      "path": "intent-brief.md",
+      "status": "current",
+      "updated_at": "2026-09-08"
+    },
+    "brainstorm": {
+      "path": "brainstorm.md",
+      "status": "not-requested",
+      "updated_at": null
+    },
+    "shape_brief": {
+      "path": "shape-brief.md",
+      "status": "current",
+      "updated_at": "2026-09-08"
+    },
+    "implementation_plan": {
+      "path": "implementation-plan.md",
+      "status": "current",
+      "updated_at": "2026-09-08"
+    }
+  },
+  "sources": [
+    {
+      "id": "user-request",
+      "type": "conversation",
+      "location": "Current task and docs/research/diagram-dsl-concision-chatgpt-pro-prompt.md",
+      "anchor": "Make the DSL more concise or easier to use, test alternatives, and recommend the best path.",
+      "authority": "direct-user"
+    },
+    {
+      "id": "pro-evaluation",
+      "type": "research",
+      "location": "sources/chatgpt-pro-2026-09-08/diagram-dsl-concision-evaluation.txt",
+      "anchor": "Executive decision; candidate score table; exact recommended syntax; proof plan.",
+      "authority": "agent-analysis"
+    },
+    {
+      "id": "dsl-reality",
+      "type": "repository",
+      "location": "src/lib/application-dsl.ts; src/lib/overview-dsl.ts; src/lib/wireframe-dsl.ts; docs/diagram-dsl-spec.md",
+      "anchor": "Current aliases, reference forms, formatter behavior, and unsafe-path contract.",
+      "authority": "current-repository-reality"
+    },
+    {
+      "id": "known-corpus",
+      "type": "repository",
+      "location": "/Users/byronwall/Projects/evidence-first-resume-studio/diagrams; /Users/byronwall/Projects/family-finances/docs/diagrams; /Users/byronwall/Projects/soccer-schedule/docs/flows",
+      "anchor": "Fifteen diagram sources outside this repository are known local consumers.",
+      "authority": "current-repository-reality"
+    },
+    {
+      "id": "user-implementation",
+      "type": "conversation",
+      "location": "Current task",
+      "anchor": "Go ahead and implement those fixes.",
+      "authority": "direct-user"
+    }
+  ],
+  "intent": {
+    "claims": [
+      {
+        "id": "predictable-authoring",
+        "type": "outcome",
+        "statement": "Authors can predict, edit, and repair diagram source with fewer type-specific rules.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "user-request"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "concision-not-character-count",
+        "type": "derived implication",
+        "statement": "Concision means fewer rules and exceptions before it means fewer characters.",
+        "commitment": "derived",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "proof",
+        "sources": [
+          "user-request",
+          "pro-evaluation"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "narrow-canonical",
+        "type": "implementation hypothesis",
+        "statement": "Use the Narrow canonical candidate as the working design.",
+        "commitment": "derived",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "proof",
+        "sources": [
+          "pro-evaluation"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "keep-semantics",
+        "type": "constraint",
+        "statement": "Keep the shared envelope, explicit IDs, braces, typed relations, typed references, and explicit variant operations.",
+        "commitment": "derived",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "pro-evaluation",
+          "dsl-reality"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "shared-lexical-contract",
+        "type": "required behavior",
+        "statement": "Human text and paths are quoted; identifiers, enums, booleans, and numbers are bare across all body types.",
+        "commitment": "derived",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "proof",
+        "sources": [
+          "pro-evaluation"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "canonical-wireframe",
+        "type": "required behavior",
+        "statement": "Wireframe formatting serializes the complete AST and supports semantic round-trip and idempotence checks.",
+        "commitment": "derived",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "proof",
+        "sources": [
+          "pro-evaluation",
+          "dsl-reality"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "remove-aliases",
+        "type": "decision",
+        "statement": "Remove undocumented application cardinality aliases and the navigation label alias.",
+        "commitment": "derived",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "proof",
+        "sources": [
+          "pro-evaluation",
+          "dsl-reality"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "single-overview-reference-form",
+        "type": "implementation hypothesis",
+        "statement": "Use child flow and wireframe lines as the canonical base overview reference form.",
+        "commitment": "derived",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "proof",
+        "sources": [
+          "pro-evaluation",
+          "dsl-reality"
+        ],
+        "confidence": "medium"
+      },
+      {
+        "id": "no-large-redesign",
+        "type": "anti-goal",
+        "statement": "Do not adopt indentation parsing, universal blocks, JSON/HCL source, contextual variants, generated IDs, or arbitrary wireframe styling.",
+        "commitment": "derived",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "pro-evaluation"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "one-time-rewrite",
+        "type": "sequence",
+        "statement": "Rewrite repository and known local consumer sources once after the proof passes.",
+        "commitment": "derived",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "known-corpus",
+          "pro-evaluation"
+        ],
+        "confidence": "medium"
+      },
+      {
+        "id": "basis-policy",
+        "type": "decision",
+        "statement": "Every wireframe screen must state its basis.",
+        "commitment": "explicit",
+        "importance": "supporting",
+        "status": "resolved",
+        "time_horizon": "proof",
+        "sources": [
+          "pro-evaluation",
+          "user-implementation"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "unsafe-path-policy",
+        "type": "decision",
+        "statement": "Unsafe overview paths fail parsing; safe missing or wrong targets remain warnings.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "resolved",
+        "time_horizon": "proof",
+        "sources": [
+          "pro-evaluation",
+          "dsl-reality",
+          "user-implementation"
+        ],
+        "confidence": "high"
+      }
+    ],
+    "themes": [
+      "Predictable authoring",
+      "Canonical output",
+      "Stable references",
+      "Small language surface"
+    ],
+    "conflicts": [
+      {
+        "topic": "Unsafe overview reference paths",
+        "resolution": "Unsafe paths fail parsing. Safe missing, wrong-type, or missing-ID targets remain warnings.",
+        "status": "resolved",
+        "sources": [
+          "user-implementation",
+          "dsl-reality"
+        ]
+      }
+    ],
+    "human_questions": []
+  },
+  "brainstorm": {
+    "status": "not-requested",
+    "requested_count": 7,
+    "options": [],
+    "selected_option": null,
+    "note": "ChatGPT Pro already compared six alternatives with the current DSL."
+  },
+  "shape": {
+    "status": "current",
+    "appetite": "One focused language cleanup with no new package and no compatibility layer.",
+    "problem": "The four DSL bodies express similar values with inconsistent quoting, escapes, aliases, option strictness, and canonical formatting.",
+    "recommended_shape": "Keep each body parser, share only the small lexical primitives that truly match, make both parser roots strict, and converge sources through canonical formatting.",
+    "success_moves": [
+      "Keep body-specific tokenizers because their recovery and nesting rules differ.",
+      "Prove the lexical contract with cross-type tests before source rewrites.",
+      "Make wireframe formatting serialize the AST instead of retained source.",
+      "Migrate known sources once after parser behavior passes.",
+      "Keep unsafe paths as errors and safe broken targets as warnings."
+    ],
+    "first_proof": {
+      "question": "Can the current semantic models use one predictable lexical contract without weakening diagnostics or round trips?",
+      "artifact": "Focused parser and formatter tests across all four document types.",
+      "decision_rule": "Continue when bare identifiers, narrow escapes, explicit basis, strict aliases, and semantic round trips pass; revise if a real source requires a general exception."
+    },
+    "rabbit_holes": [
+      "Full shared tokenizer",
+      "Indentation grammar",
+      "Generated IDs",
+      "Permanent compatibility parser",
+      "Arbitrary wireframe styling"
+    ],
+    "open_decisions": []
+  },
+  "implementation": {
+    "status": "complete",
+    "ticket_graph": {
+      "epic": "ufw-xc31",
+      "tickets": [
+        "ufw-btnh",
+        "ufw-l0qs",
+        "ufw-woz5",
+        "ufw-88vx"
+      ],
+      "ready_roots": [
+        "ufw-btnh",
+        "ufw-l0qs"
+      ],
+      "status": "complete"
+    },
+    "repository_snapshot": {
+      "root": "/Users/byronwall/Projects/user-flow-workbench",
+      "revision": "34235d4b41b80f8a6696a35c4afc19520443e9b0",
+      "worktree_status": "Only the diagram-dsl-concision intent artifacts are untracked at planning time.",
+      "subsystems": [
+        "shared diagram envelope",
+        "flow DSL",
+        "overview DSL",
+        "wireframe DSL",
+        "application DSL",
+        "authoring specification",
+        "known local diagram corpus"
+      ],
+      "test_commands": [
+        "pnpm test:overview",
+        "pnpm test:dsl",
+        "pnpm typecheck",
+        "pnpm check:flows"
+      ],
+      "deployment_surfaces": []
+    },
+    "dependencies": [],
+    "fast_local_loop": {
+      "command": "node --experimental-strip-types --test src/lib/application-dsl.test.ts src/lib/overview-dsl.test.ts src/lib/wireframe-dsl.test.ts src/lib/diagram-dsl.test.ts",
+      "dependencies_started": [],
+      "network_required": false,
+      "shared_infrastructure_required": false,
+      "failure_injection": [
+        "unknown and duplicate options",
+        "unsupported escapes",
+        "quoted identifier options",
+        "missing basis",
+        "unsafe paths",
+        "stale wireframe source text"
+      ],
+      "slower_confirmation": "pnpm test:overview, pnpm test:dsl, pnpm typecheck, pnpm check:flows, canonical corpus checks, and known consumer checks"
+    },
+    "milestones": [
+      {
+        "id": "parser-contract",
+        "title": "The DSL has one predictable lexical contract",
+        "outcome": "All body parsers use bare identifiers, narrow escapes, strict options, and documented canonical forms.",
+        "dependencies_introduced": [],
+        "proof": "Focused cross-type parser tests and current corpus parsing.",
+        "valid_intermediate_state": "Existing semantic models and explicit IDs remain unchanged while noncanonical forms fail with diagnostics.",
+        "rollback": "Revert parser and test changes before migrating sources.",
+        "status": "complete"
+      },
+      {
+        "id": "wireframe-formatter",
+        "title": "Wireframes have real canonical output",
+        "outcome": "The formatter serializes every wireframe AST field and no longer returns retained source.",
+        "dependencies_introduced": [],
+        "proof": "AST mutation, parse-format-parse equality, fixture coverage, and formatter idempotence.",
+        "valid_intermediate_state": "Wireframes parse and render as before while their output becomes canonical.",
+        "rollback": "Restore the prior formatter while retaining parser tests until the serializer is corrected.",
+        "status": "complete"
+      },
+      {
+        "id": "canonical-corpus",
+        "title": "Maintained documentation and known sources converge",
+        "outcome": "The specification, authoring skill, repository fixtures, and known local consumers use the accepted canonical form.",
+        "dependencies_introduced": [],
+        "proof": "Byte-identical specifications, format checks, repository gates, and external consumer checks.",
+        "valid_intermediate_state": "The new parser and formatter are authoritative with no compatibility layer.",
+        "rollback": "Revert source rewrites together with parser changes.",
+        "status": "complete"
+      }
+    ],
+    "cut_line": [
+      "Indentation-sensitive syntax",
+      "Universal block grammar",
+      "JSON or HCL authoring source",
+      "Generated IDs",
+      "Compatibility aliases",
+      "Arbitrary wireframe styles"
+    ],
+    "open_decisions": []
+  },
+  "history": [
+    {
+      "date": "2026-09-08",
+      "event": "Downloaded the complete ChatGPT Pro evaluation and distilled its recommendation against current repository evidence."
+    },
+    {
+      "date": "2026-09-08",
+      "event": "Accepted explicit basis and unsafe-path error policies; shaped the Narrow canonical direction and created a proof-first plan."
+    },
+    {
+      "date": "2026-09-08",
+      "event": "Created epic ufw-xc31 with two parallel implementation roots and two dependent migration packets."
+    },
+    {
+      "date": "2026-09-08",
+      "event": "Completed epic ufw-xc31: canonical parsers and formatter, maintained documentation and sources, and 15 known consumer diagrams passed independent verification."
+    }
+  ]
+}

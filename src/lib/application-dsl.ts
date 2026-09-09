@@ -8,17 +8,13 @@ import type {
   ApplicationPageState,
   ApplicationReference,
 } from "../types/application.ts";
+import { decodeDslQuoted, DSL_IDENTIFIER, encodeDslQuoted } from "./dsl-lexical.ts";
 
-const IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 const CARDINALITIES: Record<string, ApplicationCardinality> = {
   one: "one",
   many: "many",
   optional: "optional",
   "one-or-many": "one-or-many",
-  "1": "one",
-  "*": "many",
-  "0..1": "optional",
-  "1..*": "one-or-many",
 };
 const DIAGRAM_PATH = /^.+\.diagram$/;
 const DOCUMENT_PATH = /^.+\.(?:md|mdx|txt|pdf|json)$/i;
@@ -41,7 +37,7 @@ export interface ApplicationDslParseResult {
   diagnostics: ApplicationDslDiagnostic[];
 }
 
-interface Token { value: string; start: number; end: number; line: number }
+interface Token { raw: string; value: string; start: number; end: number; line: number }
 type Fail = (code: string, category: ApplicationDslDiagnostic["category"], token: Token, message: string, detail?: Partial<ApplicationDslDiagnostic>) => never;
 type ParsedPage = { id: string; title: string; purpose?: string; route?: string; primaryObjectId?: string; states: ApplicationPageState[]; references: ApplicationReference[] };
 
@@ -96,10 +92,10 @@ export function parseApplicationDslWithDiagnostics(source: string, lineOffset = 
 
   source.split(/\r?\n/).forEach((rawLine, index) => {
     let tokens: Token[];
-    try { tokens = tokenize(rawLine, index + 1); }
+    try { tokens = tokenize(rawLine, index + 1, lineOffset); }
     catch (error) { catchError(error); return; }
     if (!tokens.length) return;
-    const command = tokens[0].value;
+    const command = tokens[0].raw;
     try {
       if (activePage) {
         if (command === "}") {
@@ -113,7 +109,7 @@ export function parseApplicationDslWithDiagnostics(source: string, lineOffset = 
         if (command === "purpose") {
           requireCount(tokens, 2, 'purpose "<text>"', fail);
           if (pagePurpose !== undefined) fail("APPLICATION106", "structure", tokens[0], "Page purpose appears more than once.");
-          pagePurpose = tokens[1].value;
+          pagePurpose = quoted(tokens[1], fail);
           return;
         }
         if (command === "state") {
@@ -122,7 +118,7 @@ export function parseApplicationDslWithDiagnostics(source: string, lineOffset = 
           register(id, tokens[1], "state");
           ensureOptions(tokens, 3, ["detail"], fail);
           const detail = option(tokens, "detail", fail);
-          activePage.states = [...activePage.states, { id, title: tokens[2].value, ...(detail !== undefined ? { detail } : {}) }];
+          activePage.states = [...activePage.states, { id, title: quoted(tokens[2], fail), ...(detail !== undefined ? { detail } : {}) }];
           return;
         }
         if (command === "overview" || command === "flow" || command === "wireframe" || command === "document") {
@@ -137,14 +133,14 @@ export function parseApplicationDslWithDiagnostics(source: string, lineOffset = 
         if (application) fail("APPLICATION106", "structure", tokens[0], "The application declaration appears more than once.");
         const id = identifier(tokens[1], fail);
         register(id, tokens[1], "application");
-        application = { id, title: tokens[2].value };
+        application = { id, title: quoted(tokens[2], fail) };
         return;
       }
       if (command === "purpose") {
         requireApplication(application, tokens[0], fail);
         requireCount(tokens, 2, 'purpose "<text>"', fail);
         if (applicationPurpose !== undefined) fail("APPLICATION106", "structure", tokens[0], "Application purpose appears more than once.");
-        applicationPurpose = tokens[1].value;
+        applicationPurpose = quoted(tokens[1], fail);
         return;
       }
       if (command === "object") {
@@ -154,7 +150,7 @@ export function parseApplicationDslWithDiagnostics(source: string, lineOffset = 
         register(id, tokens[1], "object");
         ensureOptions(tokens, 3, ["detail"], fail);
         const detail = option(tokens, "detail", fail);
-        objects.push({ id, title: tokens[2].value, ...(detail !== undefined ? { detail } : {}) });
+        objects.push({ id, title: quoted(tokens[2], fail), ...(detail !== undefined ? { detail } : {}) });
         return;
       }
       if (command === "owns") {
@@ -174,10 +170,9 @@ export function parseApplicationDslWithDiagnostics(source: string, lineOffset = 
         ensureOptions(tokens, 3, ["route", "primary"], fail);
         const id = identifier(tokens[1], fail);
         register(id, tokens[1], "page");
-        const route = option(tokens, "route", fail);
-        const primaryObjectId = option(tokens, "primary", fail);
-        if (primaryObjectId !== undefined) identifierValue(primaryObjectId, tokens.find((token) => optionToken(token, "primary")) || tokens[1], fail);
-        activePage = { id, title: tokens[2].value, ...(route !== undefined ? { route } : {}), ...(primaryObjectId !== undefined ? { primaryObjectId } : {}), states: [], references: [] };
+        const route = option(tokens, "route", fail, "quoted");
+        const primaryObjectId = option(tokens, "primary", fail, "identifier");
+        activePage = { id, title: quoted(tokens[2], fail), ...(route !== undefined ? { route } : {}), ...(primaryObjectId !== undefined ? { primaryObjectId } : {}), states: [], references: [] };
         pagePurpose = undefined;
         return;
       }
@@ -187,8 +182,8 @@ export function parseApplicationDslWithDiagnostics(source: string, lineOffset = 
         if (tokens[3].value !== "->") fail("APPLICATION108", "syntax", tokens[3], 'Navigation must use "->" between page IDs.');
         const id = identifier(tokens[1], fail);
         register(id, tokens[1], "navigation");
-        ensureOptions(tokens, 5, ["trigger", "condition", "label"], fail);
-        const trigger = option(tokens, "trigger", fail) ?? option(tokens, "label", fail);
+        ensureOptions(tokens, 5, ["trigger", "condition"], fail);
+        const trigger = option(tokens, "trigger", fail, "quoted");
         if (!trigger) fail("APPLICATION412", "structure", tokens[0], 'Navigation requires trigger="<text>".');
         const condition = option(tokens, "condition", fail);
         navigation.push({ id, fromPageId: identifier(tokens[2], fail), toPageId: identifier(tokens[4], fail), trigger, ...(condition !== undefined ? { condition } : {}) });
@@ -238,41 +233,34 @@ export function applicationToDsl(document: ApplicationDocument): string {
 function parseReference(command: string, tokens: Token[], fail: Fail): ApplicationReference {
   const token = tokens[0];
   requireRange(tokens, command === "document" ? 2 : 3, command === "document" ? 3 : 3, `${command} "<path>" ${command === "document" ? "[heading=\"<text>\"]" : `${command === "overview" ? "capability" : command === "flow" ? "node" : "screen"}=<id>`}`, fail);
-  const path = tokens[1].value;
+  const path = quoted(tokens[1], fail);
   if (!safePath(path) || (command !== "document" && !DIAGRAM_PATH.test(path)) || (command === "document" && !DOCUMENT_PATH.test(path))) fail("APPLICATION410", "reference", tokens[1], `Invalid safe ${command} reference path "${path}".`);
   const optionName = command === "overview" ? "capability" : command === "flow" ? "node" : command === "wireframe" ? "screen" : "heading";
   ensureOptions(tokens, 2, [optionName], fail);
-  const value = command === "document" ? option(tokens, optionName, fail) : option(tokens, optionName, fail);
+  const value = option(tokens, optionName, fail, command === "document" ? "quoted" : "identifier");
   if (command !== "document" && !value) fail("APPLICATION411", "reference", token, `${command} references require ${optionName}=<id>.`);
   if (value !== undefined && command !== "document") identifierValue(value, token, fail);
   return command === "overview" ? { kind: "overview", path, capabilityId: value! } : command === "flow" ? { kind: "flow", path, nodeId: value! } : command === "wireframe" ? { kind: "wireframe", path, screenId: value! } : { kind: "document", path, ...(value !== undefined ? { heading: value } : {}) };
 }
 
-function tokenize(source: string, line: number): Token[] {
+function tokenize(source: string, line: number, lineOffset: number): Token[] {
   const tokens: Token[] = [];
   for (let index = 0; index < source.length;) {
     while (index < source.length && /\s/.test(source[index])) index += 1;
     if (index >= source.length || source[index] === "#") break;
     const start = index;
-    let value = "";
-    while (index < source.length && !/\s/.test(source[index])) {
-      const char = source[index++];
-      if (char !== '"') { value += char; continue; }
-      let closed = false;
-      while (index < source.length) {
-        const quoted = source[index++];
-        if (quoted === '"') { closed = true; break; }
-        if (quoted === "\\") {
-          const escaped = source[index++];
-          if (escaped === "n") value += "\n";
-          else if (escaped === "r") value += "\r";
-          else if (escaped === "t") value += "\t";
-          else value += escaped || "\\";
-        } else value += quoted;
-      }
-      if (!closed) throw new ApplicationDslError({ code: "APPLICATION103", category: "syntax", message: "Unterminated quoted string.", line, column: start + 1, length: Math.max(1, source.length - start) });
+    let quoteOpen = false;
+    while (index < source.length) {
+      const character = source[index];
+      if (quoteOpen) {
+        if (character === "\\") index += Math.min(2, source.length - index);
+        else { if (character === '"') quoteOpen = false; index += 1; }
+      } else if (/\s/.test(character)) break;
+      else { if (character === '"') quoteOpen = true; index += 1; }
     }
-    tokens.push({ value, start, end: index, line });
+    if (quoteOpen) throw new ApplicationDslError({ code: "APPLICATION103", category: "syntax", message: "Unterminated quoted string.", line: line + lineOffset, column: start + 1, length: Math.max(1, source.length - start) });
+    const raw = source.slice(start, index);
+    tokens.push({ raw, value: raw, start, end: index, line });
   }
   return tokens;
 }
@@ -288,25 +276,31 @@ function requireApplication(application: { id: string; title: string } | undefin
 }
 function identifier(token: Token, fail: Fail): string { identifierValue(token.value, token, fail); return token.value; }
 function identifierValue(value: string, token: Token, fail: Fail): void {
-  if (!IDENTIFIER.test(value)) fail("APPLICATION200", "identifier", token, `Invalid identifier "${value}".`);
+  if (!DSL_IDENTIFIER.test(value)) fail("APPLICATION200", "identifier", token, `Invalid identifier "${value}".`);
 }
 function cardinalityValue(token: Token, fail: Fail): ApplicationCardinality {
-  const value = CARDINALITIES[token.value];
-  if (!value) fail("APPLICATION300", "cardinality", token, `Malformed cardinality "${token.value}". Use one, many, optional, or one-or-many.`);
+  const value = CARDINALITIES[token.raw];
+  if (!value) fail("APPLICATION300", "cardinality", token, `Malformed cardinality "${token.raw}". Use one, many, optional, or one-or-many.`);
   return value;
 }
-function optionToken(token: Token, name: string): boolean { return token.value.startsWith(`${name}=`); }
-function option(tokens: Token[], name: string, fail: Fail): string | undefined {
+function optionToken(token: Token, name: string): boolean { return token.raw.startsWith(`${name}=`); }
+function option(tokens: Token[], name: string, fail: Fail, kind: "quoted" | "identifier" = "quoted"): string | undefined {
   const match = tokens.slice(2).find((token) => optionToken(token, name));
   if (!match) return undefined;
-  const value = match.value.slice(name.length + 1);
+  const value = match.raw.slice(name.length + 1);
   if (!value) fail("APPLICATION104", "syntax", match, `${name}= requires a value.`);
-  return value;
+  const valueToken = { ...match, raw: value, value, start: match.start + name.length + 1 };
+  if (kind === "identifier") { identifierValue(value, valueToken, fail); return value; }
+  return quoted(valueToken, fail);
 }
 function ensureOptions(tokens: Token[], start: number, names: string[], fail: Fail): void {
+  const seen = new Set<string>();
   for (const token of tokens.slice(start)) {
-    if (token.value === "{") continue;
-    if (!token.value.includes("=") || !names.some((name) => optionToken(token, name))) fail("APPLICATION104", "syntax", token, `Unknown or malformed option "${token.value}".`);
+    if (token.raw === "{") continue;
+    const name = token.raw.slice(0, token.raw.indexOf("="));
+    if (!token.raw.includes("=") || !names.includes(name)) fail("APPLICATION104", "syntax", token, `Unknown or malformed option "${token.raw}".`);
+    if (seen.has(name)) fail("APPLICATION104", "syntax", token, `Option "${name}" appears more than once.`);
+    seen.add(name);
   }
 }
 function safePath(path: string): boolean {
@@ -317,4 +311,9 @@ function safePath(path: string): boolean {
 function referenceDiagnostic(code: string, message: string, relatedId: string, lineOffset: number): ApplicationDslDiagnostic {
   return { code, category: "reference", message, line: lineOffset + 1, column: 1, length: 1, relatedId };
 }
-function quote(value: string): string { return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n").replace(/\r/g, "\\r").replace(/\t/g, "\\t")}"`; }
+function quoted(token: Token, fail: Fail): string {
+  const parsed = decodeDslQuoted(token.raw);
+  if ("error" in parsed) fail("APPLICATION103", "syntax", { ...token, start: token.start + parsed.offset }, parsed.error);
+  return parsed.value;
+}
+function quote(value: string): string { return encodeDslQuoted(value); }
